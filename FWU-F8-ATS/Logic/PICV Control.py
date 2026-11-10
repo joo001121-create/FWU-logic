@@ -1,0 +1,66 @@
+engine = ddc_logic()
+
+# =====================================================================
+# FWU-F8-ATS : PICV Control  (rev. 2026-10-28)
+#  - PICV PI control on SAT (SAT > PICV SAT SP -> PICV opens)
+#  - Auto : control while Command = 1 and SF running; Command = 0 -> PICV 0 %
+#  - SAT sensor failure : PICV 100 %
+#  - Manual : PICV operated by the operator (the operator value is passed
+#    through P11)
+#  - Emergency : PICV 0 % (P1). Fire does not stop the FWU (no Fire interlock)
+#  - Auto value is also written to P11 so that the value is kept when the
+#    operation mode is switched from auto to manual
+#  - Backup operation (VP_FWU_Backup Operation = 1 from the BMS PLC and no Failover
+#    Alarm) : PICV SAT SP is lowered by 0.5 C (VP_FWU_PICV SAT SP Active) to increase
+#    the cooling capacity; back to the set value when the BMS PLC clears it
+#  - rev. 2026-10-28 (CRAH pattern) : SAT Failure Alarm -> PICV 100 %
+#      (before, a broken SAT sensor read -20 C and the loop closed the PICV)
+#  - rev. 2026-10-28 (2) : Fire interlock removed, auto value mirrored to P11
+#      (P11 is never released), loop deadband 0 (same as CRAH)
+#      Emergency also writes 0 to P11 (no stale value in manual mode)
+#  - rev. 2026-10-31 : CZT PV selection removed (done in Initialization, the
+#      PICV is controlled on SAT only)
+#  - rev. 2026-10-31 (F8) : backup operation SAT setpoint offset -0.5 C (F4 : -1 C)
+#
+# Timers (SECTIMER) : none
+# =====================================================================
+
+# PICV PI gains
+PICV_P = engine.READPOINT("VP_FWU_PICV PGain")
+PICV_I = engine.READPOINT("VP_FWU_PICV IGain")
+
+# Active SAT setpoint : PICV SAT SP, minus 0.5 C in the backup operation (F8)
+if engine.READPOINT("VP_FWU_Backup Operation") == 1 and engine.READPOINT("VP_FWU_Failover Alarm") == 0 :
+	engine.WRITEPOINT("VP_FWU_PICV SAT SP Active", engine.READPOINT("VP_FWU_PICV SAT SP") - 0.5)
+else :
+	engine.WRITEPOINT("VP_FWU_PICV SAT SP Active", engine.READPOINT("VP_FWU_PICV SAT SP"))
+
+# PICV control
+if engine.READPOINT("FWU_EMERGENCY") == 0 :
+	# Normal : release the emergency priority (P1)
+	engine.RELEASE_PRI("FWU_PICV CONTROL", 1)
+	# Auto operation
+	if engine.READPOINT("VP_FWU_Operation Mode") == 1:
+		if engine.READPOINT("VP_FWU_Command") == 1 and engine.READPOINT("VP_FWU_SF Status") == 1 :
+			# SAT sensor failure : PICV 100 %
+			if engine.READPOINT("VP_FWU_SAT Failure Alarm") == 1 :
+				engine.WRITEPOINT("FWU_PICV CONTROL", 100)
+			# Normal : SAT PI control (loop 1), output limited to PICV MinSP ~ 100 %
+			else :
+				engine.LOOP2(1, "FWU_SAT", "FWU_PICV CONTROL", "VP_FWU_PICV SAT SP Active", PICV_P, PICV_I, 0, 1, 100, engine.READPOINT("VP_FWU_PICV MinSP"), 100, 1, 0)
+		if engine.READPOINT("VP_FWU_Command") == 0 :
+			# Stop : initialize the loop and close the PICV
+			engine.LOOP2_INIT(1)
+			engine.WRITEPOINT("FWU_PICV CONTROL", 0)
+		# Keep the auto value at P11 (held when switched to manual)
+		engine.WRITEPOINT_PRI("FWU_PICV CONTROL", engine.READPOINT("FWU_PICV CONTROL"), 11)
+	# Manual operation
+	else:
+		engine.LOOP2_INIT(1)
+		engine.RELEASE_PRI("FWU_PICV CONTROL", 5)
+else:
+	# Emergency : PICV 0 % (P1), kept value (P11) 0 so that a manual PICV
+	# does not reopen when the emergency is released
+	engine.LOOP2_INIT(1)
+	engine.WRITEPOINT_PRI("FWU_PICV CONTROL", 0, 1)
+	engine.WRITEPOINT_PRI("FWU_PICV CONTROL", 0, 11)
