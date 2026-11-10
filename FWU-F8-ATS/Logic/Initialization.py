@@ -1,7 +1,7 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Initialization  (rev. 2026-10-31)
+# FWU-F8-ATS : Initialization  (rev. 2026-11-10)
 #  - BMS PLC comm status (heartbeat unchanged for 30 s = comm fault, latched;
 #    cleared by the operator with BMS PLC Comm Reset)
 #  - CZT / HZT / RDP Avg, Max, Min of the healthy sensors only (sensor failure
@@ -29,6 +29,8 @@ engine = ddc_logic()
 #      (failure alarms from Alarm-2, used one scan later),
 #      adjacent zone compensation, RDP Select 1 = Min (was Max),
 #      zone PV selection moved here from SF Control / PICV Control
+#  - rev. 2026-11-10 : SF Status per fan written as one condition per fan
+#      (same judgement); Delta T PV is calculated only here
 #
 # Timers (SECTIMER)
 #  (1~4 : not used, SF-1~8 comm fault delays are in "Alarm-3")
@@ -265,7 +267,7 @@ if engine.READPOINT("VP_FWU_RDP PV Valid") == 1 and COMP_W > 0 :
 		RDP_COMP = engine.MIN(RDP_OWN, RDP_SP - COMP_W * (RDP_SP - RDP_NB))
 engine.WRITEPOINT("VP_FWU_RDP Comp PV", RDP_COMP)
 
-# Delta T PV = RAT - SAT (also calculated in SF Control)
+# Delta T PV = RAT - SAT (used by the SF Control Delta T mode in the same scan)
 engine.WRITEPOINT("VP_FWU_DeltaT PV", engine.READPOINT("FWU_RAT") - engine.READPOINT("FWU_SAT"))
 
 # =====================================================================
@@ -289,69 +291,23 @@ FAIL_RPM = engine.READPOINT("VP_FWU_SF Failure RPM Set")
 SAFLOW_DP = engine.READPOINT("FWU_SAFLOW DP")
 SF_RUN = 0
 
-# SF-1
-if SF1_CF == 1 :
-	if SAFLOW_DP > 10 :
-		SF_RUN = 1
-else :
-	if engine.READPOINT("FWU SF-1.Current RPM") > FAIL_RPM :
-		SF_RUN = 1
-
-# SF-2
-if SF2_CF == 1 :
-	if SAFLOW_DP > 10 :
-		SF_RUN = 1
-else :
-	if engine.READPOINT("FWU SF-2.Current RPM") > FAIL_RPM :
-		SF_RUN = 1
-
-# SF-3
-if SF3_CF == 1 :
-	if SAFLOW_DP > 10 :
-		SF_RUN = 1
-else :
-	if engine.READPOINT("FWU SF-3.Current RPM") > FAIL_RPM :
-		SF_RUN = 1
-
-# SF-4
-if SF4_CF == 1 :
-	if SAFLOW_DP > 10 :
-		SF_RUN = 1
-else :
-	if engine.READPOINT("FWU SF-4.Current RPM") > FAIL_RPM :
-		SF_RUN = 1
-
-# SF-5
-if SF5_CF == 1 :
-	if SAFLOW_DP > 10 :
-		SF_RUN = 1
-else :
-	if engine.READPOINT("FWU SF-5.Current RPM") > FAIL_RPM :
-		SF_RUN = 1
-
-# SF-6
-if SF6_CF == 1 :
-	if SAFLOW_DP > 10 :
-		SF_RUN = 1
-else :
-	if engine.READPOINT("FWU SF-6.Current RPM") > FAIL_RPM :
-		SF_RUN = 1
-
-# SF-7
-if SF7_CF == 1 :
-	if SAFLOW_DP > 10 :
-		SF_RUN = 1
-else :
-	if engine.READPOINT("FWU SF-7.Current RPM") > FAIL_RPM :
-		SF_RUN = 1
-
-# SF-8
-if SF8_CF == 1 :
-	if SAFLOW_DP > 10 :
-		SF_RUN = 1
-else :
-	if engine.READPOINT("FWU SF-8.Current RPM") > FAIL_RPM :
-		SF_RUN = 1
+# SF-1~8 : (comm fault and SAFLOW DP > 10 Pa) or (comm normal and RPM > Failure RPM)
+if (SF1_CF == 1 and SAFLOW_DP > 10) or (SF1_CF != 1 and engine.READPOINT("FWU SF-1.Current RPM") > FAIL_RPM) :
+	SF_RUN = 1
+if (SF2_CF == 1 and SAFLOW_DP > 10) or (SF2_CF != 1 and engine.READPOINT("FWU SF-2.Current RPM") > FAIL_RPM) :
+	SF_RUN = 1
+if (SF3_CF == 1 and SAFLOW_DP > 10) or (SF3_CF != 1 and engine.READPOINT("FWU SF-3.Current RPM") > FAIL_RPM) :
+	SF_RUN = 1
+if (SF4_CF == 1 and SAFLOW_DP > 10) or (SF4_CF != 1 and engine.READPOINT("FWU SF-4.Current RPM") > FAIL_RPM) :
+	SF_RUN = 1
+if (SF5_CF == 1 and SAFLOW_DP > 10) or (SF5_CF != 1 and engine.READPOINT("FWU SF-5.Current RPM") > FAIL_RPM) :
+	SF_RUN = 1
+if (SF6_CF == 1 and SAFLOW_DP > 10) or (SF6_CF != 1 and engine.READPOINT("FWU SF-6.Current RPM") > FAIL_RPM) :
+	SF_RUN = 1
+if (SF7_CF == 1 and SAFLOW_DP > 10) or (SF7_CF != 1 and engine.READPOINT("FWU SF-7.Current RPM") > FAIL_RPM) :
+	SF_RUN = 1
+if (SF8_CF == 1 and SAFLOW_DP > 10) or (SF8_CF != 1 and engine.READPOINT("FWU SF-8.Current RPM") > FAIL_RPM) :
+	SF_RUN = 1
 
 # SF Status with 5 s confirmation (ON and OFF) :
 #  the status changes only when the new state lasts 5 s (timer 5)

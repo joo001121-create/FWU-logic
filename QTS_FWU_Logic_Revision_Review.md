@@ -1,426 +1,444 @@
-# QTS 요구사항 기반 FWU 로직 수정 검토서
+# QTS 요구사항 기반 FWU 로직 수정 검토서 (rev.2)
 
 **검토일:** 2026-11-10  
-**대상:** QTS `FWU(390 kW)` / 현재 FWU-F8-ATS LDPL 로직 8개  
-**문서 단계:** 코드 작성 전 요구사항·경량화·Point 설계 검토
+**대상:** QTS `FWU(390 kW)` / FWU-F8-ATS 로직 8개 및 DDC 설정 파일  
+**문서 단계:** 코드 작성 전 요구사항·경량화·추가 코드·Point 설계 검토
+
+**rev.2 변경 사항**
+- 작업 폴더의 설정 파일(DDC.xml, IO/Modbus/VirtualPoint, BMS Modbus 주소표)과 대조해, 이전 판의 "자료 미제출" 판정을 갱신했다.
+- **Point 삭제 금지 원칙**을 적용했다. 로직에서 쓰지 않는 Point도 HMI/BMS/외부에서 쓸 수 있으므로 Point는 추가만 하고 삭제·개명하지 않는다. 그 결과 이전 판의 "Point 삭제 후보(§6.6)"는 폐지하고, 경량화를 **코드 경로 정리**로 한정했다.
+- 신규로 분류했던 일부 Point(필터, 화재, 팬 Run Fail, ATS)를 **기존 Point 재사용**으로 정정했다.
+- 파일명을 실제 이름 `SF Control.py`로 정정했다(이전 판 `SF Control(1).py`, 행번호는 동일).
+- **사용자 결정 반영(2026-11-10):** Backup 운전(L11)은 BMS PLC 연동 계획이 있어 **유지하고 BMS 주소표에 연결**한다. Failover 자동 정지(L12)는 **철회**하고 현행 코드를 유지한다(QTS 근거 없음, 동작 변경). 인접 보상(L13)은 **유지**한다. 따라서 선택 경량화 3건은 모두 코드 삭제 없이 **BMS 주소표 연결 작업(X02)** 으로 바뀌었다.
 
 ## 1. 먼저 볼 결론
 
-현재 코드는 **송풍기 제어, 급기온도에 따른 PICV 제어, 수동/자동, 로컬/원격 선택, 원격 정지, 일부 고장 감시**를 이미 갖고 있다. 반면 QTS에서 명시한 **BMS 통신 두절 시 속도 유지/최대속도 선택, 개별 팬 풍량 스위치, 연기 검출 대응 설정, 누수 알람, 필터 오염 알람, 냉수 입·출구 온도 취득**은 추가하거나 보완해야 한다.
+1. 현재 코드는 팬 제어(고정/RAT/RDP/ΔT/CZT), SAT 기반 PICV 제어, 수동/자동, 로컬/원격, 원격 정지, 비상 정지, 팬 통신 감시를 이미 갖고 있다.
+2. QTS 대비 **코드로 바로 보완 가능한 항목**은 BMS 통신 두절 시 HOLD/MAX, 팬별 운전실패 알람, 연기(화재) 검출 시 동작 선택, 정지 경로 결함 수정이다. 모두 **기존 Point와 기존 I/O로 구현 가능**하며, 신규 가상 Point는 7개다.
+3. **하드웨어 없이는 불가능한 항목**은 누수 검출, 팬별 풍량 스위치, 원격 on/off 3단자, 냉수 입·출구 온도다. 필요한 입력 14점에 비해 여유 입력은 13점이라 **I/O 증설 또는 취득 방식 변경**이 필요하다.
+4. **경량화 폭은 작다.** 동작에 영향 없는 중복·미사용 코드 정리(L01~L04)만 수행한다. 현장 전용 기능(Backup, Failover 자동 정지, 인접 보상)은 BMS PLC 연동 계획과 QTS 근거 부재를 고려해 **모두 현행 유지**로 결정했다. 대신 BMS PLC가 이 기능을 쓸 수 있도록 **주소표 연결**이 필요하다(§5.2, X02).
+5. 로직 외 설정에서 먼저 처리할 위험이 있다. BMS Heartbeat의 BMS 쓰기 경로가 없고, ATS 절체 관련 쓰기 Point가 BMS에 노출되어 있으며, 실행 순서가 Alarm-3 주석과 다르다.
 
-경량화는 **인접 구역 보상, 특정 센서 개수에 묶인 집계, 그룹 Failover와 백업 운전**부터 진행하는 것이 적절하다. QTS가 요구하는 원격 온도·차압 기반 제어 능력과 장치 자체 보호는 남긴다.
+| 구분 | 내용 | 비고 |
+| --- | --- | --- |
+| 1차 코드 추가 | BMS 두절 HOLD/MAX, 팬별 Run Fail 알람, 연기 동작 선택, 통합 정지 상태, ATS/유량계 통신 감시 | 현재 I/O로 가능 |
+| 1차 결함 수정 | 원격 정지 중 Run Command 유지(C01), PICV 닫힘 무한 대기(C03), 미정의 모드값(C06), RAT/ΔT 센서 고장 대응(C08) | |
+| 확정 경량화 | ΔT 중복 계산, 미사용 HZT Gain 읽기, 반복 조건 정리 | 동작 변화 없음 |
+| 현장 맞춤 기능 유지 | Backup 운전, Failover 자동 정지, 인접 보상 | 코드 유지. BMS PLC 연동용 주소표 추가(X02) |
+| 설정 변경 | DDC 실행 순서, BMS 주소표 추가, HMI 알람 속성, ATS 쓰기 권한 | 코드 외 |
+| 2차(하드웨어 후) | 누수, 팬별 풍량 스위치, 원격 3단자, 냉수 온도 | I/O 확정 후 |
 
-**추가 Python 파일은 이번 설계안에서는 필요하지 않다.** `Alarm-2.py`를 개별 팬 및 장치 감시용으로 재구성하면 기존 파일 안에 수용할 수 있다. 현장 전용 `Failover.py`를 표준 구성에서 제외하면 **기본 7개 파일**로 구성할 수 있다. 이번에는 요청 순서에 따라 분석 문서만 작성했으며, 원본 코드 변경이나 실행용 빈 파일 생성은 하지 않았다.
+**Python 파일 추가는 필요 없다.** 기존 8개 파일 안에서 남는 타이머로 수용한다(§8.3).
 
-| 구분 | 우선 조치 |
-| --- | --- |
-| QTS 필수 추가·보완 | BMS 속도 명령 경로, 통신 두절 대응 2가지, 개별 팬 풍량 스위치, 원격 on/off 3단자, 필터·누수·연기 감시, 냉수 입·출구 온도 |
-| 하드웨어와 함께 확인 | 이중 플로트 응축수 펌프, 밸브 정전 시 위치, 제어전원 유지, ATS 자동 절체·복귀 및 접점 |
-| 표준 코드에서 제외 권고 | 인접 구역 보상, 그룹 Failover에 의한 자동 정지, 타 호기 고장 시 최대풍량/온도 설정값 보정 |
-| 단순화·선택 기능화 | CZT/HZT/RDP 다중센서 집계, 구역 습도 통계, ΔT 팬 제어, 급기 습도 감시 |
-| 유지 | SAT 기반 밸브 PI, 기본 팬 제어, 로컬/원격·수동/자동, 비상 정지, 팬 통신 감시, 장착된 댐퍼의 인터록 |
-
-> **판정의 범위:** “코드에 없음”은 제출된 8개 파일에서 읽기·쓰기·판정 코드가 없다는 뜻이다. 센서나 접점이 실제로 없거나, DDC/통신 설정에 Point가 없다는 뜻은 아니다. 해당 설정 파일은 제출되지 않았다.
-
-**빠른 이동:** [요구사항 대조](#3-qts-요구사항과-현재-코드의-차이) · [제거·분리 후보](#4-경량화를-위해-제거분리할-항목) · [Point 목록](#6-point-수정-목록) · [파일별 계획](#7-파일별-수정-계획과-파일-추가-필요성) · [결정 항목](#10-코드-작성-전에-확정할-결정)
-
-## 2. 검토 근거와 읽는 방법
+## 2. 검토 근거
 
 ### 2.1 사용 자료
 
-| 자료 | 적용 범위 |
+| 자료 | 적용 범위 | 비고 |
+| --- | --- | --- |
+| `QTS_Airside Equipment_CDE_260628-2 1.xlsx` | `FWU(390 kW)` 시트, SECTION 23 81 24.3-PP | 작업 폴더 루트에 있음. rev.2에서는 B행 인용을 재검증하지 않고 이전 검토 결과를 사용 |
+| `LDPL Programming Guide-v27.pdf` | 우선순위, 타이머, PI, 작성 규칙 | 작업 폴더에 없음. 이전 검토 결과 인용 |
+| `Logic/*.py` 8개 | 제어·알람 로직 | 전체 대조 |
+| `DDC.xml` | 포트, 로직 등록 순서, 이중화 | 대조 완료 |
+| `ControlPoint/IO.xml` | 물리 I/O와 여유 슬롯 | 대조 완료 |
+| `ControlPoint/Modbus1~3.xml` | 팬 8대, ATS, 유량계 | 대조 완료 |
+| `ControlPoint/VirtualPoint.xml` | 가상 Point 172개, 기본값 | 대조 완료 |
+| `ProtocolSerivce/Modbus/ModbusServiceInfo.xml` | BMS용 Modbus 슬레이브 주소표 | 대조 완료 |
+| `ProtocolSerivce/BACnet/BACnetServiceInfo.xml` | BACnet 객체 매핑 | 비어 있음 |
+| `ScheduleInfo/*.xml` | 스케줄 | 빈 Schedule01~18만 존재 |
+
+QTS 위치는 `FWU(390 kW)!B행번호`, 코드 위치는 `파일명:행번호`로 표시한다.
+
+### 2.2 설정 파일에서 확인한 구성
+
+| 항목 | 확인 내용 |
 | --- | --- |
-| `QTS_Airside Equipment_CDE_260628-2 1.xlsx` | 3개 시트 중 `FWU(390 kW)`, SECTION 23 81 24.3-PP를 기준으로 검토. B6의 카탈로그명은 `CRAH-400-SLAB-DF`로 기재되어 있어 실제 대상 모델명 확인 필요 |
-| `Initialization.py` | BMS Heartbeat, 구역 센서 집계, 보상 PV, 팬 상태·풍량, 운전 명령 선택 |
-| `SF Control(1).py` | 5개 팬 제어 모드, 댐퍼 연동, 팬 출력, 비상 대응 |
-| `PICV Control.py` | SAT PI 제어, SAT 고장 대체 출력, 백업 운전 보정 |
-| `Remote Shutdown.py` | 원격 정지 우선순위와 출력 강제 정지 |
-| `Failover.py` | 특정 현장 그룹 고장 판단·정지·백업 연계 |
-| `Alarm-1.py` | 온습도·구역·팬·댐퍼·밸브 알람 |
-| `Alarm-2.py` | CZT/HZT/RDP 센서 고장 알람 |
-| `Alarm-3.py` | 팬별 통신 고장 및 종합 통신 고장 |
-| `LDPL Programming Guide-v27.pdf` | 우선순위, 타이머, PI/PID, 정지 시 누적값 초기화, 작성 규칙 |
+| 통신 포트 | 포트 1 = SF-1~4, 포트 2 = SF-5~8, 포트 3 = ATS(슬레이브 01)·유량계(02), 모두 Modbus RTU 마스터 9600 bps. 포트 4 = BMS용 Modbus RTU 슬레이브 19200 bps |
+| Ethernet 프로토콜 | Modbus TCP 설정 비어 있음. BACnet은 장치 번호(3)만 있고 객체 매핑 없음 |
+| DDC 이중화 | Duplex 활성(상대 192.168.1.132, 가상 IP 192.168.1.133) |
+| 로직 실행 순서 | Initialization → PICV Control → SF Control → Alarm-1 → Alarm-2 → Alarm-3 → Remote Shutdown → Failover. Remote Shutdown만 등록 주소가 `VP1000000001`로 다름 |
+| 여유 물리 I/O | 입력 13점(CPU UI1~6, DI1~4, CM02 UI5·UI6·UI8), DO 5점(CPU DO1~3, CM02 DO10·DO11), AO 4점(CPU AO1~3, CM02 AO4). UI14 모듈은 14점 모두 사용 |
+| BMS 주소표 | 가상 Point 172개 중 94개만 등록. 모든 가상 Point의 `alarmEnable=0` |
+| 주요 기본값 | Speed SP 50 %, SF Speed Min **30 %**, Speed Max 100 %, Design RPM 1569, Failure RPM 150, Adj Comp Weight 70 %, Chilled Water Supply Condition **1** |
 
-QTS 위치는 **`FWU(390 kW)!B행번호`**로 표시한다. 코드 위치는 **`파일명:행번호`**로 표시하며, 이번에 받은 원본의 행번호이다. 본문에서 “필수”는 QTS에 명시된 사항, “권고”는 이를 구현하기 위한 설계 제안이다.
+### 2.3 아직 판정할 수 없는 사항
 
-### 2.2 판정이 아직 불가능한 자료
+- QTS B133이 참조하는 `BMS HVAC Controls Systems Points List V1.3.R0`가 없다. BMS Point의 최종 누락 판정은 불가능하다.
+- I/O 결선도, HMI 화면, 팬·밸브·응축수 펌프·ATS 사양서가 없다.
+- BMS·HMI가 각 Point를 어떤 우선순위로 쓰는지 알 수 없다(C01 판단에 영향).
+- QTS C열 `O`는 준수 표시일 뿐 구현 증거로 보지 않았다.
 
-- QTS B133이 참조하는 **`BMS HVAC Controls Systems Points List V1.3.R0`**는 첨부되지 않았다. 따라서 BMS 표시·쓰기 Point 전체에 대한 최종 누락 판정은 불가능하다.
-- DDC.xml, Point DB, I/O 결선도, BACnet/Modbus 주소표, HMI 화면, 팬·밸브·응축수 펌프·ATS 사양서는 첨부되지 않았다.
-- QTS C열의 `O`는 제출 문서의 준수 표시다. 실제 코드나 결선의 구현 증거로 보지는 않았다.
-- 이 문서는 첨부 자료를 기준으로 한다. 이전에 별도로 검토한 Start/Stop 계약의 세부 정책을 현재 코드에 반영된 것으로 간주하지 않았다. 실제 수정 시 적용할 최신 계약이 있다면 함께 대조해야 한다.
+## 3. 작업 원칙: Point 유지
 
-## 3. QTS 요구사항과 현재 코드의 차이
+| 원칙 | 적용 |
+| --- | --- |
+| 삭제 금지 | VirtualPoint/IO/Modbus Point와 BMS 주소표 항목을 삭제하지 않는다. 존재하지 않는 Point를 가리키는 주소표 항목도 별도 승인 전까지 유지한다 |
+| 개명 금지 | 기존 Point 이름은 바꾸지 않는다. HMI·BMS 참조가 이름/ID로 연결되어 있다 |
+| 값 멈춤 방지 | 로직 경로를 걷어낼 때, 해당 경로가 쓰던 Point는 **중립값을 계속 기록**한다. 예: 인접 보상 제거 시 `CZT Comp PV = CZT PV` |
+| 표시용 계산 유지 | BMS 주소표에 노출된 계산값(CZT/HZT/RDP/CZH Avg·Max·Min 등)은 외부 사용 가능성이 있으므로 계산을 유지한다 |
+| 신규 Point | 필요한 최소 수만 추가한다. 이중화 동기화가 필요한 값은 `backupEnable=1`, 외부 확인이 필요한 값은 BMS 주소표에 추가한다 |
 
-### 3.1 운전·제어·통신
+## 4. QTS 요구사항과 현재 구현의 차이 (설정 파일 반영)
 
-| ID | QTS 근거 | 요구사항 | 현재 구현과 판정 | 수정 방향 |
-| --- | --- | --- | --- | --- |
-| Q01 | B124, §2.3.F.1 | 원격 온도, 급기온도, 환기온도, 원격 차압을 활용하는 제어 능력 | **부분 구현.** 팬은 고정/RAT/RDP/ΔT/CZT, 밸브는 SAT PI. 원격 값은 현장별 다중센서·보상식에 결합되어 있음 | 원격 온도·차압 제어를 공통 입력으로 단순화. SAT는 현재 밸브 제어로 구현되어 있으므로, QTS 문구만으로 “팬 SAT 모드도 반드시 추가”라고 단정하지 않음 |
-| Q02 | B127, §2.3.F.1.b.1 | BMS에서 팬 속도 쓰기 가능 | **부분 구현·설정 확인.** `VP_FWU_Speed SP`를 고정 모드에서 읽지만, BMS 쓰기 권한·주소·선택권은 확인 불가. PI 모드에서는 이 값이 직접 속도를 결정하지 않음 | BMS 속도 지령과 실제 적용 속도, 제어권을 구분. 기존 `Speed SP` 재사용 가능. 모든 PI 모드 위에 무조건 덮어쓰는 방식은 피함 |
-| Q03 | B129:B131, §2.3.F.1.b.3 | BMS 통신 두절 시 직전 속도 유지 또는 최대속도를 설정으로 선택 | **미구현.** Heartbeat 감시는 있으나 CZT/RDP PV 무효 시 일반 고정 설정값으로 전환함. 직전 유효 속도 저장·정책 선택 없음. RAT/ΔT/고정 모드에는 이 대응이 적용되지 않음 | 통신 상태·정책·직전 유효 적용 속도·Fallback 활성 상태 추가. BMS 통신 고장과 팬 Modbus 고장을 구분 |
-| Q04 | B132, §2.3.F.1.c | 원격 on/off 단자 3개 | **부분 구현·결선 확인.** `REMOTE SELECTION`은 제어권 선택이고, 원격 정지 입력은 `VP_FWU_Remote Shutdown Command` 하나. 3개 독립 단자의 입력은 없음 | 3개 단자별 원시 입력과 통합 운전 허용을 정의. 각 단자가 허용접점인지 정지접점인지 결선으로 확인 |
-| Q05 | B16, B124 | Ethernet·RS485, BACnet/게이트웨이·Modbus TCP/IP 지원 | **코드만으로 판정 불가.** Point 읽기·쓰기는 있으나 포트·프로토콜 설정은 없음 | 컨트롤러·게이트웨이 구성과 통신 테이블로 검증. 프로토콜 스택을 새 py로 만들 필요 없음 |
-| Q06 | B17:B29, B38, B133 | 변수 설명과 주소·단위·범위·표시/인터페이스 Point 제공 | **자료 부족.** 코드 Point명만 확인 가능 | 신규·기존 Point에 대해 네트워크/ID/IP/BACnet 주소/Object Type·Instance/Property/Scaling/명칭/범위/단위/설명 작성. R/W·우선순위·초기값·품질도 권고 항목으로 추가 |
-| Q07 | B108, §2.3.D.3 | 팬 저속 운전 하한 관련 20% 조건 | **설정값 확인 필요.** `SF Speed Min/Max` 제한은 있으나 실제 값이 없음 | 문구의 `20% (maximum)`은 허용 가능한 최저속도 한계가 20% 이하라는 취지로 해석 가능. 최저속도를 20% 이상으로 강제하는 뜻으로 단정하지 말고 확인. 기본 운전 하한 20%안을 두되 정지 출력 0은 별도 허용 |
-| Q08 | B115, B120, B128 | 변조식 2-way 밸브로 급기온도 유지, 공급자 튜닝 | **기본 구현.** `PICV Control.py:44–50`에서 SAT PI 수행 | 유지. QTS는 PICV 형식을 특정하지 않으므로 실제 선정 2-way 밸브와 제어·피드백 방식 정합성 확인. 현장 백업용 SAT -0.5℃ 보정은 제거 후보 |
-| Q09 | B120, §2.3.E.7 | 비스프링리턴 밸브, 마지막 위치 또는 안전 위치 동작 능력 | **정전 대응 확인 불가.** 운전 중 비상 시 0% 쓰기는 있으나 정전 시 실제 위치 유지·이동을 증명하지 않음 | 액추에이터 전원·설정·유지전원·통신 상실 동작 확인. 정전되어 실행되지 않는 Python에만 의존하지 않음 |
-
-### 3.2 센서·장치·알람
+### 4.1 운전·제어·통신
 
 | ID | QTS 근거 | 요구사항 | 현재 구현과 판정 | 수정 방향 |
 | --- | --- | --- | --- | --- |
-| Q10 | B109, §2.3.D.4 | **개별 팬** 고장 감지용 풍량 스위치 설치·결선 | **미구현.** RPM 또는 공통 `FWU_SAFLOW DP`로 판단하고 8대 중 4대 이상 고장만 종합 알람. 개별 스위치 입력·개별 운전실패 알람 없음 | 현재 8팬 구성이라면 풍량 스위치 8개와 팬별 알람·실패 수 추가. 공통 DP는 개별 스위치를 대체하지 못함 |
-| Q11 | B136 | 급기온도 센서 | **구현.** `FWU_SAT` 및 SAT 고장/상하한 알람 | 유지. 하한값만으로 고장 판단하는 방식은 센서 스펙·품질정보와 함께 보완 |
-| Q12 | B137 | 환기온도·환기습도 센서 | **구현.** `FWU_RAT`, `FWU_RAH`와 관련 알람 | 유지. 구역 습도 `CZH`는 환기습도 `RAH`의 대체 입력으로 보지 않음 |
-| Q13 | B138 | 냉수 입구온도 | **8개 코드 내 없음.** `Chilled Water Supply Condition`은 BMS의 조건 플래그이며 온도 측정값이 아님 | 실제 온도 Point와 품질·BMS 표시 추가. 소자/통신모듈 및 입력방식 확인 |
-| Q14 | B139 | 냉수 출구온도 | **8개 코드 내 없음** | 실제 온도 Point와 품질·BMS 표시 추가. QTS 원문의 `CHWS leaving`을 장치 코일 출구로 매핑하는지 확인 |
-| Q15 | B140 | 유량계 설치·결선 | **부분 구현.** `FWU-Flow.Rate`를 밸브 진단에 사용함(`Alarm-1.py:365,369`) | 재사용 우선. 단위 L/min 가정, 측정 범위, 품질, BMS 노출 확인. 신규 유량계를 중복 요구하지 않음 |
-| Q16 | B104, B141 | 필터 DP 스위치 및 오염 알람 | **8개 코드 내 없음** | 필터 전후 차압 **스위치 DI**와 오염 알람 추가. 팬 풍량 측정용 `FWU_SAFLOW DP`와 구분. 연속 차압 AI는 이 조항의 필수 추가가 아님 |
-| Q17 | B142 | 로프형 누수 감지와 알람, **누수로 장치 정지 금지** | **8개 코드 내 없음.** 누수 알람·정지 코드 모두 보이지 않음 | 누수 입력·알람을 추가하되, 누수 단독으로 팬·밸브·운전 명령을 끄거나 Stop/Fault 집계의 정지 원인에 넣지 않음 |
-| Q18 | B143 | 환기부 광전식 연기 검출기, 검출 시 운전 지속/정지 현장 설정 가능, 주소형 모듈 | **미구현.** 주석은 Fire 인터록 제거를 명시하며 실행 코드에 연기 입력·설정 분기 없음 | 연기 입력·알람·동작 설정·정지 요청 추가. 주소형 모듈과 소방 인터페이스는 별도 하드웨어 확인 |
-| Q19 | B118 | 경사 드레인팬 및 **이중 플로트 응축수 펌프**, 공장 설치·배선 | **하드웨어·로직 확인 필요.** 펌프/플로트 Point 참조 없음 | 자율 펌프라면 내장 운전회로 유지, 제공되는 고수위/고장 접점 감시. DDC가 직접 운전하는 구성일 때만 펌프 DO와 운전·상부 플로트 DI를 추가 |
-| Q20 | B112 | 역류 방지 장치 | **구성 확인 필요.** 현재는 전동 SAD 4개와 개폐 확인을 가정 | QTS는 역류 방지 능력을 요구하며 전동 댐퍼 4개를 지정하지 않음. 실제 장치가 수동 역류방지 댐퍼이면 전동 명령·Proof 제거 가능. 전동식이면 관련 인터록 유지 |
+| Q01 | B124 | 원격 온도·급기온도·환기온도·원격 차압 활용 제어 | **구현.** 팬 고정/RAT/RDP/ΔT/CZT, 밸브 SAT PI | 유지 |
+| Q02 | B127 | BMS에서 팬 속도 쓰기 | **구현(고정 모드).** `VP_FWU_Speed SP`가 BMS HR 1076으로 쓰기 가능. PI 모드에서는 속도를 직접 정하지 않음 | 유지. 고정 모드 선택(`SF Control Select`)도 BMS에서 쓸 수 있는지 주소표 확인 |
+| Q03 | B129:B131 | BMS 통신 두절 시 직전 속도 유지 또는 최대속도를 설정으로 선택 | **미구현.** Heartbeat 감시는 있으나 CZT/RDP PV 무효 시 `Speed SP`로 전환(`SF Control.py:54–61`). RAT/ΔT/고정 모드에는 대응 없음. **Heartbeat가 BMS 주소표에 없어** BMS가 Modbus로 쓸 수 없음 | N01 추가. Heartbeat·Comm Fault·Reset을 주소표에 추가(X02) |
+| Q04 | B132 | 원격 on/off 단자 3개 | **미구현.** 원격 정지는 BMS Coil 1027의 가상 Point 1개. 물리 단자 없음 | 2차(H03). 여유 DI 필요 |
+| Q05 | B16, B124 | Ethernet·RS485, BACnet/Modbus TCP | **부분.** RS485 Modbus RTU 슬레이브만 설정됨. Modbus TCP·BACnet 매핑 비어 있음 | 설정 작업(X05). 로직 수정 아님 |
+| Q06 | B17:B29, B133 | 변수·주소·단위·범위 제공 | **부분.** Modbus 주소표 있음(94/172). BACnet 객체표 없음. V1.3 목록 없음 | 신규·미등록 Point 주소표 추가(X02), V1.3 대조 |
+| Q07 | B108 | 팬 저속 20 % 조건 | **확인 필요.** `SF Speed Min` 기본값 30 %. "최저속도 한계 ≤ 20 %"로 해석하면 비준수 가능 | 기본값 변경 여부 결정(K10). 코드 변경 없음 |
+| Q08 | B115, B120, B128 | 2-way 변조 밸브로 SAT 유지 | **구현.** `PICV Control.py:44–50` | 유지 |
+| Q09 | B120 | 비스프링리턴, 정전 시 위치 | **하드웨어 확인.** | 액추에이터 설정으로 확인 |
 
-### 3.3 전원·시험·코드 외 요구
+### 4.2 센서·장치·알람
+
+| ID | QTS 근거 | 요구사항 | 현재 구현과 판정 | 수정 방향 |
+| --- | --- | --- | --- | --- |
+| Q10 | B109 | 팬별 고장 감지(풍량 스위치) | **미구현.** 팬별 판정은 내부 변수뿐이고 4대 이상만 종합 알람(`Alarm-1.py:233`). `VP_FWU_SF-1~8 Run Fail Alarm` Point는 **이미 있으나 미사용** | 1차: RPM 기반 팬별 알람(N02). 2차: 풍량 스위치 입력 결합(H02) |
+| Q11 | B136 | 급기온도 센서 | **구현.** `FWU_SAT` | 유지 |
+| Q12 | B137 | 환기 온·습도 | **구현.** `FWU_RAT`, `FWU_RAH` | 유지 |
+| Q13 | B138 | 냉수 입구온도 | **Point 없음** | 2차(H04) |
+| Q14 | B139 | 냉수 출구온도 | **Point 없음** | 2차(H04) |
+| Q15 | B140 | 유량계 | **구현.** `FWU-Flow.Rate`(포트 3, BMS IR 28020), 밸브 진단에 사용 | 유량계 통신 고장 감시 추가(N05) |
+| Q16 | B104, B141 | 필터 DP 스위치·오염 알람 | **입력 있음.** `FWU_FILTER ALARM` DI(UI14 모듈 8번), BMS DI 102로 노출. 로직·HMI 알람 없음 | 코드 추가 없이 DI의 HMI 알람 속성 활성화(X03) |
+| Q17 | B142 | 누수 감지, 누수로 정지 금지 | **Point 없음** | 2차(H01). 알람만 |
+| Q18 | B143 | 연기 검출, 운전 지속/정지 현장 선택 | **입력 있음, 로직 없음.** `FWU_FIRE ALARM` DI(BMS DI 101)와 미사용 `VP_FWU_Fire Alarm` 존재. 현재 주석상 화재 인터록 없음 | N03: 동작 선택 추가. 기본값은 현재 동작과 같은 CONTINUE. DI가 환기부 연기검출기인지 확인(K07) |
+| Q19 | B118 | 이중 플로트 응축수 펌프 | **Point 없음.** | 하드웨어 확인 후 결정(H05) |
+| Q20 | B112 | 역류 방지 | **전동 SAD 4개로 구현** | 유지 |
+
+### 4.3 전원·시험·코드 외
 
 | ID | QTS 근거 | 요구사항 | 현재 구현과 판정 | 조치 |
 | --- | --- | --- | --- | --- |
-| Q21 | B125 | 일시 정전 중 제어전원 유지용 커패시터 | **하드웨어 확인.** 제어전원 유지 상태 참조 없음 | 원문은 `1 minute ... or 6kW minimum`으로 시간과 전력이 함께 기재됨. 이를 임의로 6 kWh 등으로 변환하지 말고 유지 대상 부하·용량 산정 기준 확인. 상태접점이 있으면 관제 추가 |
-| Q22 | B148 | 이중 전원 자동 절체·주전원 복귀, 양방향 절체 지연 조정, 우선전원 선택, 사용/가용 표시등 및 고객 접점 | **하드웨어·연계 확인.** 파일명/주석의 ATS 표기 외 전원 상태나 절체 제어 없음 | ATS 전용 회로/제어기에서 절체·복귀·지연·선택을 구현하는 구성을 우선. DDC는 전원 가용/사용 상태·선택을 수집하고 제공 접점을 매핑. Python 자동절체 파일은 기본안에 추가하지 않음 |
-| Q23 | B59, B52 | 출하 전 전체 제어기능 공장 시험 및 보고 | **시험자료 없음** | 본 문서 §11의 기능시험을 FAT 항목으로 사용. 코드 정적 검토로 통과 처리하지 않음 |
-| Q24 | B111, B147 등 | 고조파 저감 장치, 480V 단로/퓨즈, 65kA SCCR 등 | **코드 밖 장치 사양** | 전장 설계·부품·시험 성적으로 확인. 감시접점 제공 시에만 관제 추가. 해당 기능을 Python으로 구현한다고 분류하지 않음 |
+| Q21 | B125 | 정전 중 제어전원 유지 | **하드웨어 확인** | 상태 접점 제공 시 관제 |
+| Q22 | B148 | 이중 전원 자동 절체·복귀, 우선전원 선택, 상태 표시 | **통신 Point 있음.** `FWU-ATS`(포트 3): Current/A/B Power, S1/S2 선간전압, Alarm, `Source Priority`·`Auto transfer mode`·`Transfer by comm request`(RW). 로직 미사용 | 절체는 ATS 자체 기능 유지. DDC는 상태 수집과 ATS 통신 고장 감시(N05). **BMS 쓰기 노출 검토(K11)** |
+| Q23 | B59, B52 | 공장 시험 | **자료 없음** | §12 시험을 FAT 항목으로 사용 |
+| Q24 | B111, B147 | 고조파·단로·SCCR | **장치 사양** | 코드 대상 아님 |
 
-그 밖의 외함·필터 등급·정비 공간·배관·내진·압력·성능표·보증·제출물은 기구/전장/제품 선정의 검토 대상이다. QTS B11의 성능 데이터 제출과 B152의 설계조건 일치는 **실시간 냉각능력 계산 로직을 반드시 추가하라는 요구는 아니다.**
+## 5. 경량화 범위 (Point 유지 전제)
 
-## 4. 경량화를 위해 제거·분리할 항목
+Point를 지우지 않으므로, 경량화는 **실행 코드에서 중복·미사용 경로를 걷어내는 것**으로 한정한다. 현장 맞춤 기능은 사용자 결정에 따라 §5.2처럼 처리한다.
 
-### 4.1 표준 구성에서 제외할 후보
+### 5.1 확정 경량화 (동작 변화 없음)
 
-| ID | 현재 위치 | 항목 | 권고와 이유 | 함께 정리할 의존성 |
-| --- | --- | --- | --- | --- |
-| D01 | `Initialization.py:220–266` | 인접 CZT/RDP 보상 | **표준에서 제외.** 인접 센서 연결, 가중치, 자기 구역 여유값은 현장 배치에 따라 달라짐. QTS 명시 요구 없음 | `CZT/RDP Comp PV`, Adj 센서, Weight, Own Margin 정리. 팬 PI의 PV를 단순 원격 온도/차압 PV로 교체 |
-| D02 | `Failover.py:34–69` | 특정 그룹 고장 조건, 5초 확인 후 본체 정지, 수동 Reset | **기본 파일 등록에서 제외.** QTS는 이 그룹 조건과 자동 정지를 요구하지 않음 | SF/PICV의 `Failover Alarm` 참조와 그룹 HMI/BMS 항목 동시 정리. 장치 자체 팬/밸브/댐퍼 알람은 남김 |
-| D03 | `SF Control(1).py:78–82,143–149`; `PICV Control.py:32–36` | 이웃 호기 고장 시 최대풍량 + SAT 설정 -0.5℃ | **표준에서 제외.** 타 호기의 상태에 따른 증속/설정값 보정은 현장 시스템 운전 전략 | `Backup Operation`, 백업 전용 Active SP 경로 정리. QTS의 “BMS 통신 고장 시 최대속도”는 별개이므로 새 공통 대응으로 구현 |
-| D04 | `Initialization.py:119–148,204–210`; `SF Control(1).py:66–68` | HZT 집계·PV, 사용하지 않는 HZT 팬 Gain | **제거 우선.** 현재 HZT 팬 모드는 없고, HZT 관련 값은 주로 구역 알람에만 사용 | HZT-1/2 Failure, HZT 상하한/SP, Select/Avg/Max/Min/PV/Valid 정리. QTS 원격 온도 기능은 별도로 유지 |
-| D05 | `Initialization.py:181–188` | CZH-1~4 평균/최대/최소 | **제거 후보.** 8개 코드 내 제어·알람 소비처가 없고 QTS에 고정 구역 습도 집계 요구 없음 | HMI/BMS가 사용 중인지 확인 후 CZH Point 제거. `FWU_RAH`와 환기습도 감시는 유지 |
-| D06 | `Initialization.py:268–269`; `SF Control(1).py:63–64` | ΔT PV 중복 계산 | **계산 주체 하나로 통합.** 같은 Point에 양쪽에서 씀 | ΔT 기능 유지 시 Initialization만 계산. ΔT 모드를 제외하면 관련 계산·SP·Gain도 함께 정리 |
-
-### 4.2 기능 자체를 지우기보다 단순화하거나 조건부로 남길 항목
-
-| ID | 항목 | 권고 |
-| --- | --- | --- |
-| D07 | CZT 4개, RDP 2개 집계·센서별 고장 판정 | **원격 온도 1개·원격 차압 1개의 공통 인터페이스로 단순화.** BMS가 유효 대표값을 만들고 값+품질을 전달. 필요한 센서 개수와 평균/최대/최소 선택은 현장 BMS에서 처리. 직접 배선되는 원격센서라면 장치에서 취득하도록 입력원 설정을 유지 |
-| D08 | 5개 팬 모드 중 ΔT | **선택 기능으로 제외 가능.** QTS에 ΔT 팬 제어 명시 없음. 모드 번호를 재배정할 경우 HMI/BMS에서 기존 번호의 의미가 바뀌지 않도록 함께 변경 |
-| D09 | `FWU_SAH` 및 급기습도 상하한/고장 알람 | **선택 기능.** QTS 명시 습도 센서는 환기습도. 참조 BMS Point List나 선정 장비가 요구하면 유지. 센서 미장착 상태에서 고장 알람이 계속 뜨지 않게 처리 |
-| D10 | SAD 4개 명령·개폐 상태·알람 | **하드웨어 확인 후 결정.** QTS만 보고 삭제하지 않음. 전동 댐퍼가 남으면 기동 전 개방 확인 및 정지 연동도 남아야 함 |
-| D11 | 공통 팬 차압에 의한 풍량 계산 | **실제 센서가 있으면 유지 가능한 선택 관제.** QTS 개별 팬 풍량 스위치와 혼동하지 않음. 삭제 시 팬 상태/고장 판정의 공통 DP 의존 경로도 수정 |
-| D12 | 냉수 공급 정상 조건에 따른 밸브 저유량 알람 억제 | **외부 플랜트 의존성을 설정으로 분리.** QTS 필수 BMS 신호는 아니지만, 플랜트 정지 시 오경보 억제에 유용. 신호를 없애며 기본값 0으로 두면 저유량 진단이 영구 차단될 수 있음 |
-| D13 | 1920rpm, 설계RPM×1.1, 공통 AO 2그룹, 풍량 환산계수 | **현장 로직이 아니라 장비 사양/보정 설정으로 관리.** 무조건 제거하지 않음. 선정 팬의 최대속도·입력신호·환산식으로 확정 |
-| D14 | PI Gain·운전 한계·알람 지연 | **설정값으로 유지.** 제품 제어에 필요한 튜닝이다. 현장 조정이 필요하다는 이유만으로 PI나 센서 보호를 제거하지 않음 |
-
-**삭제 순서:** 대체 입력/출력 확보 → 코드 참조 교체 → DDC 등록 변경 → HMI·BMS 참조 정리 → Point 삭제. 코드에서 안 읽는다는 이유만으로 Point DB의 항목을 먼저 지우지 않는다.
-
-## 5. 추가 로직의 동작 원칙
-
-### 5.1 BMS 속도 명령과 통신 두절 대응
-
-현재 `SF Control(1).py:58–61`은 CZT/RDP PV가 무효이면 `Speed SP`를 사용한다. 이는 QTS의 **직전 속도 유지**와 다르다. 예를 들어 통신 두절 직전 적용 속도가 62%, 고정 설정이 40%였다면, 유지 모드는 62%를 사용해야 한다.
-
-| 상황 | 권고 동작 | 요구/설계 구분 |
-| --- | --- | --- |
-| BMS 제어 중 통신 정상 | 선택한 제어권에 따라 BMS 속도 명령 또는 PI 출력 적용. 마지막으로 유효하게 적용한 속도 저장 | BMS 속도 쓰기는 QTS 요구. 제어권 구체화는 설계 |
-| BMS 통신 고장 + HOLD_LAST | 고장 직전의 유효 적용 속도를 고정 저장하고 사용. 고장 중에는 저장값을 덮어쓰지 않음 | QTS 요구 |
-| BMS 통신 고장 + MAX | 승인된 운전 최대속도 적용. 하드웨어 허용치를 넘기지 않음 | QTS 요구 |
-| 고장 시 저장값이 없음 | 승인된 초기 대체 속도 사용. 설정 오류/저장값 무효 상태 표시 | 기동 직후 통신 불가에 대비한 설계 권고 |
-| 장치 정지 상태, 비상, 원격 정지, 연기 정지 설정 활성 | 정지 우선. HOLD/MAX 때문에 장치를 새로 기동하지 않음 | 설계 권고 |
-| 로컬 제어 중 BMS 고장 | BMS가 제어권을 갖지 않으면 로컬 운전을 유지하는 안 권고. 단, 사용 PV가 BMS 제공값이면 그 PV 상실 대응은 별도로 적용 | 적용 범위 결정 필요 |
-| 통신 복구 | 고장 전 BMS 명령을 즉시 신뢰하지 않고 정상 갱신과 유효 명령을 확인한 뒤 제어권 복귀 | 복구 방식·확인시간 결정 필요 |
-
-**통신 구분:** BMS 통신 고장은 상위 제어계와의 연결 문제다. `Alarm-3.py`의 팬 Modbus 통신 고장은 팬과 컨트롤러 사이 문제다. 기존의 “팬 통신 고장 시 아날로그 출력으로 전환”은 QTS의 BMS 통신 고장 대응을 대신하지 못한다.
-
-Heartbeat는 공통 감시 신호로 남길 수 있다. 다만 값만 변하고 센서/속도 명령은 갱신되지 않는 경우가 있으므로, 통신 정상과 개별 입력의 유효성을 분리한다. BMS Heartbeat 형식·주기·Timeout은 인터페이스에 명시한다.
-
-### 5.2 누수와 연기 검출
-
-| 입력/설정 | 알람 | 운전 처리 |
-| --- | --- | --- |
-| 로프 누수 검출 | 누수 알람 및 BMS/HMI 표시 | **누수만으로 정지시키지 않음.** FAN/PICV 명령을 강제 변경하지 않음 |
-| 연기 검출 + CONTINUE | 연기 알람 및 BMS/HMI 표시 | 기존 운전 허용. 이미 정지한 장치를 연기 신호로 기동시키지는 않음 |
-| 연기 검출 + SHUTDOWN | 연기 알람 및 정지 원인 표시 | 수동/자동·로컬/원격에 관계없이 설정된 정지 요청 적용 |
-| 연기 해소 | 검출 상태는 해소 | 자동 재기동 여부, 알람 래치·Reset 여부는 별도 확정 |
-
-누수와 연기를 모두 “장치 알람”으로 집계한 뒤, 집계 알람 하나로 정지시키면 QTS 누수 요구를 위반할 수 있다. **Alarm Summary와 Shutdown Request를 분리**한다.
-
-연기 센서와 외부 소방 정지 입력도 구분한다. `FWU_EMERGENCY`에 어떤 접점이 결선되어 있는지는 자료가 없다. 실제로 연기 신호가 여기에 묶여 있다면 CONTINUE 설정이 작동할 수 없으므로 결선/매핑도 함께 수정해야 한다. QTS B143만으로 소방 전체 댐퍼 개폐 정책까지 정하지 않는다.
-
-### 5.3 팬별 풍량 감시
-
-1. 각 팬의 실제 운전 요구가 있을 때 해당 팬의 풍량 스위치를 확인한다.
-2. 기동·가속에 필요한 확인 지연 후 풍량이 형성되지 않으면 **그 팬의** Run Fail 알람을 발생시킨다.
-3. RPM/팬 통신 상태는 원인 구분과 보조 진단에 사용한다. 공통 DP가 높다고 개별 팬 정상으로 판단하지 않는다.
-4. 개별 알람, 실패 수, 종합 알람을 구분해 표시한다. “4대 이상 고장”만 표시하는 현재 방식은 개별 고장 관제를 충족하지 못한다.
-5. 1대 또는 다수 팬 고장 시 장치 전체를 정지할지는 QTS에 지정되어 있지 않다. 냉각 연속성과 장치 보호 기준으로 별도 결정한다. 알람 발생을 곧바로 전체 정지와 연결하지 않는다.
-
-8개 독립 지연은 `Alarm-2.py`의 타이머 0~7로 구성할 수 있다. 실제 팬 개수는 선정 사양으로 확인한다. 스위치 하나가 여러 팬을 감시하는 구성이면 QTS의 개별 감지 요구와 대조해야 한다.
-
-### 5.4 냉수 센서·필터·응축수·전원
-
-- **냉수 입·출구 온도:** 측정값과 품질을 취득해 표시한다. ΔT나 냉각능력 계산은 선택 기능이다. 유량이 L/min인 경우 물 기준 냉각능력 근삿값은 `0.0698 × 유량 × (출구온도−입구온도)` kW지만, 글리콜·밀도·비열 조건이 다르면 보정이 필요하다. 기본 코드 경량화를 위해 해당 계산은 이번 필수 범위에 넣지 않는다.
-- **필터:** 스위치 상태를 오염 알람으로 변환한다. 팬 정지 중 접점의 의미, NO/NC, 채터링 지연은 선정 부품으로 확정한다. QTS는 필터 오염 시 장치 정지를 요구하지 않는다.
-- **응축수:** 이중 플로트는 일반적으로 두 수위 기능을 뜻하며 펌프 2대를 뜻한다고 단정할 수 없다. 하부 운전/상부 경보 역할과 내장 제어회로 유무를 확인한다. 상부 플로트의 밸브 차단·장치 정지 여부는 QTS에 명시되지 않았다. 로프 누수 검출과 동일 입력으로 합치지 않는다.
-- **ATS:** 두 전원 가용, 실제 공급원, 우선전원 선택, 자동 절체·복귀, 양방향 지연, 표시등·고객 접점을 확인한다. 접점 관제가 전력 절체 자체를 대신하지 않는다. 전력 회로의 전기적·기계적 인터록과 독립 절체 제어는 전장 설계 범위다.
-- **밸브 정전 위치:** 정상 정지 0%, 비상 0%, SAT 센서 고장 100%, 전원 상실 시 유지/안전 위치는 서로 다른 조건이다. 기존 SAT 고장 100%는 QTS가 지정한 값이 아니므로 제품의 대체 운전 정책으로 별도 검토한다.
-
-## 6. Point 수정 목록
-
-### 6.1 표기·공통 규칙
-
-다음 이름은 **제안명**이며 실제 DDC 등록명이 아니다. `AI/DI/AO/DO`는 물리 입력·출력 역할, `AV/BV/MSV`는 가상 수치·상태·열거 설정 역할을 뜻한다. 실제 BACnet Object Type은 장치 매핑에서 확정한다. 물리 입력을 통신으로 수집하는 경우에도 데이터 역할은 동일하다.
-
-- 물리/통신 원시 입력은 BMS에서 읽기 전용으로 노출한다. 설정·명령만 필요한 범위에서 쓰기를 허용한다.
-- 온도/차압/유량의 범위·Scaling은 선정 부품 기준으로 정하며 임의 범위를 확정하지 않는다.
-- 값과 별도로 통신 경보, 배선 이상, 범위 초과, 갱신 상태 등 품질을 사용한다. `Valid`는 이 정보를 묶은 가상 상태로 만들 수 있다.
-- 기존 Point DB에서 동등 Point를 찾으면 재사용한다. 아래 수량은 코드 기반 **추가 후보 수**이며 실제 신규 I/O 확정 수량이 아니다.
-
-### 6.2 신규 또는 매핑 확인이 필요한 실제 입력
-
-| ID | 제안 Point | 역할/수량 | 단위·극성 | 취득원 및 사용 | 필요 구분 |
-| --- | --- | --- | --- | --- | --- |
-| P01 | `FWU_CHW Entering Temp` | AI 1 | ℃ | 코일 입구 온도센서, HMI/BMS 표시 | QTS B138 |
-| P02 | `FWU_CHW Leaving Temp` | AI 1 | ℃ | 코일 출구 온도센서, HMI/BMS 표시 | QTS B139 |
-| P03 | `FWU_Filter Dirty Switch` | DI 1 | 정규화 후 1=오염 | 필터 DP 스위치 | QTS B104/B141 |
-| P04 | `FWU_Leak Detected` | DI 1 | 1=검출 | 로프 누수 검출기 릴레이/모듈 | QTS B142, 알람만 |
-| P05 | `FWU_Smoke Detected` | DI 1 | 1=검출 | 환기부 연기 검출기 인터페이스 | QTS B143 |
-| P06 | `FWU_SF-1 Airflow Proof` … `FWU_SF-8 Airflow Proof` | DI 8 | 1=팬별 풍량 확인 | 각 팬 풍량 스위치. 현재 8팬 기준 | QTS B109 |
-| P07 | `FWU_Remote Enable-1` … `FWU_Remote Enable-3` | DI 3 | 1=운전 허용안 | 3개 원격 단자. 실제 on/off 접점 방식 확인 후 명칭·극성 확정 | QTS B132 |
-| P08 | `FWU_Condensate High Level` | DI 1 후보 | 1=고수위 | 펌프 상부 플로트/경보 접점 | 장치 선정 후, 펌프는 QTS B118 필수 |
-| P09 | `FWU_Condensate Pump Fault` | DI 1 후보 | 1=고장 | 펌프 고장 릴레이. P08과 공통접점이면 중복 생성하지 않음 | 제공 접점에 한함 |
-| P10 | `FWU_Condensate Pump Demand` | DI 1 후보 | 1=배수 요구 | 하부 플로트. DDC 직접제어 구성일 때 | 조건부 |
-| P11 | `FWU_Condensate Pump Run` | DI 1 후보 | 1=운전 | 운전 보조접점, 제공 시 | 선택 관제 |
-| P12 | `FWU_Power Source-1 Available`, `FWU_Power Source-2 Available` | DI 2 후보 | 1=가용 | ATS/전원감시 접점 | QTS B148 상태 요구의 DDC 매핑안 |
-| P13 | `FWU_Power Source-1 In Use`, `FWU_Power Source-2 In Use` | DI 2 후보 | 1=실제 사용 | ATS 위치/공급 상태. 실제 1개 선택 상태코드로 제공되면 대체 가능 | QTS B148 |
-| P14 | `FWU_Power Preferred Source` | DI/열거 1 후보 | 1=Source-1, 2=Source-2안 | 저전압 패널 선택스위치/ATS 상태 읽기 | QTS B148. 기본안은 BMS 쓰기 금지 |
-| P15 | `FWU_ATS Fault` | DI 1 후보 | 1=고장 | ATS 제공 경보 | 선택 관제 |
-| P16 | `FWU_Control Power Backup Ready`, `FWU_Control Power On Backup` | DI 각 1 후보 | 1=해당 상태 | 커패시터/전원모듈 상태, 제공 시 | 선택 관제. 접점 제공은 QTS에 명시되지 않음 |
-
-QTS 직접 요구 입력 중 P01~P07은 현재 8팬 구성으로 **AI 2점 + DI 14점 후보**다. DI는 필터·누수·연기 3점 + 팬별 풍량 8점 + 원격 단자 3점으로 계산했다. ATS/펌프 상태는 이 수에 포함하지 않는다. 기존에 등록된 입력이나 통신 취득이 있으면 물리 I/O 추가 수는 줄어든다.
-
-### 6.3 기존 Point 재사용·구조 변경
-
-| ID | 현재 Point | 처리 | 이유/조건 |
+| ID | 위치 | 내용 | Point 처리 |
 | --- | --- | --- | --- |
-| R01 | `FWU_SAT`, `FWU_RAT`, `FWU_RAH` | 유지 | QTS 명시 센서 |
-| R02 | `FWU-Flow.Rate` | 유지·단위/품질 확인 | 이미 밸브 진단에 쓰는 유량값 |
-| R03 | `VP_FWU_Speed SP` | BMS 속도 명령으로 재사용 우선 | 별도 동일 의미 명령을 중복 생성하지 않음. HMI 로컬 설정과 구분이 필요하면 쓰기 주체를 분리 |
-| R04 | `VP_FWU_SF Speed Value` | 최종 적용 속도 상태로 유지 | 팬 출력과 BMS 상태가 같은 적용값을 보도록 책임 통일 |
-| R05 | `VP_FWU_SF Speed Min/Max`, `VP_FWU_SF Max RPM` | 유지 | 장치 운전한계. 범위·상호 정합성 검사 |
-| R06 | `VP_FWU_BMS PLC Heartbeat`, `...Heartbeat Prev`, `...Comm Fault` | 공통 BMS 감시로 재사용/개명 가능 | 특정 PLC 명칭만 표준화. 고장 판단과 복구 정책은 보완 |
-| R07 | `REMOTE SELECTION`, `VP_FWU_Operation Mode` | 유지 | 로컬/원격과 수동/자동은 서로 다른 선택 |
-| R08 | `VP_FWU_Command`, `VP_FWU_Command-HMI` | 명령·적용 상태의 책임 재정리 | 여러 파일이 같은 명령을 덮어쓰는 문제 방지 |
-| R09 | `VP_FWU_Remote Shutdown Command` | 유지·통합 정지 경로로 연결 | 원격 단자 3개와 다른 입력인지, 통합한 결과인지 정의 |
-| R10 | `FWU SF-n.Current RPM`, `...Run Command`, `...Target RPM Set` | 유지 | 팬 구동·회전 피드백. 선정 팬 프로토콜 확인 |
-| R11 | `VP_FWU_SF-n Comm Fault`, `VP_FWU_SF Comm Fault` | 유지 | BMS 통신 고장과 별개의 팬 통신 진단 |
-| R12 | `FWU_PICV CONTROL`, `FWU_PICV FEEDBACK`, PI Gain/SP | 유지 | 밸브 제어·위치 진단. 비PICV 적용 시 명칭 변경 여부 검토 |
-| R13 | `FWU_EMERGENCY` | 유지·입력원 확인 | 연기/누수와 무조건 묶지 않음 |
-| R14 | `FWU_SAFLOW DP`, `VP_FWU_SA Flow` | 장착 시 선택 유지 | 개별 풍량 스위치·필터 차압과 별개 |
+| L01 | `SF Control.py:63–64` | ΔT PV 중복 계산 제거. `Initialization.py:269`만 계산 | `VP_FWU_DeltaT PV` 유지(Initialization이 계속 기록) |
+| L02 | `SF Control.py:66–68` | 사용하지 않는 HZT PGain/IGain 읽기 제거 | `VP_FWU_SF HZT PGain/IGain` Point 유지 |
+| L03 | `Initialization.py` CZT/HZT/RDP 집계부 | CZT/HZT/RDP 집계의 `BMS_OK == 1 and` 반복 조건을 상위 조건 하나로 묶음 | 결과값 동일 |
+| L04 | `Failover.py:18–20` | 주석 "-1 C"를 실제 값 "-0.5 C"로 정정 | 주석만(실행 코드는 변경 없음) |
 
-### 6.4 신규 가상 설정·명령·상태
+### 5.2 현장 맞춤 기능 처리 결정 (2026-11-10 확정)
 
-| ID | 제안 Point | 역할·접근 | 값/단위 | 쓰는 주체 → 읽는 주체 |
+| ID | 위치 | 내용 | 결정 | 필요한 후속 작업 |
 | --- | --- | --- | --- | --- |
-| V01 | `VP_FWU_BMS Speed Control Enable` | BV, 설정 R/W | 1=BMS 직접 속도 제어 허용안 | HMI/BMS의 승인된 설정 → SF Control. 기존 모드 선택으로 표현 가능하면 별도 생성 생략 |
-| V02 | `VP_FWU_BMS Comm Fail Mode` | MSV/AV, 설정 R/W | 0=HOLD_LAST, 1=MAX안 | HMI 설정 → SF Control |
-| V03 | `VP_FWU_Last Valid SF Speed` | AV, 읽기 전용 | % | SF Control → SF Control/HMI/BMS |
-| V04 | `VP_FWU_Last Valid SF Speed Available` | BV, 읽기 전용 | 1=저장값 유효 | SF Control → SF Control |
-| V05 | `VP_FWU_BMS Fallback Active` | BV, 읽기 전용 | 1=통신 고장 대체운전 적용 중 | SF Control → HMI/BMS |
-| V06 | `VP_FWU_BMS Startup Fallback Speed` | AV, 설정 R/W | % | HMI 설정 → SF Control. 저장값 없을 때 사용할 값 |
-| V07 | `VP_FWU_BMS Heartbeat Timeout` | AV, 설정 R/W | s | HMI 설정 → Initialization. 기존 30초는 제안 기본값으로만 취급 |
-| V08 | `VP_FWU_Remote Temp PV`, `VP_FWU_Remote Temp Valid` | AV+BV, 입력원별 접근 | ℃ / 0·1 | BMS 대표값 또는 로컬 원격센서 매핑 → Initialization/SF Control |
-| V09 | `VP_FWU_Remote DP PV`, `VP_FWU_Remote DP Valid` | AV+BV, 입력원별 접근 | Pa / 0·1 | BMS 대표값 또는 차압센서 매핑 → Initialization/SF Control |
-| V10 | `VP_FWU_Remote Enable All` | BV, 읽기 전용 | 1=3개 조건 모두 허용안 | Remote Shutdown → 운전 명령 처리 |
-| V11 | `VP_FWU_Smoke Action` | MSV/AV, 설정 R/W | 0=CONTINUE, 1=SHUTDOWN안 | HMI 현장 설정 → Remote Shutdown |
-| V12 | `VP_FWU_Smoke Shutdown Request` | BV, 읽기 전용 | 1=연기 정지 조건 활성 | Remote Shutdown → SF/PICV 제어 |
-| V13 | `VP_FWU_Shutdown Active` | BV, 읽기 전용 | 1=정지 우선 조건 활성 | Remote Shutdown → SF/PICV. 누수는 포함하지 않음 |
-| V14 | `VP_FWU_Active Control Source` | MSV/AV, 읽기 전용 | LOCAL/BMS/PI/FALLBACK/STOP 등 | 제어권 판정 → HMI/BMS |
-| V15 | `VP_FWU_CHW Entering Temp Valid`, `VP_FWU_CHW Leaving Temp Valid` | BV 각 1, 읽기 전용 | 1=유효 | 입력 품질 판정 → 관제/선택 계산 |
-| V16 | `VP_FWU_Flow Valid` | BV, 읽기 전용 | 1=유효 | 유량계 품질 판정 → 밸브 진단 |
-| V17 | `VP_FWU_SF-n Airflow Fail Delay` 또는 공통 `...SF Airflow Fail Delay` | AV, 설정 R/W | s | HMI 설정 → Alarm-2. 같은 사양 팬은 공통 설정 1점으로 경량화 |
+| L11 | `SF Control.py:77–82, 143–149`; `PICV Control.py:32–36` | Backup 운전(팬 최대 + SAT SP −0.5 ℃). 이 FWU의 `Failover Alarm`이 0일 때만 적용 | **유지.** BMS PLC 연동 계획 있음 | `VP_FWU_Backup Operation`이 BMS 주소표에 없어 BMS PLC가 켤 수 없음(BACnet 매핑도 비어 있어 현재는 HMI로만 가능). 주소표 추가(X02) |
+| L12 | `Failover.py:50–53` | Failover 확정 시 Command 0 자동 정지 | **철회. 코드 변경 없음.** QTS FWU 시트에 Failover·"정지 금지" 근거가 없고, 정지를 없애면 동작이 바뀜 | `Failover Alarm`이 BMS 주소표에 없어 BMS PLC가 이웃 FWU의 Backup을 시작할 수 없음. 주소표 추가(X02). DoO "FWU Failover Criteria" 확인(K01) |
+| L13 | `Initialization.py:220–266` | 인접 CZT/RDP 보상 | **유지** | Adj 센서·Weight·Margin이 주소표에 없어 이웃 값이 기본값(CZT 25 ℃, RDP 5 Pa)에 고정되고, 이 기본값으로는 보상 조건이 성립하지 않아 **현재 보상이 동작하지 않음**. 주소표 추가(X02) |
 
-V08/V09의 Valid를 BMS가 직접 제공하면 **원시 유효 신호**와 컨트롤러가 통신/범위까지 반영한 **최종 유효 상태**의 쓰기 주체를 분리한다. 하나의 Point를 BMS와 로직이 동시에 쓰지 않는다. 입력값만 있고 갱신 여부가 없으면 마지막 값이 정상값처럼 남을 수 있다.
+#### 5.2.1 BMS PLC 연동용 주소표 추가 대상
 
-### 6.5 신규 알람·출력
+| Point | 방향 | 용도 |
+| --- | --- | --- |
+| `VP_FWU_Backup Operation` | BMS PLC 쓰기 | 이웃 FWU 고장 시 보충 운전 요청 |
+| `VP_FWU_Failover Alarm` | BMS PLC 읽기 | 이 FWU가 용량을 공급할 수 없다는 통지 |
+| `VP_FWU_Failover Reset` | BMS PLC 쓰기(필요 시) | 알람 해제. HMI로도 가능 |
+| `VP_FWU_Group Control Mode` | BMS PLC 쓰기 | 그룹 제어 모드. 1이고 Command 0이면 Failover 원인 4 |
+| `VP_FWU_CZT Adj-1~4`, `VP_FWU_RDP Adj-1~2` | BMS PLC 쓰기 | 이웃 구역 온도·차압 |
+| `VP_FWU_Adj Comp Weight`, `CZT/RDP Comp Own Margin` | BMS/HMI 설정 | 보상 가중치·자기 구역 여유 |
+| `VP_FWU_CZT Comp PV`, `RDP Comp PV` | BMS PLC 읽기 | 보상 적용 PV 확인 |
 
-| ID | 제안 Point | 역할·접근 | 동작/조건 | 장치 정지 여부 |
+연동 시 확인할 점은 K17에 둔다. 아래 L11~L13의 구 검토 문구는 이력으로만 남긴다.
+
+<details><summary>이전 판 L11~L13 검토 문구(이력)</summary>
+
+| ID | 위치 | 내용 | 현재 실효성 | 걷어낼 때 Point 처리 | 권고 |
+| --- | --- | --- | --- | --- | --- |
+| L11 | `SF Control.py:77–82, 143–149`; `PICV Control.py:32–36` | Backup 운전(팬 최대 + SAT SP −0.5 ℃) | `VP_FWU_Backup Operation`이 BMS 주소표에 없음. Modbus BMS로는 켤 수 없고 HMI로만 가능(BACnet 매핑은 비어 있음) | `PICV SAT SP Active = PICV SAT SP` 계속 기록. Backup Operation Point는 남지만 무시 | 사용처 확인 후 제거(K02) |
+| L12 | `Failover.py:50–53` | Failover 확정 시 Command 0 자동 정지 | Group Control Mode·Failover Alarm/Reset이 주소표에 없음 | Failover Alarm 판정과 Reset은 유지, 자동 정지만 제거 | 자동 정지만 제거(K01) |
+| L13 | `Initialization.py:220–266` | 인접 CZT/RDP 보상 | Adj 센서·Weight가 주소표에 없음. Adj 기본값(CZT 25 ℃, RDP 5 Pa)에서는 CZT는 `25 > SP(30)` 불성립, RDP는 `5 < SP(3)` 불성립으로 **현재 보상이 걸리지 않음** | `CZT/RDP Comp PV = CZT/RDP PV` 계속 기록. SF Control은 Comp PV를 그대로 읽어 변경 최소화 | 제거(K03). 단, HMI에서 Adj 값을 쓰고 있다면 유지 |
+
+</details>
+
+### 5.3 경량화하지 않는 항목과 이유
+
+| 항목 | 유지 이유 |
+| --- | --- |
+| CZT/HZT/RDP/CZH Avg·Max·Min, PV Select | BMS 주소표에 노출됨. 계산을 멈추면 외부 표시값이 멈춤 |
+| CZT/HZT/RDP 센서 고장 알람(Alarm-2) | 집계에서 고장 센서 제외에 사용 |
+| ΔT·RAT 제어 모드 | 모드 선택 기능. 제거 시 모드 번호 의미 변경 위험 |
+| SAH 알람, SAD 4개 인터록, 공통 SAFLOW DP 풍량 | 실제 장착 장치와 연결됨 |
+| 1920 rpm·Design RPM×1.1 환산 | 팬 사양값. 설정으로 관리 |
+
+### 5.4 이전 판 D항목과의 대응
+
+| 이전 판 | rev.2 처리 |
+| --- | --- |
+| D01 인접 보상 | L13. 유지 결정, 주소표 연결 |
+| D02 Failover | L12. 철회, 현행 유지 |
+| D03 Backup | L11. 유지 결정, 주소표 연결 |
+| D04 HZT 집계·Gain | 집계 유지(BMS 노출), Gain 읽기만 제거(L02) |
+| D05 CZH 집계 | 유지(BMS HR 노출) |
+| D06 ΔT 중복 | L01 |
+| D07~D14 | 유지 또는 설정 관리. Point 삭제 없음 |
+
+## 6. 추가 코드 범위
+
+### 6.1 1차: 현재 I/O로 구현 가능
+
+| ID | 파일 | 추가 내용 | 사용 Point(신규는 ★) | 타이머 |
 | --- | --- | --- | --- | --- |
-| A01 | `VP_FWU_Filter Dirty Alarm` | BV, R | 필터 스위치 정규화·필요 지연 | 기본 알람만 |
-| A02 | `VP_FWU_Leak Alarm` | BV, R | 로프 누수 검출 | **정지 금지** |
-| A03 | `VP_FWU_Smoke Alarm` | BV, R | 연기 검출. 운전 지속 설정에서도 표시 | Smoke Action에 따름 |
-| A04 | `VP_FWU_SF-1 Run Fail Alarm` … `...SF-8 Run Fail Alarm` | BV 8, R | 팬별 운전 요구 + 지연 경과 + 풍량 미확보 | 별도 정지 기준 확정 |
-| A05 | `VP_FWU_SF Failed Count` | AV, R | 개별 실패 수 | 자체로 정지 명령 아님 |
-| A06 | `VP_FWU_CHW Entering Temp Failure Alarm`, `...Leaving Temp Failure Alarm` | BV 각 1, R | 측정/통신 품질 이상 | 기본 알람만, QTS 추가 진단 권고 |
-| A07 | `VP_FWU_Flow Failure Alarm` | BV, R | 유량계 통신·센서 이상 | 밸브 저유량/누설 진단과 구분 |
-| A08 | `VP_FWU_Condensate High Level Alarm`, `VP_FWU_Condensate Pump Fault Alarm` | BV 각 1 후보, R | 실제 제공 접점에 따라 생성 | 처리 정책 확정 |
-| A09 | `VP_FWU_ATS Fault Alarm` | BV 후보, R | ATS 고장 접점 또는 승인된 상태 불일치 판정 | 별도. 소프트웨어로 전력 절체 강제하지 않음 |
-| A10 | `VP_FWU_Alarm Summary` | BV, R | 일반 알람 종합 표시. 기존 등록 Point가 있으면 재사용 | 정지 조건과 분리 |
-| O01 | `FWU_Condensate Pump Command` | DO 1 후보 | DDC 직접 펌프제어 구성일 때만 생성 | 자율 펌프면 불필요 |
+| N01 | `SF Control.py` | BMS 통신 두절 대응(HOLD_LAST/MAX). 정상 시 직전 유효 속도 저장 | `VP_FWU_BMS PLC Comm Fault`, ★`VP_FWU_BMS Comm Fail Mode`, ★`VP_FWU_Last Valid SF Speed`, ★`VP_FWU_BMS Fallback Active` | 없음 |
+| N02 | `Alarm-1.py` | 팬별 Run Fail 알람. 기존 판정 변수 `SF1_FAIL~SF8_FAIL`을 기존 Point에 기록 | `VP_FWU_SF-1~8 Run Fail Alarm`(기존) | 기존 1번(60 s) 공유 |
+| N03 | `Remote Shutdown.py` | 화재/연기 입력 확인, 동작 선택(CONTINUE/SHUTDOWN), 통합 정지 상태 산출 | `FWU_FIRE ALARM`, `VP_FWU_Fire Alarm`(기존), ★`VP_FWU_Smoke Action`, ★`VP_FWU_Shutdown Active` | 0번(입력 확인 지연) |
+| N04 | `SF Control.py`, `PICV Control.py` | 통합 정지 상태를 팬 속도·Run Command·밸브에 일관 반영(C01). PICV 닫힘 대기 Timeout(C03). 미정의 모드값·RAT/SAT 고장 시 고정속도 전환(C06, C08). Command=1·팬 정지 시 밸브 처리(C04, K08) | `VP_FWU_Shutdown Active` 등 | SF Control 2번(PICV 닫힘 대기) |
+| N05 | `Alarm-3.py` | ATS·유량계 통신 고장 감시. 유량계 통신 고장 시 PICV 유량 진단 억제(C12) | `FWU-ATS.Current Power`, `FWU-Flow.Rate`, ★`VP_FWU_ATS Comm Fault`, ★`VP_FWU_Flow Comm Fault` | 8번, 9번 |
 
-추가 Point마다 **원시 입력 → 품질/정규화 → 알람 또는 제어 → HMI/BMS** 연결을 완성해야 한다. 코드의 `WRITEPOINT`만 추가해도 HMI 알람 이력·BACnet 객체가 자동으로 생긴다고 가정하지 않는다.
+**신규 가상 Point는 7개다.** 별도 Fallback 시작속도 설정, Last Valid 유효 플래그, Heartbeat Timeout 설정, Alarm Summary, 필터 VP 알람은 만들지 않는다(경량화).
 
-### 6.6 삭제 후보 Point 묶음
+### 6.2 2차: 하드웨어·결선 확정 후
 
-| 묶음 | 예시 | 삭제 조건 |
+| ID | 내용 | 필요 입력 | 배치 |
+| --- | --- | --- | --- |
+| H01 | 로프 누수 알람(정지 금지) | DI 1 | Alarm-2 8번 타이머 |
+| H02 | 팬별 풍량 스위치를 N02 판정에 결합(`RPM 미달 or 풍량 미확인`) | DI 8 | Alarm-1 기존 1번 타이머 공유 |
+| H03 | 원격 on/off 3단자 | DI 3 | Remote Shutdown |
+| H04 | 냉수 입·출구 온도와 센서 고장 | AI 2(또는 통신 취득) | Alarm-2 9번 타이머(공통 지연) |
+| H05 | 응축수 고수위/펌프 고장 | 제공 접점에 따름 | 장치 확정 후 |
+
+필요 입력은 **14점**(누수 1 + 풍량 8 + 원격 3 + 냉수 온도 2)이고, 연기검출기를 화재 접점과 따로 받으면 15점이다. 여유 입력 13점으로는 부족하다. 다음 중 하나가 필요하다(K13).
+- I/O 확장 모듈 추가
+- 냉수 온도를 통신(BTU/유량계 등)으로 취득해 AI 2점 절감
+- CPU 내장 UI/DI 실제 사용 가능 여부 확인
+
+### 6.3 설정 변경 (로직 파일 외)
+
+| ID | 대상 | 내용 |
 | --- | --- | --- |
-| 인접 보상 | `VP_FWU_CZT Adj-1~4`, `RDP Adj-1~2`, `Adj Comp Weight`, `...Comp Own Margin`, `...Comp PV` | 팬 PI가 공통 PV를 사용하고 HMI/BMS의 관련 참조도 정리됨 |
-| 그룹 Failover | `VP_FWU_Group Control Mode`, `...Failover Alarm`, `...Failover Reset`, `...Backup Operation` | 현장 그룹 기능이 표준 구성에서 제외됨 |
-| 구역별 다중센서 | CZT/HZT/RDP 센서별 값·Failure, Avg/Max/Min, Select | 공통 대표값·품질 입력이 확보됨. 원격 온도/차압 기능은 남김 |
-| 미사용 구역 습도 | CZH-1~4, CZH Avg/Max/Min | 외부 표시/수집 소비처 확인 후 |
-| 선택 제어 모드 | ΔT PV/SP/Gain, HZT Gain, SAH 알람/SP | 선택 기능을 제외하고 외부 참조도 정리됨 |
+| X01 | `DDC.xml` | 실행 순서 변경: **Alarm-3 → Initialization → Remote Shutdown → PICV Control → SF Control → Alarm-1 → Alarm-2 → Failover**. Alarm-3 주석 요구와 정지 상태의 같은 스캔 반영을 맞춤 |
+| X02 | `ModbusServiceInfo.xml` | 주소표 **추가**: Heartbeat(HR, BMS 쓰기), Comm Fault(읽기), Comm Reset(쓰기), **BMS PLC 연동 Point(§5.2.1: Backup Operation, Failover Alarm/Reset, Group Control Mode, Adj-1~4, RDP Adj-1~2, Adj Comp Weight, Comp Own Margin, Comp PV)**, 신규 Point 7개, `Chilled Water Supply Condition`(쓰기), 미등록 기존 알람(SAT/SAH/RAT/RAH/SAF 고장, PICV, SAD 4종, Fire, Run Fail 8개, CZT/HZT/RDP 고장·상하한 등) |
+| X03 | Point 속성 | HMI 알람 이력이 필요한 Point의 `alarmEnable` 설정(`FWU_FILTER ALARM`, `FWU_FIRE ALARM`, 신규 알람 등) |
+| X04 | `VirtualPoint.xml` | 신규 7개 등록. `Last Valid SF Speed`, `BMS Comm Fail Mode`, `Smoke Action`은 `backupEnable=1`(이중화 절체 시 유지) |
+| X05 | 프로토콜 | QTS가 Ethernet BACnet/Modbus TCP를 요구하면 해당 서비스 매핑 작성 |
+| X06 | ATS 쓰기 매핑 | HR 28000~28004(`Source Priority`, `Auto transfer mode`, `Transfer by comm request`)의 BMS 쓰기 허용 여부 결정(K11). 삭제가 아니라 R/W 속성 변경 |
 
-## 7. 파일별 수정 계획과 파일 추가 필요성
+## 7. Point 목록
 
-### 7.1 기본 7파일 구성안
+### 7.1 재사용하는 기존 Point (이전 판에서 신규로 분류했던 항목)
 
-| 기존 파일 | 변경 내용 | 역할 |
+| 기존 Point | 위치 | 이전 판 분류 | rev.2 처리 |
+| --- | --- | --- | --- |
+| `FWU_FILTER ALARM` | IO.xml DI, BMS DI 102 | P03 신규 DI | 재사용. HMI 알람 속성만 설정 |
+| `FWU_FIRE ALARM` | IO.xml DI, BMS DI 101 | P05 신규 DI | 재사용(연기검출기 여부 확인) |
+| `VP_FWU_Fire Alarm` | VirtualPoint, 미사용 | A03 신규 | 재사용(확인 지연 후 기록) |
+| `VP_FWU_SF-1~8 Run Fail Alarm` | VirtualPoint, 미사용 | A04 신규 8점 | 재사용 |
+| `FWU-ATS.*` | Modbus3.xml, BMS 노출 | P12~P15 신규 DI | 재사용. DI 신규 불필요 |
+| `VP_FWU_Speed SP` | BMS HR 1076 | R03 | BMS 속도 명령으로 유지 |
+| `VP_FWU_BMS PLC Heartbeat/Prev/Comm Fault/Comm Reset` | VirtualPoint, 주소표 없음 | R06 | 유지, 주소표 추가(X02) |
+
+### 7.2 신규 가상 Point (1차, 7개)
+
+| 제안 Point | 형식 | 값 | 기본값 | 쓰는 주체 → 읽는 주체 | backup |
+| --- | --- | --- | --- | --- | --- |
+| `VP_FWU_BMS Comm Fail Mode` | 수치/열거 | 0 = HOLD_LAST, 1 = MAX | 0 | HMI/BMS → SF Control | 1 |
+| `VP_FWU_Last Valid SF Speed` | 수치 % | 직전 유효 적용 속도 | 0 | SF Control → SF Control, HMI/BMS | 1 |
+| `VP_FWU_BMS Fallback Active` | 이진 | 1 = 두절 대체운전 중 | 0 | SF Control → HMI/BMS | 0 |
+| `VP_FWU_Smoke Action` | 이진/열거 | 0 = CONTINUE, 1 = SHUTDOWN | 0 | HMI 설정 → Remote Shutdown | 1 |
+| `VP_FWU_Shutdown Active` | 이진 | 1 = 원격 정지 또는 연기 정지 활성 | 0 | Remote Shutdown → SF/PICV Control | 0 |
+| `VP_FWU_ATS Comm Fault` | 이진 | 1 = ATS 통신 고장 | 0 | Alarm-3 → HMI/BMS | 0 |
+| `VP_FWU_Flow Comm Fault` | 이진 | 1 = 유량계 통신 고장 | 0 | Alarm-3 → Alarm-1, HMI/BMS | 0 |
+
+이름은 제안명이다. 실제 ID·주소는 VirtualPoint.xml의 빈 ID 범위를 확인해 배정한다.
+
+### 7.3 신규 물리 입력 (2차)
+
+| 제안 Point | 수량 | 비고 |
 | --- | --- | --- |
-| `Initialization.py` | 인접 보상·HZT/CZH·고정 다중센서 집계를 축소. 공통 원격 PV·품질, BMS 통신, 팬 상태, 장치 설정 정합성 처리 | 공통 입력·상태 |
-| `SF Control(1).py` | 기본 팬 제어 유지, BMS 직접 명령·통신 두절 HOLD/MAX 추가, 백업 운전 제거, 정지와 Run Command 일치 | 팬 속도와 팬 구동 출력의 단일 담당 |
-| `PICV Control.py` | SAT PI 유지, 백업 온도 보정 제거, 통합 정지 요청 반영, 센서 무효/운전 정지 시 PI 초기화 | 밸브 출력의 단일 담당 |
-| `Remote Shutdown.py` | 3개 단자 정규화, 연기 동작 설정, 원격/연기 정지 요청 집계. 누수 제외 | 정지 원인·허용 조건 판단 |
-| `Alarm-1.py` | 구역 전용·선택 습도 알람 축소. SAT/RAT/RAH·밸브·필터·누수·연기·냉수/펌프/ATS 관제 추가 | 장치 환경·물계통·일반 경보 |
-| `Alarm-2.py` | 기존 CZT/HZT/RDP 고정 센서 감시를 정리하고 팬별 풍량 운전실패 감시로 재사용. 전동 댐퍼가 남으면 개폐 지연도 배치 | 팬별 풍량·조건부 댐퍼 감시 |
-| `Alarm-3.py` | 팬별 통신 고장 감시 유지. 실제 API와 경보 반환값 확인 | 팬 통신 진단 |
-| `Failover.py` | 표준 DDC 실행 목록에서 제외. 현장 기능이 필요할 때만 별도 관리 | 표준 구성에서는 미사용 |
+| `FWU_LEAK DETECT` | DI 1 | 알람만, 정지 금지 |
+| `FWU_SF-1~8 AIRFLOW` | DI 8 | 팬별 풍량 스위치 |
+| `FWU_REMOTE ENABLE-1~3` | DI 3 | 접점 의미(허용/정지, NO/NC) 확정 후 이름·극성 결정 |
+| `FWU_CHW ENT TEMP`, `FWU_CHW LVG TEMP` | AI 2 | 통신 취득 가능하면 Modbus Point로 대체 |
+| 응축수 고수위/펌프 고장 | 접점에 따름 | 장치 확정 후 |
 
-파일명 정리가 허용되면 차후 `Alarm-2.py`는 `Fan Proof Alarm.py`처럼 개명할 수 있지만, 이름 변경에는 DDC.xml 등록도 따라야 한다. 이번 단계에서 파일 수만 늘리기 위한 새 py는 만들 필요가 없다.
+알람 Point(누수, 냉수 센서 고장)는 2차 입력 확정 시 함께 추가한다.
 
-**조건부 추가 후보:** 선정된 응축수 펌프를 DDC가 직접 제어하고 운전/정지 수위, 고수위, 운전실패 등 독립 타이머가 필요하면 `Condensate Pump Control.py`를 추가할 수 있다. 현재 자료로는 자율 펌프인지 알 수 없으므로 기본안에 생성하지 않는다. ATS는 전용 하드웨어 제어를 기본으로 하므로 `ATS Control.py`도 기본안에 없다.
+### 7.4 정리 권고 (삭제하지 않음, 별도 승인 대상)
 
-### 7.2 쓰기 책임과 실행 순서
+| 항목 | 내용 |
+| --- | --- |
+| 주소표의 고아 항목 | Coil 1000~1026(ID 050000C8~D2, 05000131, 05000134~143), HR 1146/1148(0200015A/B), 1A000000~4, 19000000~3은 존재하지 않는 Point를 가리킴. Point 삭제 금지 원칙과 별개로, 정리 여부를 승인받아 처리(K15) |
+| 로직 미사용 Point | `HZT Adj-1~4`, `HZT SP`, `SF Start FD`, `Fan Restart`, `PICV Flow/PIDOut/Max LPM/Design LPM`, `SF Control RDP/HZT Out`, `SF Speed Start Value`, `CZT Control Min`, `SAF VA-1`, `SF Failure Flow Set`, `VP_RAD Check Alarm`, `Model` 등. **유지**한다. 외부에서 쓰지 않는다면 HMI/BMS에 "로직 미사용"으로 표기만 권고 |
 
-현재는 `Remote Shutdown.py`가 실제 출력에 P2를 쓰고, SF/PICV 제어가 같은 출력에 P5를 쓰는 구조다. 수정안은 **정지 원인 판단과 실제 구동 출력을 분리하되 출력 책임을 명확히** 한다.
+## 8. 파일별 수정 계획
+
+### 8.1 파일별 변경 요약
+
+| 파일 | 1차 변경 | 경량화 |
+| --- | --- | --- |
+| `Initialization.py` | 변경 없음(BMS 통신 판정은 기존 유지). 인접 보상 유지 | L03 |
+| `SF Control.py` | N01, N04(정지 상태 반영, PICV 대기 Timeout, 모드값 검증, RAT/SAT 고장 시 고정속도). Backup 유지 | L01, L02 |
+| `PICV Control.py` | N04(정지 상태 반영, Command=1·팬 정지 시 처리). Backup SAT SP 보정 유지 | 없음 |
+| `Remote Shutdown.py` | N03(화재/연기 동작 선택, `Shutdown Active` 산출, 기존 강제출력 조건을 통합 정지로 확장) | |
+| `Alarm-1.py` | N02(팬별 Run Fail), 유량계 통신 고장 시 유량 진단 억제 | |
+| `Alarm-2.py` | 변경 없음(2차에서 누수·냉수 센서) | |
+| `Alarm-3.py` | N05(ATS·유량계 통신 고장) | |
+| `Failover.py` | 변경 없음(자동 정지 유지, L12 철회) | L04(주석만) |
+
+### 8.2 쓰기 책임과 실행 순서
 
 | 구분 | 주 쓰기 담당 | 주 소비자 |
 | --- | --- | --- |
-| BMS 상태, 입력 품질, 팬 상태 | Initialization / 팬 통신은 Alarm-3 | 명령·알람·제어 |
-| 원격 허용, 연기 정지, 통합 정지 요청 | Remote Shutdown | SF/PICV 제어 |
-| 팬 Speed Value, Run Command, RPM/AO | SF Control | 실제 팬/HMI/BMS |
-| 밸브 제어 출력 | PICV Control | 실제 밸브/HMI/BMS |
-| 장치 알람 | 담당 Alarm 파일 | HMI/BMS, 승인된 보호 판정 |
+| 팬·ATS·유량계 통신 상태 | Alarm-3 | Initialization, Alarm-1 |
+| BMS 통신 상태, 센서 집계, SF Status, Local/Remote 명령 | Initialization | 전체 |
+| 화재/연기 확인, `Shutdown Active` | Remote Shutdown | PICV/SF Control |
+| 밸브 출력 | PICV Control | 실제 밸브 |
+| 팬 Speed Value, Run Command, RPM/AO, Last Valid 속도 | SF Control | 실제 팬, HMI/BMS |
+| 장치 알람 | Alarm-1/2 | HMI/BMS, Failover |
 
-DDC.xml 순서는 기본적으로 **Alarm-3 → Initialization → Remote Shutdown → Alarm-1/Alarm-2 → SF Control/PICV Control** 의존성을 검토한다. 팬 상태에 기반한 일반 알람은 이전 출력의 실제 피드백을 감시한다. 통신/센서 품질을 즉시 보호에 쓰는 경로는 같은 스캔에서 이용 가능한지 확인한다. DDC.xml의 실제 실행 방식과 주기가 없어 이 순서를 확정된 운영 순서로 단정하지 않는다.
+현재 등록 순서에서는 Alarm-3가 Initialization 뒤에 있어 팬 통신 고장이 1스캔 늦게 반영되고, Remote Shutdown이 SF/PICV 뒤에 있어 정지 상태도 1스캔 늦다. X01 순서로 바꾼다.
 
-기존 P1/P2 강제출력을 유지할 경우에는 해당 우선순위의 생성·해제를 각 파일에서 계속 완결해야 한다. 출력 책임을 통합하면서 예전 P1/P2 값을 남기면 새 P5 명령이 적용되지 않을 수 있다.
+### 8.3 타이머 배분 (파일당 0~9)
 
-### 7.3 타이머 배분 가능성
-
-LDPL은 **파일(로직)당 SECTIMER 10개, 인덱스 0~9**를 제공한다. 파일을 늘리기 전에 기존 현장 전용 기능이 차지한 타이머를 재배치한다.
-
-| 파일 | 배분 예시 | 사용 수 |
+| 파일 | 현재 | 변경 후 |
 | --- | --- | --- |
-| Initialization | 0: Heartbeat 무변화, 1: 복구 확인, 2: 팬 상태 확인, 3: 원격 온도 품질 확인, 4: 원격 차압 품질 확인 | 5/10 |
-| SF Control | 0: 팬 일반 출력 갱신 주기. 긴급 정지 출력은 주기 대기 우회 | 1/10 |
-| PICV Control | 기본 PI는 별도 SECTIMER 불필요 | 0/10 |
-| Remote Shutdown | 접점은 기본 직접 처리. 필요한 경우 채터링/복구 확인용 예약 | 0~2/10 |
-| Alarm-1 | 0: 일반 상하한 기동 지연, 1~3: SAT/RAT/RAH 고장, 4: 밸브 위치 편차, 5: 개방 저유량, 6: 닫힘 유량, 7: 필터, 8: 누수 접점, 9: 연기 접점 | 최대 10/10 |
-| Alarm-2 | 0~7: 팬별 풍량 실패, 8~9: 전동 댐퍼 개방/폐쇄 확인 지연(장착 시) | 최대 10/10 |
-| Alarm-3 | 0~7: 팬별 통신 실패 | 8/10 |
+| Initialization | 5, 6, 7 | 동일 |
+| SF Control | 1 | 1, **2(PICV 닫힘 대기 Timeout)** |
+| PICV Control | 없음 | 없음 |
+| Remote Shutdown | 없음 | **0(화재/연기 입력 확인)** |
+| Alarm-1 | 0~9 전부 | 동일(N02는 기존 1번 공유) |
+| Alarm-2 | 0~7 | 동일. 8·9는 2차(누수, 냉수 센서) 예약 |
+| Alarm-3 | 0~7 | 0~7, **8(ATS 통신), 9(유량계 통신)** |
+| Failover | 1, 2 | 동일 |
 
-이는 **수용 가능성을 확인한 설계 예시**다. 모든 접점에 지연을 넣으라는 뜻은 아니며, QTS가 지정하지 않은 지연시간은 부품·운전조건으로 확정한다. 냉수 온도·펌프·ATS 접점의 기본 상태는 품질정보/접점을 직접 매핑하고, 각각 추가 독립 지연이 필요해 타이머를 초과할 때만 분리 파일을 검토한다.
+이전 판 §7.3 배분안은 기존 Alarm-1의 SF Failure 60 s와 SAF 센서 고장 타이머 배치가 빠져 있었다. rev.2는 Alarm-1 배치를 바꾸지 않는다.
 
-## 8. LDPL 규칙과 구현 시 주의점
+## 9. 추가 로직의 동작 원칙
 
-| 근거 | 확인한 규칙 | 이번 변경에 적용 |
-| --- | --- | --- |
-| §8, p.107 | 첫 줄 `engine = ddc_logic()`, 들여쓰기와 조건문 문법 | 기존 LDPL 실행 형식 유지. 일반 Python 패키지 구조로 임의 변환하지 않음 |
-| §6.2, p.72~73 | `SECTIMER(index, options)`, 0~9. options 0=Reset, 1=현재 초 반환 | 파일별 타이머표 관리. 서로 다른 지연이 같은 인덱스를 공유하지 않게 함 |
-| §6.1, p.71 | `WAIT`는 해당 파일의 나머지 처리도 멈춤 | 기동·고장 지연은 스캔 기반 타이머로 구현. 긴 WAIT 때문에 정지/연기 판정이 막히지 않게 함 |
-| §7.3, p.80~81 | `LOOP2(type, pv, cv, sp, P, I, D, sampling, start, min, max, loop_id, dead_band)` | 팬·밸브의 제어 방향과 출력범위 확인. 원격 PV 변경 시 문자열 Point 연결도 변경 |
-| §7.4, p.82 | `LOOP2_INIT(loop_id)`로 누적값 초기화 | 정지·수동·PV 무효·직접 속도/Fallback 전환 시 해당 PI 초기화 여부 정의 |
-| §4.2~4.3, p.54~55 | 기본 로직 우선순위 5, 명시 우선순위 1~16, 특정 단계 해제 | P1/P2/P5/P11의 소유자·해제 조건 명시. 하위 우선순위에 0을 써도 상위 명령을 지울 수 없음 |
-| §4.10, p.62 | `ALARM(point)` 반환에 0/1/2/4/8 경보값 기재, 8=통신 경보 | 실제 코드의 `READPOINT_ALARM`과 함수명이 다름. 지원 API/반환 규칙을 실행 엔진에서 확인 |
+### 9.1 BMS 통신 두절 대응 (N01)
 
-가이드 §4.2 본문의 함수는 `WRITE_PRI`, 현재 코드는 `WRITEPOINT_PRI`를 사용한다. 변경이력에는 `WRITEPOINT_PRI`가 등장하므로 가이드와 실행 엔진의 이름 차이를 먼저 확인해야 한다. 가이드만 보고 현재 함수를 일괄 개명하지 않는다. `READPOINT`/`WRITEPOINT`는 가이드 예제에서도 사용된다.
+| 상황 | 동작 |
+| --- | --- |
+| 정상(Comm Fault 0), 자동, Command 1, SAD 전부 열림, 정지 상태 아님 | 기존 모드대로 제어. 적용 속도 > 0이면 `Last Valid SF Speed`에 저장 |
+| 두절 + HOLD_LAST | `Last Valid SF Speed` 적용. 저장값이 없으면(0) Speed Max 적용(K05). PI 누적값 초기화 |
+| 두절 + MAX | Speed Max 적용. PI 누적값 초기화 |
+| 두절 중 | `Last Valid` 갱신 중지, `BMS Fallback Active = 1` |
+| 비상, 원격 정지, 연기 SHUTDOWN, Command 0, 수동 | 정지·수동이 우선. Fallback으로 새로 기동하지 않음 |
+| 정상 PV 무효(BMS 정상, CZT/RDP 센서 전부 고장) | 기존대로 `Speed SP` 고정 운전 유지 |
+| 복구 | 기존 래치 유지: 운전자 Reset 후 정상 제어 복귀(C05, K16) |
 
-경보값 1/2/4/8이 **배타값인지 비트 조합인지**는 반환 규칙 확인이 필요하다. 조합 가능하면 `== 8`만으로 통신 경보를 검사하면 다른 경보가 함께 있을 때 놓칠 수 있다. 반대로 확인 없이 비트 연산을 지원한다고 가정해 적용하지 않는다.
+- 적용 범위는 자동 운전의 모든 제어 모드, Local/Remote 무관을 권고한다(K04).
+- `Last Valid SF Speed`는 `backupEnable=1`로 두어 DDC 이중화 절체 후에도 HOLD_LAST가 유지되게 한다.
+- 팬 Modbus 통신 고장(AO 전환)과 BMS 통신 고장은 별개로 유지한다.
 
-## 9. 기존 코드에서 함께 정리해야 할 결함·모호점
+### 9.2 화재/연기 검출 (N03)
 
-QTS 기능을 추가하면서 아래 항목을 그대로 두면 새 기능의 동작이 기존 출력/상태와 충돌할 수 있다.
+| 상태 | 동작 |
+| --- | --- |
+| `FWU_FIRE ALARM` 입력 확인(지연 후) | `VP_FWU_Fire Alarm = 1` |
+| CONTINUE(기본) | 알람만. 운전 유지(현재 동작과 동일) |
+| SHUTDOWN | 원격 정지와 같은 강제 정지(P2), Command 0(P11). 수동/자동·로컬/원격 무관 |
+| 해소 | P2 해제. Command는 0으로 남아 운전자가 재기동(원격 정지와 동일) |
 
-| ID | 위치 | 확인 내용 | 수정 권고 |
+- `FWU_EMERGENCY`와 별개로 처리한다.
+- 누수는 이 정지 경로에 넣지 않는다(H01).
+
+### 9.3 팬별 운전실패 (N02, H02)
+
+1. 기존 조건(Command 1, Speed Value ≥ Speed Min, 60 s 경과)에서 팬별 판정 결과를 `VP_FWU_SF-n Run Fail Alarm`에 기록한다.
+2. 조건 해제 시 8개 모두 0.
+3. 종합 `SF Failure Alarm`(4대 이상)은 그대로 유지한다.
+4. 2차에서 풍량 스위치가 들어오면 판정식에 `풍량 미확인`을 OR로 추가한다.
+5. 통신 고장 팬은 기존과 같이 공통 DP로 추정하며, 풍량 스위치 설치 후에는 스위치를 우선한다.
+
+## 10. 기존 결함·모호점과 처리 단계
+
+| ID | 위치 | 내용 | 처리 |
 | --- | --- | --- | --- |
-| C01 | `Remote Shutdown.py:18–32`; `SF Control(1).py:214–231` | 원격 정지는 P2로 실제 속도를 0으로 쓰지만, 가상 Speed Value는 P11만 0. 상위 P5 값이 남으면 Run Command는 계속 1일 수 있음 | 최종 정지 상태가 Speed Value·Run Command·RPM·AO 모두에 일관되게 적용되도록 수정. BMS 명령이 유지돼도 정지 입력 활성 중에는 구동 금지 |
-| C02 | `SF Control(1).py:85–209,242–273` | 일반 속도 출력이 5초 주기. 비상 P1은 즉시지만, 일반 정지·새 연기 정지를 어디에 연결하느냐에 따라 다음 출력 주기까지 지연될 수 있음 | 즉시 정지가 필요한 조건은 일반 출력 주기 우회. 정상정지의 순서/시간은 별도 계약에 맞춤 |
-| C03 | `SF Control(1).py:167–172` | 정상정지 팬 속도 0이 PICV 피드백 <5%에 의존. 피드백 미복귀 시 무한 대기 가능 | 승인된 정상/비상 정지 절차로 대체하고 Timeout/알람/후속동작 정의. QTS에 이 정지 순서가 정해져 있다고 보지 않음 |
-| C04 | `PICV Control.py:44–56` | Command=1인데 SF Status=0이면 밸브 출력에 대한 명확한 새 지령이나 PI 초기화가 없는 경로 존재 | 기동 대기/운전 중 팬 상실에 각각 적용할 밸브 출력과 PI 상태 명시. 의도하지 않은 이전 개도 유지 방지 |
-| C05 | `Initialization.py:49–64` | Reset 수락은 `HB_OK==1`. 마지막 Heartbeat 변경 후 30초 안에는 현재 스캔에 변화가 없어도 HB_OK=1이므로, 주석의 “변하는 동안만 Reset”보다 허용 범위가 넓음 | 정상 갱신·복구 확인 상태를 별도로 정의. QTS가 수동 래치 복구를 필수로 요구하는 것은 아님 |
-| C06 | `SF Control(1).py:54–61,105–141` | 비정상 모드값은 어느 PI/고정 분기에도 들지 않아 이전 속도가 남을 수 있음 | 열거값 검증과 미정의 모드의 대체 출력·알람 정의 |
-| C07 | `Alarm-2.py:74–89` | RDP≤0을 센서 고장으로 처리 | 정지 시 0Pa나 차압 방향에 따른 음수가 정상일 수 있음. 선정 범위·품질과 운전조건으로 고장 판정 |
-| C08 | `Alarm-1.py:247–277`; `SF Control(1).py:117–138` | RAT/SAT 고장 알람이 있어도 팬 RAT/ΔT PI의 PV 무효 대응은 없음 | 각 제어 모드에 필요한 센서가 무효일 때 대체속도 적용 및 PI 초기화. ΔT 모드 제거 시 관련 경로도 제거 |
-| C09 | `Initialization.py:288–361`; `Alarm-1.py:160–239` | 공통 DP로 통신 고장 팬을 모두 정상/실패처럼 추정. 장치 SF Status는 “한 대라도 운전”이므로 개별 상태와 의미가 다름 | 팬별 풍량 스위치 추가 후 팬별 상태와 종합 상태 분리. 정지 Proof로 쓸 때는 유효한 전체 팬 정지 확인이 필요 |
-| C10 | `SF Control(1).py:151–160` | 전동 댐퍼 일부 미개방/이동 중에는 이전 속도를 유지하는 경로 존재 | 전동 댐퍼를 유지한다면 부분 개방·Proof 상실 시 허용출력/알람/정지를 제품 기준으로 확정 |
-| C11 | `SF Control(1).py:245–246`; `Initialization.py:390` | Modbus RPM과 AO의 기준이 1920rpm 등에 고정. Min/Max 역전·범위 이상값 검증은 없음 | 선정 팬의 Modbus/AO 우선권·환산단위·입력한계 확인. 전환 중 RPM=0과 AO 지령이 어떻게 해석되는지 실제 팬으로 검증 |
-| C12 | `Alarm-1.py:362–379` | 밸브 알람 하나에 저유량·닫힘 유량·구동 편차가 혼재하고 일부 유량 판정은 지연/품질 확인 없음 | 원인코드 또는 알람 분리, 유량 무효 시 오진 방지, 필요 지연 설정. 고정 30/10LPM은 선정 용량에 맞춤 |
-| C13 | `Initialization.py:174–179` 등; `Alarm-1.py:48–133` | 입력 무효에 0을 쓰는 경로 존재. 일반 온습도 상하한에는 센서 고장에 따른 억제가 충분하지 않음 | 값 0을 정상 측정값으로 소비하지 않도록 품질을 함께 사용. 센서 고장과 실제 저온 알람 구분 |
+| C01 | `Remote Shutdown.py:17–32`; `SF Control.py:214–231` | 원격 정지 중 Speed Value는 P11만 0. BMS/HMI가 Command를 P11보다 높은 우선순위로 쓰거나 수동 모드이면 Speed Value > 0이 남아 Run Command 1 유지 | **1차(N04)**: Run Command는 `Speed Value > 0` 그리고 정지 상태·비상이 아닐 때만 1. 자동에서 정지 상태면 Speed Value 0 |
+| C02 | `SF Control.py:242` | 일반 속도 출력 5 s 주기 | 정지는 P1/P2 강제출력이 즉시 처리하므로 유지 |
+| C03 | `SF Control.py:168` | PICV 피드백 < 5 % 무한 대기 | **1차(N04)**: Timeout(제안 60 s, K09) 후 팬 정지 진행 |
+| C04 | `PICV Control.py:44–56` | Command 1·SF Status 0이면 밸브 지령 없음 | **1차(N04, K08)**: 0 % 및 PI 초기화 제안 |
+| C05 | `Initialization.py:49–64` | Reset 허용 범위가 주석보다 넓음, 래치 유지 | 결정(K16). 1차 변경 없음 |
+| C06 | `SF Control.py:54–61` | 0~4 외 모드값이면 이전 속도 유지 | **1차(N04)**: 고정속도 전환 |
+| C07 | `Alarm-2.py:84` | RDP ≤ 0을 고장으로 판정 | 결정(K12) |
+| C08 | `SF Control.py:117–138` | RAT/ΔT 모드에서 센서 고장 대응 없음 | **1차(N04)**: RAT 고장(모드 1), RAT·SAT 고장(모드 3) 시 고정속도 |
+| C09 | `Initialization.py:288–361` | 통신 고장 팬을 공통 DP로 추정 | 2차(H02) |
+| C10 | `SF Control.py:160` | SAD 이동 중 이전 속도 유지 | 유지(SAD Not Open 알람 120 s로 감시) |
+| C11 | `SF Control.py:245–246`; `Initialization.py:390` | 1920 rpm 고정, Min/Max 정합성 검사 없음 | 결정 시 반영 |
+| C12 | `Alarm-1.py:352–379` | 유량 진단에 품질 확인 없음 | **1차(N05)**: 유량계 통신 고장 시 유량 기반 판정 억제 |
+| C13 | `Initialization.py` 집계부 | 무효 시 0 기록 | `PV Valid`와 함께 사용 중이므로 유지 |
+| C14 | `Alarm-3.py` 주석 / `DDC.xml` | Alarm-3를 Initialization 앞에 등록하라는 주석과 실제 순서 불일치 | **X01** |
+| C15 | `Initialization.py:380–387`(Local/Remote) | Command 우선순위 P5 해제 후 P11 기록. BMS 쓰기 우선순위에 따라 정지 무효화 가능 | BMS 쓰기 우선순위 확인 |
 
-위 항목은 정적 검토 결과다. 실제 우선순위 배열, 팬 제어 입력 선택, 스캔 타이밍이 없으므로 재현 여부와 영향 범위는 실행 시험으로 확인해야 한다.
+## 11. LDPL 규칙과 주의점 (이전 검토 인용)
 
-## 10. 코드 작성 전에 확정할 결정
-
-| 우선 | 결정 항목 | 권고 방향 | 확정에 필요한 것 |
-| --- | --- | --- | --- |
-| P0 | BMS Point List 원본 | V1.3.R0 확보 후 신규 Point와 주소·R/W 대조 | QTS 참조 목록 |
-| P0 | 실제 장착 구성 | 팬 수, 전동/수동 역류방지, 펌프 방식, ATS/전원모듈, 온도센서와 계측기 확정 | BOM·결선도·부품 매뉴얼 |
-| P0 | 팬 속도 제어권 | BMS 직접 속도 모드와 로컬 PI 모드를 명시적으로 구분 | QTS 운전 의도·기존 BMS 명령 우선순위 |
-| P0 | BMS 통신 고장 정책 | HOLD/MAX 선택 제공. 정지 입력 우선, 무저장 초기 대응·복구 방식 정의 | 통신 규약·장치 운전 정책 |
-| P0 | 원격 on/off 3단자 의미 | 허용접점 3개라면 모두 허용일 때만 운전 가능하게 구성하고 단자만으로 자동 기동하지 않는 안 | NO/NC·유지/펄스·독립 기능 결선 |
-| P0 | 연기 검출 대응 | CONTINUE/SHUTDOWN 선택 제공. 별도 외부 소방 정지와 구분 | 승인 운전 시퀀스·소방 결선 |
-| P0 | 정지·재기동 정책 | 정상/비상/원격/연기 조건별 명령, Proof, Timeout, Reset, RUN 유지 중 재기동을 명시 | 적용할 최신 Start/Stop 계약 |
-| P1 | 개별 팬 고장 후 운전 | 개별 알람을 기본 제공. 전체 정지 임계값은 장치 보호·냉각 연속성 검토 후 결정 | 팬 구성·고장 운전 허용 사양 |
-| P1 | 응축수 고수위 동작 | 자율 펌프 제어 유지 우선. 경보 접점 제공 및 상부 수위 대응을 확정 | 펌프 제조사 회로·운전 절차 |
-| P1 | 제어전원 유지 사양 | 1분/6kW 문구를 시간·부하·유지범위로 명확화 | QTS 질의회신·전원설계 |
-| P1 | 밸브 정전/센서고장 동작 | 정상정지·전원상실·SAT 무효를 별도 정책으로 정의 | 액추에이터 설정·장치 보호 조건 |
-| P1 | 20% 저속 조건 | 승인된 최저속도와 제어 범위를 설정. OFF=0을 별도 정의 | 팬 보증 운전범위·QTS 문구 확인 |
-| P2 | 선택 기능 범위 | ΔT 팬 제어·급기습도·실시간 냉각능력은 필요가 확인될 때 유지/추가 | BMS 목록·제품 공통 기능 범위 |
-
-**기본 범위 제안:** 원격 온도/차압과 BMS 속도 명령의 공통 인터페이스까지 제품이 제공하고, 어떤 구역 센서를 선택할지·인접 호기에 얼마를 보상할지·고장 호기를 어떻게 대체할지는 현장 BMS/PLC가 담당한다. 장치 내부 팬/밸브/필수 센서의 정상 제어와 보호는 FWU가 담당한다.
-
-## 11. 수정 후 검증할 동작
-
-| 시험 | 입력/상황 | 확인할 결과 |
+| 근거 | 규칙 | 적용 |
 | --- | --- | --- |
-| T01 | BMS에서 허용 범위의 팬 속도 쓰기 | 올바른 제어권에서만 반영. 명령·적용값·RPM/AO 일치 |
-| T02 | 실제 62% 운전, 일반 고정 SP 40% 상태에서 BMS 두절, HOLD 선택 | 40%로 떨어지지 않고 마지막 유효 적용속도 62% 유지 |
-| T03 | 같은 조건에서 MAX 선택 | 승인된 최대속도로 전환. 하드웨어 한계 준수 |
-| T04 | BMS 고장 + 원격 정지/비상/연기 정지 | Fallback보다 정지 우선. Run Command/RPM/AO/밸브가 승인 절차대로 일치 |
-| T05 | 전원 투입 직후 BMS 없음, 저장속도 없음 | 초기 대체 정책 적용. 무효값이나 0을 유효 저장값처럼 사용하지 않음 |
-| T06 | Heartbeat 복구, 센서값/속도명령은 미갱신 | 통신만으로 무효 PV/명령을 정상 처리하지 않음 |
-| T07 | 팬 1개 풍량 Proof 해제, 나머지 정상 | 해당 팬 알람 표시. 공통 DP가 높아도 개별 실패 감지 |
-| T08 | 팬 통신 고장, 개별 풍량 정상/비정상 각각 시험 | 통신 알람과 운전 실패를 구분. AO 전환과 Run Command 정상 |
-| T09 | 누수 검출 | 누수 알람·표시·이력 발생. 팬/밸브 정지나 재기동 차단 없음 |
-| T10 | 연기 검출, CONTINUE와 SHUTDOWN 각각 선택 | 두 설정의 동작 차이 확인. 수동/자동·로컬/원격에서도 설정 일관 |
-| T11 | 원격 3단자를 각각 비허용으로 변경 | 확정된 접점 의미에 맞게 허용/정지, 단자별 상태 표시 |
-| T12 | 냉수 입·출구 센서 단선/통신 상실, 유량계 고장 | 품질·고장 표시, 무효값으로 PI/밸브 진단 오동작 없음 |
-| T13 | 필터 스위치·응축수 플로트/펌프 접점 | 오염·고수위·펌프 상태 구분. 제공되지 않는 접점으로 상시 알람 없음 |
-| T14 | 주전원 상실·복귀, 우선전원 선택 변경 | ATS 자동 절체/복귀·양방향 지연·표시등·고객 접점, 제어전원 유지 확인 |
-| T15 | 수동↔자동, 로컬↔원격, PI↔BMS/Fallback 전환 | 이전 우선순위/PI 누적 때문에 출력이 남거나 튀지 않음 |
-| T16 | 잘못된 모드, Min>Max, 범위 밖 속도, RDP=0/음수 | 정의된 대체/설정오류 처리. 이전값 무기한 방치나 정상 차압의 오진 없음 |
-| T17 | 전동 댐퍼/밸브 Proof 미확보, 팬 미정지 | 무한 대기 없이 승인된 Timeout/보호 절차 적용 |
-| T18 | 현장 전용 기능 제외 후 전체 실행 | 남은 `Backup/Failover/Adj/HZT/CZH` 참조가 없어 미등록 Point 오류·잘못된 제어 없음 |
+| §8 | 첫 줄 `engine = ddc_logic()`, 들여쓰기 규칙 | 기존 형식 유지 |
+| §6.2 | `SECTIMER(index, option)`, 0~9 | §8.3 배분 준수 |
+| §6.1 | `WAIT`는 파일 전체를 멈춤 | 사용하지 않음 |
+| §7.3~7.4 | `LOOP2`, `LOOP2_INIT` | Fallback·정지·고정 전환 시 PI 초기화 |
+| §4.2~4.3 | 기본 우선순위 5, 1~16 지정·해제 | P1(비상)/P2(원격·연기 정지)/P5(제어)/P11(유지값) 소유자 유지 |
+| §4.10 | 경보값 8 = 통신 경보 | ATS·유량계 통신 감시도 `READPOINT_ALARM == 8` 패턴 사용 |
 
-이번 검토에서는 원본 8개 파일의 정적 분석과 QTS·LDPL 대조를 수행했다. 실제 DDC 엔진, I/O, BMS 통신, HMI 및 ATS 장치 시험은 수행하지 않았다.
+## 12. 코드 작성 전에 확정할 결정
 
-## 12. 바로 이어서 적용할 수정 순서
+| ID | 우선 | 결정 항목 | 권고(코드 기본값) |
+| --- | --- | --- | --- |
+| K01 | P0 | Failover 자동 정지 | **확정: 현행 유지(L12 철회).** DoO "FWU Failover Criteria" 확인은 계속 필요. 팬 4대 이상 고장 시 남은 팬까지 정지하며 `Failover Alarm`이 BMS에 보이지 않던 점은 X02로 해소 |
+| K02 | P0 | Backup 운전 경로 | **확정: 유지, BMS PLC 연동.** 주소표 추가(X02) |
+| K03 | P0 | 인접 보상 | **확정: 유지.** 주소표 추가(X02) |
+| K04 | P0 | BMS 두절 대응 적용 범위 | 자동 운전 전 모드, Local/Remote 무관 |
+| K05 | P0 | 저장 속도 없을 때 | Speed Max |
+| K06 | P0 | Heartbeat 쓰기 경로 | BMS 주소표 HR 추가 |
+| K07 | P0 | `FWU_FIRE ALARM` 의미·극성 | 환기부 연기검출기로 가정, 기본 CONTINUE |
+| K08 | P1 | Command 1·팬 정지 시 밸브 | 0 % + PI 초기화 |
+| K09 | P1 | PICV 닫힘 대기 Timeout | 60 s 후 팬 정지 진행 |
+| K10 | P1 | Speed Min 기본값 | 20 % 검토(팬 보증 범위 확인) |
+| K11 | P0 | ATS 쓰기 Point의 BMS 노출 | 읽기 전용 전환 권고 |
+| K12 | P2 | RDP ≤ 0 고장 판정 | 센서 범위 확인 후 결정 |
+| K13 | P0 | 2차 입력 14~15점 수용 방법 | I/O 확장 또는 통신 취득 |
+| K14 | P0 | BMS Point List V1.3 | 확보 후 주소표 대조 |
+| K15 | P2 | 주소표 고아 항목 | 승인 후 정리 |
+| K16 | P2 | BMS 통신 고장 래치·복구 | 현행 유지 |
+| K17 | P0 | BMS PLC 연동 사양 | (a) Backup Operation 해제 책임: BMS PLC가 직접 0으로 되돌림, BMS 두절 시 1이 남으면 팬 최대 유지(현행 동작, 냉방 측으로 안전). (b) N01 두절 대응과 Backup이 겹치면 Backup(최대속도)을 우선. (c) 이웃 Adj 값의 갱신 주기·단위·범위(CZT < 0, RDP ≤ 0은 무시됨). (d) Modbus 주소 배정과 쓰기 우선순위 |
 
-1. **대상 확정:** QTS BMS Point List와 실제 결선/BOM을 받아 기존 등록 Point 재사용 여부를 표시한다.
-2. **범위 확정:** §4의 현장 전용 기능 제외 항목과 선택 기능을 결정한다.
-3. **Point 명세 확정:** §6 제안명을 실제 이름·주소·단위·R/W·품질·초기값에 매핑한다.
-4. **기본 제어 정리:** 출력 책임·우선순위·정지 경로를 먼저 정리한 뒤 BMS Fallback·연기 설정을 연결한다.
-5. **알람 추가:** 팬별 풍량, 필터, 누수, 냉수 센서, 조건부 펌프/ATS 관제를 기존 Alarm 파일에 배치한다.
-6. **등록·관제 반영:** DDC.xml 실행목록, Point DB, HMI 표시/알람 이력, BMS 주소표를 함께 수정한다.
-7. **FAT 수행:** §11 시험과 실제 장치 정전/통신 상실 시험으로 검증한다.
+## 13. 수정 후 검증할 동작
+
+| 시험 | 상황 | 확인 결과 |
+| --- | --- | --- |
+| T01 | BMS가 Speed SP 쓰기(고정 모드) | 적용 속도·RPM/AO 일치 |
+| T02 | 62 % 운전, Speed SP 40 %, BMS 두절, HOLD_LAST | 62 % 유지, Fallback Active 1 |
+| T03 | 같은 조건, MAX | Speed Max 적용 |
+| T04 | 전원 투입 직후 BMS 없음 | Speed Max 적용 |
+| T05 | BMS 두절 + 원격 정지/비상/연기 SHUTDOWN | 정지 우선, Run Command 0 |
+| T06 | DDC 이중화 절체 중 BMS 두절 | 절체 후에도 직전 속도 유지 |
+| T07 | Heartbeat를 BMS가 Modbus로 갱신 | Comm Fault 미발생 |
+| T08 | 팬 1대 RPM 미달 | 해당 팬 Run Fail Alarm만 1, 종합 알람 0 |
+| T09 | 화재 입력, CONTINUE / SHUTDOWN | 알람만 / 강제 정지. 해소 후 운전자 재기동 |
+| T10 | 원격 정지 중 수동 모드에서 속도 입력 | Run Command 0 유지 |
+| T11 | 정지 명령 후 PICV 피드백 미복귀 | Timeout 후 팬 정지 |
+| T12 | 모드값 7, RAT 센서 고장(모드 1) | 고정속도 전환 |
+| T13 | 유량계 통신 단절 | Flow Comm Fault 1, PICV 유량 오경보 없음 |
+| T14 | ATS 통신 단절 | ATS Comm Fault 1 |
+| T15 | BMS PLC 연동(주소표 추가 후) | BMS PLC가 Backup Operation 1 → 팬 Speed Max, `SAT SP Active` = SAT SP − 0.5. 0으로 해제 시 복귀. 이 FWU `Failover Alarm` 1이면 Backup 무시 |
+| T15a | 이웃 Adj 값 쓰기, Weight 70 % | CZT 이웃 > SP 일 때 `CZT Comp PV` 상승, Weight 0이면 보상 없음 |
+| T15b | 팬 4대 이상 고장(5 s 지속) | `Failover Alarm` 1, Command 0(현행 동작). BMS에서 `Failover Alarm` 읽힘 |
+| T16 | 전체 실행 | 미등록 Point 참조 오류 없음, 기존 BMS 주소 값 정상 |
+
+## 14. 진행 순서
+
+1. **결정 확정:** §12 K04~K11, K17의 P0/P1 항목 확인. (K01~K03은 확정)
+2. **1차 코드 수정:** 경량화 L01~L04, 추가 N01~N05, 결함 C01·C03·C04·C06·C08·C12. Backup·Failover·인접 보상 코드는 변경하지 않는다.
+3. **설정 반영:** 신규 Point 7개 등록(X04), DDC 실행 순서(X01), BMS 주소표 추가(X02), 알람 속성(X03).
+4. **ATS 쓰기 권한(X06)과 프로토콜(X05)** 결정·반영.
+5. **2차:** I/O 증설 방안 확정 후 H01~H05 구현.
+6. **FAT:** §13 시험.
 
 ---
 
-**수정 범위의 핵심:** 현장의 구역 배치·인접 호기 운전 전략은 덜어내고, QTS가 요구하는 장치 자체 제어·필수 계측·상위 제어 인터페이스를 공통 기능으로 남긴다.
+**수정 범위의 핵심:** Point는 하나도 지우지 않고, 현장 맞춤 기능(Backup, Failover, 인접 보상)은 BMS PLC 연동을 위해 유지하며 주소표만 연결한다. QTS가 요구하는 BMS 두절 대응·팬별 고장·연기 동작 선택은 기존 Point와 최소 신규 Point로 추가하고, 하드웨어가 필요한 항목은 I/O 확정 후 2차로 진행한다.
