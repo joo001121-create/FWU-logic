@@ -7,7 +7,9 @@ engine = ddc_logic()
 #  - SAT sensor failure : PICV 100 %
 #  - Manual : PICV operated by the operator (the operator value is passed
 #    through P11)
-#  - Emergency : PICV 0 % (P1). Fire does not stop the FWU (no Fire interlock)
+#  - Emergency : PICV 0 % (P1). Fire : no interlock here. The FWU keeps running
+#    unless VP_FWU_Smoke Action = 1 (smoke shutdown in Remote Shutdown :
+#    PICV 0 % (P2), kept value (P11) 0)
 #  - Auto value is also written to P11 so that the value is kept when the
 #    operation mode is switched from auto to manual
 #  - Backup operation (VP_FWU_Backup Operation = 1 from the BMS PLC and no Failover

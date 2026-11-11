@@ -1,20 +1,50 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Remote Shutdown
-#  - Remote Shutdown Command = 1 (Local or Remote mode) :
+# FWU-F8-ATS : Remote Shutdown  (rev. 2026-11-11)
+#  - Fire alarm (smoke detector in the return air, FWU_FIRE ALARM DI)
+#    ON for 3 s -> VP_FWU_Fire Alarm = 1 (OFF : reset at once)
+#  - Smoke shutdown (QTS 143, field configurable with VP_FWU_Smoke Action) :
+#      0 = continue running (default, alarm only)
+#      1 = shutdown, same path as the Remote Shutdown below
+#  - Shutdown = Remote Shutdown Command = 1, or Fire Alarm = 1 with
+#    Smoke Action = 1 (Local or Remote mode) :
 #      Command / Command-HMI = 0 (P11)
 #      PICV 0 %, SF analog speed 0, SF-1~8 Target RPM 0 (P2)
+#      SF-1~8 Run Command 0 (P2)
 #      SAD-1~4 close (P2) after the SF has stopped
 #      PICV, SF Speed Value, SAD command : kept value (P11) 0 as well, so
-#      that nothing restarts in manual mode when Remote Shutdown is released
-#  - Remote Shutdown Command = 0 : release P2
+#      that nothing restarts in manual mode when the shutdown is released
+#  - No shutdown : release P2
 #    (Command stays 0, the operator restarts the FWU)
+#  - rev. 2026-11-11 (QTS) : fire alarm point and smoke shutdown option added,
+#      SF-1~8 Run Command 0 (P2) during the shutdown (a fan Run Command no
+#      longer stays 1 when the Command is written at a higher priority)
 #
-# Timers (SECTIMER) : none
+# Timers (SECTIMER)
+#  0 : Fire alarm confirmation (3 s)
 # =====================================================================
 
+# =====================================================================
+# Fire alarm (smoke detector) : 3 s confirmation
+# =====================================================================
+if engine.READPOINT("FWU_FIRE ALARM") == 1 :
+	if engine.SECTIMER(0, 1) > 3 :
+		engine.WRITEPOINT("VP_FWU_Fire Alarm", 1)
+else :
+	engine.SECTIMER(0, 0)
+	engine.WRITEPOINT("VP_FWU_Fire Alarm", 0)
+
+# =====================================================================
+# Shutdown : Remote Shutdown Command, or smoke shutdown (Smoke Action = 1)
+# =====================================================================
+SHUTDOWN = 0
 if engine.READPOINT("VP_FWU_Remote Shutdown Command") == 1 :
+	SHUTDOWN = 1
+if engine.READPOINT("VP_FWU_Fire Alarm") == 1 and engine.READPOINT("VP_FWU_Smoke Action") == 1 :
+	SHUTDOWN = 1
+
+if SHUTDOWN == 1 :
 	engine.WRITEPOINT_PRI("VP_FWU_Command", 0, 11)
 	engine.WRITEPOINT_PRI("VP_FWU_Command-HMI", 0, 11)
 	engine.WRITEPOINT_PRI("FWU_PICV CONTROL", 0, 2)
@@ -30,12 +60,20 @@ if engine.READPOINT("VP_FWU_Remote Shutdown Command") == 1 :
 	engine.WRITEPOINT_PRI("FWU SF-6.Target RPM Set", 0, 2)
 	engine.WRITEPOINT_PRI("FWU SF-7.Target RPM Set", 0, 2)
 	engine.WRITEPOINT_PRI("FWU SF-8.Target RPM Set", 0, 2)
+	engine.WRITEPOINT_PRI("FWU SF-1.Run Command", 0, 2)
+	engine.WRITEPOINT_PRI("FWU SF-2.Run Command", 0, 2)
+	engine.WRITEPOINT_PRI("FWU SF-3.Run Command", 0, 2)
+	engine.WRITEPOINT_PRI("FWU SF-4.Run Command", 0, 2)
+	engine.WRITEPOINT_PRI("FWU SF-5.Run Command", 0, 2)
+	engine.WRITEPOINT_PRI("FWU SF-6.Run Command", 0, 2)
+	engine.WRITEPOINT_PRI("FWU SF-7.Run Command", 0, 2)
+	engine.WRITEPOINT_PRI("FWU SF-8.Run Command", 0, 2)
 	# Close SAD-1~4 after the SF has stopped
 	if engine.READPOINT("VP_FWU_SF Status") == 0 :
 		engine.WRITEPOINT_PRI("FWU_SAD-1_4 COMMAND", 0, 2)
 		engine.WRITEPOINT_PRI("FWU_SAD-1_4 COMMAND", 0, 11)
 else :
-	# Release Remote Shutdown priority (P2)
+	# Release the shutdown priority (P2)
 	engine.RELEASE_PRI("FWU_PICV CONTROL", 2)
 	engine.RELEASE_PRI("FWU_SF-1_4 SPEED CONTROL", 2)
 	engine.RELEASE_PRI("FWU_SF-5_8 SPEED CONTROL", 2)
@@ -47,4 +85,12 @@ else :
 	engine.RELEASE_PRI("FWU SF-6.Target RPM Set", 2)
 	engine.RELEASE_PRI("FWU SF-7.Target RPM Set", 2)
 	engine.RELEASE_PRI("FWU SF-8.Target RPM Set", 2)
+	engine.RELEASE_PRI("FWU SF-1.Run Command", 2)
+	engine.RELEASE_PRI("FWU SF-2.Run Command", 2)
+	engine.RELEASE_PRI("FWU SF-3.Run Command", 2)
+	engine.RELEASE_PRI("FWU SF-4.Run Command", 2)
+	engine.RELEASE_PRI("FWU SF-5.Run Command", 2)
+	engine.RELEASE_PRI("FWU SF-6.Run Command", 2)
+	engine.RELEASE_PRI("FWU SF-7.Run Command", 2)
+	engine.RELEASE_PRI("FWU SF-8.Run Command", 2)
 	engine.RELEASE_PRI("FWU_SAD-1_4 COMMAND", 2)
