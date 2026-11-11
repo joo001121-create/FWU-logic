@@ -1,20 +1,15 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Alarm-3 (Comm Fault)  (rev. 2026-11-10)
+# FWU-F8-ATS : Alarm-3 (SF Comm Fault)  (rev. 2026-10-31)
 #  - SF-1~8 comm fault detection (point alarm 8 = comm fail on the fan
 #    Current RPM, 10 s) and the summary VP_FWU_SF Comm Fault (any fan)
-#  - ATS / flow meter comm fault (port 3, point alarm 8 on FWU-ATS.Current
-#    Power / FWU-Flow.Rate, 10 s) : VP_FWU_ATS Comm Fault, VP_FWU_Flow Comm Fault
 #  - Separate logic because Initialization has no free timers for 8 fans
 #    (10 timers per logic). Register "Alarm-3" in DDC.xml BEFORE
 #    "Initialization" (Initialization reads these points in the same scan).
-#  - rev. 2026-11-10 : ATS / flow meter comm fault added (QTS ATS, flow meter)
 #
 # Timers (SECTIMER)
 #  0~7 : SF-1~8 comm fault delay (10 s)
-#  8 : ATS comm fault delay (10 s)
-#  9 : Flow meter comm fault delay (10 s)
 # =====================================================================
 
 # SF-1
@@ -86,19 +81,3 @@ if engine.READPOINT("VP_FWU_SF-1 Comm Fault") == 1 or engine.READPOINT("VP_FWU_S
 	engine.WRITEPOINT("VP_FWU_SF Comm Fault", 1)
 else :
 	engine.WRITEPOINT("VP_FWU_SF Comm Fault", 0)
-
-# ATS comm fault (port 3, slave 01)
-if engine.READPOINT_ALARM("FWU-ATS.Current Power") == 8 :
-	if engine.SECTIMER(8, 1) > 10 :
-		engine.WRITEPOINT("VP_FWU_ATS Comm Fault", 1)
-else :
-	engine.WRITEPOINT("VP_FWU_ATS Comm Fault", 0)
-	engine.SECTIMER(8, 0)
-
-# Flow meter comm fault (port 3, slave 02)
-if engine.READPOINT_ALARM("FWU-Flow.Rate") == 8 :
-	if engine.SECTIMER(9, 1) > 10 :
-		engine.WRITEPOINT("VP_FWU_Flow Comm Fault", 1)
-else :
-	engine.WRITEPOINT("VP_FWU_Flow Comm Fault", 0)
-	engine.SECTIMER(9, 0)

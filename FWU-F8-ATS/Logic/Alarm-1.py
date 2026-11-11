@@ -1,11 +1,11 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Alarm-1  (rev. 2026-11-10)
+# FWU-F8-ATS : Alarm-1  (rev. 2026-10-28)
 #  - Temperature / humidity / pressure limit alarms (RAT, RAH, SAT, SAH, CZT,
 #    HZT, RDP), judged 300 s after SF start
-#  - SF-1~8 Run Fail Alarm (per fan, QTS) and SF Failure Alarm (4 or more of
-#    8 fans failed)
+#  - SF Failure Alarm (4 or more of 8 fans failed); no per-fan Run Fail
+#    alarm point is written (same as CRAH)
 #      fan comm normal : Current RPM < VP_FWU_SF Failure RPM Set
 #      fan comm fault  : SAFLOW DP <= 10 Pa
 #  - SAT / SAH / RAT / RAH sensor failure alarms (20 s); CZT / HZT / RDP sensor
@@ -27,9 +27,6 @@ engine = ddc_logic()
 #        (VP_FWU_Chilled Water Supply Condition = 1)
 #  - rev. 2026-10-31 : CZT / HZT / RDP limit alarms added (judged on the Max / Min
 #      of the healthy sensors, hysteresis 0.5 C / 0.5 Pa)
-#  - rev. 2026-11-10 : SF-1~8 Run Fail Alarm written per fan (QTS airflow /
-#      fan failure per fan), failed fan count in one line; PICV flow alarms
-#      not judged while the flow meter is in comm fault (Alarm-3)
 #
 # Timers (SECTIMER)
 #  0 : limit alarm start delay after SF start (300 s)
@@ -155,7 +152,7 @@ if engine.READPOINT("VP_FWU_SF Status") == 0 :
 
 # =====================================================================
 # SF Failure (Command ON, Speed Value >= Speed Min, after 60 s)
-#  - Each fan : VP_FWU_SF-n Run Fail Alarm
+#  - Each fan (internal judgement only) :
 #      fan comm normal : Current RPM < VP_FWU_SF Failure RPM Set
 #      fan comm fault  : SAFLOW DP <= 10 Pa
 #  - SF Failure Alarm : 4 or more of SF-1~8 failed (50 % capacity)
@@ -166,87 +163,73 @@ if engine.READPOINT("VP_FWU_Command") == 1 and engine.READPOINT("VP_FWU_SF Speed
 		SF_DP_LOW = engine.READPOINT("FWU_SAFLOW DP") <= 10
 
 		# SF-1
-		SF1_FAIL = 0
 		if engine.READPOINT("VP_FWU_SF-1 Comm Fault") == 0 :
-			if engine.READPOINT("FWU SF-1.Current RPM") < FAIL_RPM :
-				SF1_FAIL = 1
+			SF1_FAIL = engine.READPOINT("FWU SF-1.Current RPM") < FAIL_RPM
 		else :
-			if SF_DP_LOW :
-				SF1_FAIL = 1
-		engine.WRITEPOINT("VP_FWU_SF-1 Run Fail Alarm", SF1_FAIL)
+			SF1_FAIL = SF_DP_LOW
 
 		# SF-2
-		SF2_FAIL = 0
 		if engine.READPOINT("VP_FWU_SF-2 Comm Fault") == 0 :
-			if engine.READPOINT("FWU SF-2.Current RPM") < FAIL_RPM :
-				SF2_FAIL = 1
+			SF2_FAIL = engine.READPOINT("FWU SF-2.Current RPM") < FAIL_RPM
 		else :
-			if SF_DP_LOW :
-				SF2_FAIL = 1
-		engine.WRITEPOINT("VP_FWU_SF-2 Run Fail Alarm", SF2_FAIL)
+			SF2_FAIL = SF_DP_LOW
 
 		# SF-3
-		SF3_FAIL = 0
 		if engine.READPOINT("VP_FWU_SF-3 Comm Fault") == 0 :
-			if engine.READPOINT("FWU SF-3.Current RPM") < FAIL_RPM :
-				SF3_FAIL = 1
+			SF3_FAIL = engine.READPOINT("FWU SF-3.Current RPM") < FAIL_RPM
 		else :
-			if SF_DP_LOW :
-				SF3_FAIL = 1
-		engine.WRITEPOINT("VP_FWU_SF-3 Run Fail Alarm", SF3_FAIL)
+			SF3_FAIL = SF_DP_LOW
 
 		# SF-4
-		SF4_FAIL = 0
 		if engine.READPOINT("VP_FWU_SF-4 Comm Fault") == 0 :
-			if engine.READPOINT("FWU SF-4.Current RPM") < FAIL_RPM :
-				SF4_FAIL = 1
+			SF4_FAIL = engine.READPOINT("FWU SF-4.Current RPM") < FAIL_RPM
 		else :
-			if SF_DP_LOW :
-				SF4_FAIL = 1
-		engine.WRITEPOINT("VP_FWU_SF-4 Run Fail Alarm", SF4_FAIL)
+			SF4_FAIL = SF_DP_LOW
 
 		# SF-5
-		SF5_FAIL = 0
 		if engine.READPOINT("VP_FWU_SF-5 Comm Fault") == 0 :
-			if engine.READPOINT("FWU SF-5.Current RPM") < FAIL_RPM :
-				SF5_FAIL = 1
+			SF5_FAIL = engine.READPOINT("FWU SF-5.Current RPM") < FAIL_RPM
 		else :
-			if SF_DP_LOW :
-				SF5_FAIL = 1
-		engine.WRITEPOINT("VP_FWU_SF-5 Run Fail Alarm", SF5_FAIL)
+			SF5_FAIL = SF_DP_LOW
 
 		# SF-6
-		SF6_FAIL = 0
 		if engine.READPOINT("VP_FWU_SF-6 Comm Fault") == 0 :
-			if engine.READPOINT("FWU SF-6.Current RPM") < FAIL_RPM :
-				SF6_FAIL = 1
+			SF6_FAIL = engine.READPOINT("FWU SF-6.Current RPM") < FAIL_RPM
 		else :
-			if SF_DP_LOW :
-				SF6_FAIL = 1
-		engine.WRITEPOINT("VP_FWU_SF-6 Run Fail Alarm", SF6_FAIL)
+			SF6_FAIL = SF_DP_LOW
 
 		# SF-7
-		SF7_FAIL = 0
 		if engine.READPOINT("VP_FWU_SF-7 Comm Fault") == 0 :
-			if engine.READPOINT("FWU SF-7.Current RPM") < FAIL_RPM :
-				SF7_FAIL = 1
+			SF7_FAIL = engine.READPOINT("FWU SF-7.Current RPM") < FAIL_RPM
 		else :
-			if SF_DP_LOW :
-				SF7_FAIL = 1
-		engine.WRITEPOINT("VP_FWU_SF-7 Run Fail Alarm", SF7_FAIL)
+			SF7_FAIL = SF_DP_LOW
 
 		# SF-8
-		SF8_FAIL = 0
 		if engine.READPOINT("VP_FWU_SF-8 Comm Fault") == 0 :
-			if engine.READPOINT("FWU SF-8.Current RPM") < FAIL_RPM :
-				SF8_FAIL = 1
+			SF8_FAIL = engine.READPOINT("FWU SF-8.Current RPM") < FAIL_RPM
 		else :
-			if SF_DP_LOW :
-				SF8_FAIL = 1
-		engine.WRITEPOINT("VP_FWU_SF-8 Run Fail Alarm", SF8_FAIL)
+			SF8_FAIL = SF_DP_LOW
+
+		# Failed fan count (no per-fan alarm point, same as CRAH)
+		SF_FAIL_CNT = 0
+		if SF1_FAIL :
+			SF_FAIL_CNT = SF_FAIL_CNT + 1
+		if SF2_FAIL :
+			SF_FAIL_CNT = SF_FAIL_CNT + 1
+		if SF3_FAIL :
+			SF_FAIL_CNT = SF_FAIL_CNT + 1
+		if SF4_FAIL :
+			SF_FAIL_CNT = SF_FAIL_CNT + 1
+		if SF5_FAIL :
+			SF_FAIL_CNT = SF_FAIL_CNT + 1
+		if SF6_FAIL :
+			SF_FAIL_CNT = SF_FAIL_CNT + 1
+		if SF7_FAIL :
+			SF_FAIL_CNT = SF_FAIL_CNT + 1
+		if SF8_FAIL :
+			SF_FAIL_CNT = SF_FAIL_CNT + 1
 
 		# SF Failure Alarm : 4 or more of 8 fans failed (50 % capacity)
-		SF_FAIL_CNT = SF1_FAIL + SF2_FAIL + SF3_FAIL + SF4_FAIL + SF5_FAIL + SF6_FAIL + SF7_FAIL + SF8_FAIL
 		if SF_FAIL_CNT >= 4 :
 			engine.WRITEPOINT("VP_FWU_SF Failure Alarm", 1)
 		else :
@@ -254,14 +237,6 @@ if engine.READPOINT("VP_FWU_Command") == 1 and engine.READPOINT("VP_FWU_SF Speed
 else :
 	engine.SECTIMER(1, 0)
 	engine.WRITEPOINT("VP_FWU_SF Failure Alarm", 0)
-	engine.WRITEPOINT("VP_FWU_SF-1 Run Fail Alarm", 0)
-	engine.WRITEPOINT("VP_FWU_SF-2 Run Fail Alarm", 0)
-	engine.WRITEPOINT("VP_FWU_SF-3 Run Fail Alarm", 0)
-	engine.WRITEPOINT("VP_FWU_SF-4 Run Fail Alarm", 0)
-	engine.WRITEPOINT("VP_FWU_SF-5 Run Fail Alarm", 0)
-	engine.WRITEPOINT("VP_FWU_SF-6 Run Fail Alarm", 0)
-	engine.WRITEPOINT("VP_FWU_SF-7 Run Fail Alarm", 0)
-	engine.WRITEPOINT("VP_FWU_SF-8 Run Fail Alarm", 0)
 
 # =====================================================================
 # Sensor failure (20 s)
@@ -382,19 +357,16 @@ else :
 #        to avoid alarms on every FWU when the chilled water plant stops
 #      feedback < 1 % and flow > 10 LPM : alarm (closed but flow, passing)
 #      otherwise : alarm reset (no delay)
-#      flow meter comm fault (VP_FWU_Flow Comm Fault, Alarm-3) : the flow value
-#        is not valid, the two flow alarms above are not judged
 #  - Command out of feedback +/- 30 % for 40 s : alarm (actuator fault)
 # =====================================================================
-FLOW_OK = engine.READPOINT("VP_FWU_Flow Comm Fault") == 0
 if engine.READPOINT("FWU_PICV FEEDBACK") - 30 < engine.READPOINT("FWU_PICV CONTROL") < engine.READPOINT("FWU_PICV FEEDBACK") + 30 :
 
 	# Open but no flow (chilled water supply normal only)
-	if FLOW_OK and engine.READPOINT("VP_FWU_Chilled Water Supply Condition") == 1 and engine.READPOINT("FWU_PICV FEEDBACK") > 30 and engine.READPOINT("FWU-Flow.Rate") < 30 :
+	if engine.READPOINT("VP_FWU_Chilled Water Supply Condition") == 1 and engine.READPOINT("FWU_PICV FEEDBACK") > 30 and engine.READPOINT("FWU-Flow.Rate") < 30 :
 		engine.WRITEPOINT("VP_FWU_PICV_Alarm", 1)
 	else :
 		# Closed but flow (passing)
-		if FLOW_OK and engine.READPOINT("FWU_PICV FEEDBACK") < 1 and engine.READPOINT("FWU-Flow.Rate") > 10 :
+		if engine.READPOINT("FWU_PICV FEEDBACK") < 1 and engine.READPOINT("FWU-Flow.Rate") > 10 :
 			engine.WRITEPOINT("VP_FWU_PICV_Alarm", 1)
 		else :
 			engine.WRITEPOINT("VP_FWU_PICV_Alarm", 0)

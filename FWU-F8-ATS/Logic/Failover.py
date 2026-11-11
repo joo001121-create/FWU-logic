@@ -17,7 +17,7 @@ engine = ddc_logic()
 #    FWU again.
 #  - Backup operation (a neighbouring FWU failed, Case 1~5) : the BMS PLC sets
 #    VP_FWU_Backup Operation = 1. SF Control (speed = SF Speed Max) and PICV Control
-#    (SAT setpoint - 0.5 C) increase the cooling capacity. It is ignored while this
+#    (SAT setpoint - 1 C) increase the cooling capacity. It is ignored while this
 #    FWU has its own Failover Alarm.
 #  - Failover Reset = 1 : the alarm is released immediately only when no
 #    cause is present, Reset is held 5 s for the HMI read-back and then
