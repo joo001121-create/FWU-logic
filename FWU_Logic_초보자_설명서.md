@@ -562,6 +562,6 @@ flowchart TD
 | 문서 | 내용 |
 | --- | --- |
 | `QTS_FWU_Logic_Revision_Review.md` | QTS 대비 반영 현황, 변경 내역, 남은 작업 |
-| `QTS_신규_관제점_목록.xlsx` | 이번 로직 수정으로 생긴 신규 관제점 7점 (한국어 이름, 의미, 신호 출처) |
+| `QTS_신규_관제점_목록.xlsx` | 신규 관제점 9점: 로직 반영 7점 + 냉수 입·출수 온도 2점(부품 미확정) |
 | `QTS_SW_통신_관제점_반영현황.xlsx` | QTS 소프트웨어·통신·관제점 반영 현황표 |
 | `LDPL Programming Guide-v27.pdf` | DDC 로직 함수 설명서 |
