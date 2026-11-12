@@ -1,13 +1,12 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Initialization  (rev. 2026-10-31)
+# FWU-F8-ATS : Initialization  (rev. 2026-11-12)
 #  - BMS PLC comm status (heartbeat unchanged for 30 s = comm fault, latched;
 #    cleared by the operator with BMS PLC Comm Reset)
 #  - CZT / HZT / RDP Avg, Max, Min of the healthy sensors only (sensor failure
 #    alarms come from Alarm-2); CZH Avg, Max, Min (zone values from the BMS PLC)
 #  - Zone PV selection and PV Valid (CZT / HZT Avg or Max, RDP Avg or Min)
-#  - Adjacent zone compensation PV (CZT / RDP Comp PV)
 #  - Delta T PV (RAT - SAT)
 #  - SF-1~8 comm fault : detected in "Alarm-3"
 #  - SF Status : ON when any of the 8 fans is running, judged per fan
@@ -29,6 +28,9 @@ engine = ddc_logic()
 #      (failure alarms from Alarm-2, used one scan later),
 #      adjacent zone compensation, RDP Select 1 = Min (was Max),
 #      zone PV selection moved here from SF Control / PICV Control
+#  - rev. 2026-11-12 : adjacent zone compensation removed (upper control item;
+#      points kept, not used). CZT / RDP control modes use CZT PV / RDP PV.
+#      Delta T PV is made only here (the copy in SF Control removed)
 #
 # Timers (SECTIMER)
 #  (1~4 : not used, SF-1~8 comm fault delays are in "Alarm-3")
@@ -217,55 +219,13 @@ if engine.READPOINT("VP_FWU_RDP PV Valid") == 1 :
 else :
 	engine.WRITEPOINT("VP_FWU_RDP PV", 0)
 
-# =====================================================================
-# Adjacent zone compensation (control PV of the CZT / RDP control modes)
-#  - The own zone is controlled first. When an adjacent zone is worse than
-#    the setpoint (CZT higher / RDP lower), its deviation from the setpoint
-#    is counted with the weight (Adj Comp Weight, 70 % = 0.7) and the worse
-#    of the own value and the weighted adjacent value is controlled.
-#      CZT : Comp PV = Max(own, SP + w x (adjacent Max - SP))   adjacent Max > SP
-#      RDP : Comp PV = Min(own, SP - w x (SP - adjacent Min))   adjacent Min < SP
-#  - Weight 0 = no compensation. No compensation when the own zone is already
-#    beyond the own margin on the opposite side (CZT < SP - margin,
-#    RDP > SP + margin) to avoid overcooling / overpressure of the own zone.
-#  - Adjacent sensors (CZT-Adj 1~4, RDP-Adj 1~2) are written by the BMS PLC;
-#    an adjacent value that is out of range (CZT < 0, RDP <= 0) is ignored.
-# =====================================================================
-COMP_W = engine.MIN(engine.MAX(engine.READPOINT("VP_FWU_Adj Comp Weight") / 100, 0), 1)
+# Adjacent zone compensation : removed from this logic (rev. 2026-11-12).
+#  To be done by the upper control (BMS / DCIM) when needed. The points stay
+#  defined but are not used here : VP_FWU_CZT Adj-1~4, VP_FWU_RDP Adj-1~2,
+#  VP_FWU_Adj Comp Weight, VP_FWU_CZT / RDP Comp Own Margin,
+#  VP_FWU_CZT / RDP Comp PV. The CZT / RDP control modes use CZT PV / RDP PV.
 
-# CZT
-CZT_OWN = engine.READPOINT("VP_FWU_CZT PV")
-CZT_SP = engine.READPOINT("VP_FWU_CZT SP")
-CZT_COMP = CZT_OWN
-if engine.READPOINT("VP_FWU_CZT PV Valid") == 1 and COMP_W > 0 :
-	CZT_NB = -1000
-	if engine.READPOINT("VP_FWU_CZT Adj-1") >= 0 :
-		CZT_NB = engine.MAX(CZT_NB, engine.READPOINT("VP_FWU_CZT Adj-1"))
-	if engine.READPOINT("VP_FWU_CZT Adj-2") >= 0 :
-		CZT_NB = engine.MAX(CZT_NB, engine.READPOINT("VP_FWU_CZT Adj-2"))
-	if engine.READPOINT("VP_FWU_CZT Adj-3") >= 0 :
-		CZT_NB = engine.MAX(CZT_NB, engine.READPOINT("VP_FWU_CZT Adj-3"))
-	if engine.READPOINT("VP_FWU_CZT Adj-4") >= 0 :
-		CZT_NB = engine.MAX(CZT_NB, engine.READPOINT("VP_FWU_CZT Adj-4"))
-	if CZT_NB > CZT_SP and CZT_OWN >= CZT_SP - engine.READPOINT("VP_FWU_CZT Comp Own Margin") :
-		CZT_COMP = engine.MAX(CZT_OWN, CZT_SP + COMP_W * (CZT_NB - CZT_SP))
-engine.WRITEPOINT("VP_FWU_CZT Comp PV", CZT_COMP)
-
-# RDP
-RDP_OWN = engine.READPOINT("VP_FWU_RDP PV")
-RDP_SP = engine.READPOINT("VP_FWU_RDP SP")
-RDP_COMP = RDP_OWN
-if engine.READPOINT("VP_FWU_RDP PV Valid") == 1 and COMP_W > 0 :
-	RDP_NB = 1000
-	if engine.READPOINT("VP_FWU_RDP Adj-1") > 0 :
-		RDP_NB = engine.MIN(RDP_NB, engine.READPOINT("VP_FWU_RDP Adj-1"))
-	if engine.READPOINT("VP_FWU_RDP Adj-2") > 0 :
-		RDP_NB = engine.MIN(RDP_NB, engine.READPOINT("VP_FWU_RDP Adj-2"))
-	if RDP_NB < RDP_SP and RDP_OWN <= RDP_SP + engine.READPOINT("VP_FWU_RDP Comp Own Margin") :
-		RDP_COMP = engine.MIN(RDP_OWN, RDP_SP - COMP_W * (RDP_SP - RDP_NB))
-engine.WRITEPOINT("VP_FWU_RDP Comp PV", RDP_COMP)
-
-# Delta T PV = RAT - SAT (also calculated in SF Control)
+# Delta T PV = RAT - SAT (used by the SF Control Delta T mode)
 engine.WRITEPOINT("VP_FWU_DeltaT PV", engine.READPOINT("FWU_RAT") - engine.READPOINT("FWU_SAT"))
 
 # =====================================================================

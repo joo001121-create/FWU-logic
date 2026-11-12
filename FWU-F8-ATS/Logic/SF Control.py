@@ -1,8 +1,8 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : SF Control  (rev. 2026-11-11)
-#  - HZT / CZT / RDP PV selection (Avg or Max) and Delta T PV
+# FWU-F8-ATS : SF Control  (rev. 2026-11-12)
+#  - CZT / RDP PV and Delta T PV are made in Initialization (read here)
 #  - Auto : Command = 1 -> SAD-1~4 open; SF control starts when all four
 #           SAD open status are ON. 5 control modes (SF Control Select) :
 #           0 Fixed value, 1 RAT, 2 RDP, 3 Delta T, 4 CZT
@@ -34,9 +34,6 @@ engine = ddc_logic()
 #      speed output switched by the SF comm fault summary (any fan) instead
 #      of "all 4 fans in comm fault", Target RPM limited to SF Max RPM,
 #      interval 10 s -> 5 s
-#  - Backup operation (VP_FWU_Backup Operation = 1 and no Failover Alarm, auto mode,
-#    all SAD open) : SF Speed Value = SF Speed Max whatever the control mode,
-#    loops initialized; back to the control mode when the BMS PLC clears it
 #  - rev. 2026-10-28 (2) : Fire interlock removed, auto values mirrored to P11
 #      (P11 is never released; control writes are P5, so P11 only holds the value)
 #  - rev. 2026-10-31 : RDP / CZT control modes use the adjacent zone compensation
@@ -58,13 +55,19 @@ engine = ddc_logic()
 #      loop moved the speed the wrong way and ran away to Speed Min / Max.
 #      VP_FWU_DeltaT SP default is -2 (VirtualPoint.xml) : with Delta T > 0 the
 #      fan goes to Speed Max. Set the design Delta T before using mode 3.
+#  - rev. 2026-11-12 : adjacent zone compensation removed (upper control item).
+#      RDP / CZT loops use VP_FWU_RDP PV / VP_FWU_CZT PV (was RDP / CZT Comp PV)
+#  - rev. 2026-11-12 (2) : backup operation removed (upper control item : the
+#      upper control can use SF Control Select / Speed SP / PICV SAT SP;
+#      VP_FWU_Backup Operation stays defined, not used here). Unused HZT gain
+#      reads and the duplicate Delta T PV calculation (made in Initialization,
+#      which runs before this logic) removed
 #
 # Timers (SECTIMER)
 #  1 : Speed output interval (5 s)
 # =====================================================================
 
-# HZT / CZT / RDP PV selection and the adjacent zone compensation PV
-# (CZT Comp PV, RDP Comp PV) are made in Initialization
+# HZT / CZT / RDP PV selection is made in Initialization
 
 # Fixed value control : SF Control Select 0, or the control PV is not available
 #  (CZT / RDP : all sensors failed) -> Speed SP
@@ -93,12 +96,9 @@ if engine.READPOINT("VP_FWU_BMS PLC Comm Fault") == 1 :
 if BMS_FAIL == 1 :
 	FIXED = 0
 
-# Delta T PV = RAT - SAT
-engine.WRITEPOINT("VP_FWU_DeltaT PV", engine.READPOINT("FWU_RAT") - engine.READPOINT("FWU_SAT"))
+# Delta T PV (RAT - SAT) is made in Initialization
 
-# SF PI gains (HZT gains are read but no HZT control mode exists)
-SA_HZT_P = engine.READPOINT("VP_FWU_SF HZT PGain")
-SA_HZT_I = engine.READPOINT("VP_FWU_SF HZT IGain")
+# SF PI gains
 SA_RDP_P = engine.READPOINT("VP_FWU_SF RDP PGain")
 SA_RDP_I = engine.READPOINT("VP_FWU_SF RDP IGain")
 RAT_P = engine.READPOINT("VP_FWU_SF RAT PGain")
@@ -107,12 +107,6 @@ DeltaT_P = engine.READPOINT("VP_FWU_SF DeltaT PGain")
 DeltaT_I = engine.READPOINT("VP_FWU_SF DeltaT IGain")
 SA_CZT_P = engine.READPOINT("VP_FWU_SF CZT PGain")
 SA_CZT_I = engine.READPOINT("VP_FWU_SF CZT IGain")
-
-# Backup operation : neighbouring FWU failed (BMS PLC) and this FWU is normal
-if engine.READPOINT("VP_FWU_Backup Operation") == 1 and engine.READPOINT("VP_FWU_Failover Alarm") == 0 :
-	BACKUP = 1
-else :
-	BACKUP = 0
 
 # SF control
 if engine.READPOINT("FWU_EMERGENCY") == 0 :
@@ -154,9 +148,9 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
 					engine.LOOP2_INIT(3)
 					engine.LOOP2_INIT(4)
 				# 2 : RDP PI control (loop 2) - RDP > RDP SP -> speed down
-				#     PV = RDP Comp PV (own RDP, adjacent compensation included)
+				#     PV = RDP PV (own zone, made in Initialization)
 				if FIXED == 0 and BMS_FAIL == 0 and 2 <= SF_SEL < 3 :
-					engine.LOOP2(0,"VP_FWU_RDP Comp PV","VP_FWU_SF Speed Value","VP_FWU_RDP SP",SA_RDP_P,SA_RDP_I,0,0,60,engine.READPOINT("VP_FWU_SF Speed Min"),engine.READPOINT("VP_FWU_SF Speed Max"),2,0)
+					engine.LOOP2(0,"VP_FWU_RDP PV","VP_FWU_SF Speed Value","VP_FWU_RDP SP",SA_RDP_P,SA_RDP_I,0,0,60,engine.READPOINT("VP_FWU_SF Speed Min"),engine.READPOINT("VP_FWU_SF Speed Max"),2,0)
 					engine.LOOP2_INIT(1)
 					engine.LOOP2_INIT(3)
 					engine.LOOP2_INIT(4)
@@ -169,9 +163,9 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
 					engine.LOOP2_INIT(2)
 					engine.LOOP2_INIT(4)
 				# 4 : CZT PI control (loop 4) - CZT > CZT SP -> speed up
-				#     PV = CZT Comp PV (own CZT, adjacent compensation included)
+				#     PV = CZT PV (own zone, made in Initialization)
 				if FIXED == 0 and BMS_FAIL == 0 and 4 <= SF_SEL < 5 :
-					engine.LOOP2(1,"VP_FWU_CZT Comp PV","VP_FWU_SF Speed Value","VP_FWU_CZT SP",SA_CZT_P,SA_CZT_I,0,0,60,engine.READPOINT("VP_FWU_SF Speed Min"),engine.READPOINT("VP_FWU_SF Speed Max"),4,0)
+					engine.LOOP2(1,"VP_FWU_CZT PV","VP_FWU_SF Speed Value","VP_FWU_CZT SP",SA_CZT_P,SA_CZT_I,0,0,60,engine.READPOINT("VP_FWU_SF Speed Min"),engine.READPOINT("VP_FWU_SF Speed Max"),4,0)
 					engine.LOOP2_INIT(1)
 					engine.LOOP2_INIT(2)
 					engine.LOOP2_INIT(3)
@@ -185,14 +179,6 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
 				if BMS_FAIL == 1 :
 					if engine.READPOINT("VP_FWU_BMS Comm Fail Mode") == 1 or engine.READPOINT("VP_FWU_SF Speed Value") < engine.READPOINT("VP_FWU_SF Speed Min") :
 						engine.WRITEPOINT("VP_FWU_SF Speed Value", engine.READPOINT("VP_FWU_SF Speed Max"))
-					engine.LOOP2_INIT(1)
-					engine.LOOP2_INIT(2)
-					engine.LOOP2_INIT(3)
-					engine.LOOP2_INIT(4)
-
-				# Backup operation : SF speed at the maximum setting (all control modes)
-				if BACKUP == 1 :
-					engine.WRITEPOINT("VP_FWU_SF Speed Value", engine.READPOINT("VP_FWU_SF Speed Max"))
 					engine.LOOP2_INIT(1)
 					engine.LOOP2_INIT(2)
 					engine.LOOP2_INIT(3)

@@ -1,8 +1,9 @@
 # FWU-F8-ATS 로직 초보자 설명서
 
 > 대상: DDC 로직을 처음 보는 사람
-> 기준 코드: `sy` 브랜치 `FWU-F8-ATS/Logic/*.py` 8개 ("logic code 수정 2" 이후)
+> 기준 코드: `sy` 브랜치 `FWU-F8-ATS/Logic/*.py` 8개 (2026-11-12 양산 범위 정리 반영)
 > 줄 번호는 이 기준 코드의 줄 번호입니다. 코드가 바뀌면 번호도 바뀔 수 있습니다.
+> 그룹 제어, 인접 존 보상, Backup 운전은 상위 제어단 기능이라 이 로직에 없습니다 (1.4절).
 
 ---
 
@@ -71,6 +72,18 @@ else :                             # 조건이 안 맞으면
 | 1 | PV가 SP보다 **높으면** 출력을 올림 | 냉수밸브(급기온도), RAT·CZT·ΔT 팬 제어 |
 | 0 | PV가 SP보다 **낮으면** 출력을 올림 | RDP(실 차압) 팬 제어 |
 
+### 1.4 이 로직에 넣는 것과 넣지 않는 것 (양산 범위)
+
+FWU 한 대의 DDC에는 **그 FWU 혼자 판단하고 운전·보호할 수 있는 기능**만 넣습니다. 여러 FWU의 정보를 모아야 판단할 수 있는 기능은 상위 제어단(BMS, DCIM)이 맡습니다.
+
+| 기능 | 왜 상위 제어단인가 | FWU에 남긴 것 |
+| --- | --- | --- |
+| 그룹 제어 | 여러 FWU를 묶어 운전하는지는 상위만 앎 | `VP_FWU_Group Control Mode` 관제점 (로직 미사용) |
+| 인접 존 보상 | 이웃 구역 온도·차압은 상위만 앎 | `VP_FWU_CZT/RDP Adj`, 가중치, 여유, `Comp PV` 관제점 (로직 미사용) |
+| Backup 운전 | 이웃 FWU가 고장 났는지는 상위만 앎 | `VP_FWU_Backup Operation`, `VP_FWU_PICV SAT SP Active` 관제점 (로직 미사용) |
+
+상위 제어단은 FWU가 올려 주는 정보(Failover 알람, 팬 고장, 운전 상태 등)를 읽고, FWU가 원래 받는 명령점(운전명령, 제어모드, Speed SP, 급기온도 SP)을 써서 이 기능들을 구현합니다. 필요한 관제점 목록은 `QTS_신규_관제점_목록.xlsx`의 "4_상위 제어 연동" 시트에 있습니다.
+
 ---
 
 ## 2. 장비 구성
@@ -91,7 +104,7 @@ flowchart LR
     subgraph DDC["DDC (로직 8개)"]
         L["Initialization → PICV → SF → Alarm-1~3 → Remote Shutdown → Failover"]
     end
-    BMS["BMS PLC (존 센서 CZT·HZT·RDP, Heartbeat, Backup 지령)"]
+    BMS["BMS / 상위 제어 (존 센서 CZT·HZT·RDP, Heartbeat, 운전명령·설정값)"]
     HMI["터치스크린 HMI"]
     S1 & S2 & S3 & S4 & S5 -->|"IO 입력"| DDC
     DDC -->|"AO 0-10V / Modbus RPM / Run"| F
@@ -126,7 +139,7 @@ flowchart TD
     D --> E["5. Alarm-2<br/>존 센서 고장, 누수, 필터 알람"]
     E --> F["6. Alarm-3<br/>팬·ATS·유량계 통신 이상"]
     F --> G["7. Remote Shutdown<br/>원격 정지·연기 정지"]
-    G --> H["8. Failover<br/>용량 부족 알람, 인접 FWU 백업 요청"]
+    G --> H["8. Failover<br/>FWU 고장 판정·정지, 상위에 알람"]
     H -->|"다음 스캔"| A
 ```
 
@@ -149,10 +162,7 @@ flowchart TD
     OPEN --> ALLOPEN{"댐퍼 4개 모두 열림?"}
     ALLOPEN -->|"아니오"| HOLD["팬 속도 그대로 (댐퍼 움직이는 중)"]
     ALLOPEN -->|"예"| MODE["팬 제어모드로 속도 결정 (6.2절 그림)"]
-    MODE --> BK{"Backup 운전 지령?"}
-    BK -->|"예"| MAX["팬 최대 속도"]
-    BK -->|"아니오"| KEEP["결정한 속도 사용"]
-    MAX & KEEP --> OUT["5초마다 팬에 출력: 통신 정상이면 Modbus RPM, 이상이면 아날로그 AO"]
+    MODE --> OUT["5초마다 팬에 출력: 통신 정상이면 Modbus RPM, 이상이면 아날로그 AO"]
     OUT --> PICV["팬이 돌면 냉수밸브 PI 제어로 급기온도 유지"]
 ```
 
@@ -168,9 +178,8 @@ flowchart TD
     A -->|"30초 동안 안 바뀜"| A2["BMS PLC 통신 이상 = 1 (래치)"]
     A1 & A2 --> B["Reset 버튼이면 통신 이상 해제"]
     B --> C["CZT·HZT·RDP: 고장 아닌 센서만 모아 평균·최대·최소, PV Valid"]
-    C --> D["PV 선택: 평균 또는 최대(RDP는 최소)"]
-    D --> E["인접 존 보상: Comp PV 계산"]
-    E --> F["ΔT = RAT − SAT"]
+    C --> D["대표값(PV) 선택: 평균 또는 최대 (RDP는 최소)"]
+    D --> F["ΔT = RAT − SAT"]
     F --> G["팬 8대 중 하나라도 돌면 SF Status = 1 (5초 확인)"]
     G --> H["급기 풍량 계산"]
     H --> I["로컬/원격 운전명령 맞추기"]
@@ -180,59 +189,51 @@ flowchart TD
 | 줄 | 코드 (요약) | 해석 |
 | --- | --- | --- |
 | 1 | `engine = ddc_logic()` | 모든 로직 첫 줄. DDC 기능을 쓰는 `engine` 준비 |
-| 49 | `HB = READPOINT("VP_FWU_BMS PLC Heartbeat")` | BMS PLC가 계속 바꿔 주는 하트비트 값을 읽음 |
-| 50 | `if HB != … Heartbeat Prev :` | 지난번 저장한 값과 다르면 = BMS가 살아 있음 |
-| 51 | `WRITEPOINT("… Heartbeat Prev", HB)` | 이번 값을 저장해 다음 스캔에 비교 |
-| 52 | `SECTIMER(6, 0)` | 6번 타이머 리셋 (무변화 시간 다시 셈) |
-| 53 | `HB_OK = 1` | 통신 정상 표시 (이번 스캔 안에서만 쓰는 변수) |
-| 54~55 | `else : if SECTIMER(6, 1) > 30 :` | 값이 안 바뀐 채 30초가 넘으면 |
-| 56~57 | `HB_OK = 0`, `WRITEPOINT("… Comm Fault", 1)` | 통신 이상으로 판정하고 알람 1. 다시 0으로 돌리는 코드가 여기엔 없으므로 **래치**됨 |
-| 58~59 | `else : HB_OK = 1` | 30초가 안 됐으면 아직 정상 |
-| 62 | `if … Comm Reset == 1 :` | 운전자가 Reset 버튼을 누르면 |
-| 63~64 | `if HB_OK == 1 : WRITEPOINT("… Comm Fault", 0)` | 하트비트가 살아 있을 때만 통신 이상 해제 |
-| 65~67 | `if SECTIMER(7, 1) > 5 : WRITEPOINT_PRI("… Comm Reset", 0, 11)` | Reset을 5초 유지(HMI 확인용) 후 0으로 되돌림 |
-| 68~69 | `else : SECTIMER(7, 0)` | Reset이 아니면 7번 타이머 리셋 |
-| 71~74 | `if … Comm Fault == 1 : BMS_OK = 0 else 1` | 통신 이상이면 BMS가 준 존 센서값을 쓰지 않기 위한 표시 |
-| 77~80 | `czt1 = READPOINT("VP_FWU_CZT-1")` … `czt4` | 냉복도 온도센서 4개 값 읽기 (BMS PLC가 써 줌) |
-| 84~87 | `CZT_CNT = 0`, `CZT_SUM = 0`, `CZT_MAXV = -1000`, `CZT_MINV = 1000` | 개수·합계·최대·최소 계산용 시작값 |
-| 88 | `if BMS_OK == 1 and … CZT-1 Failure Alarm == 0 :` | 통신 정상이고 1번 센서가 고장이 아니면 (고장 판정은 Alarm-2) |
-| 89~92 | `CZT_CNT + 1`, `CZT_SUM + czt1`, `MAX`, `MIN` | 1번 센서를 집계에 포함 |
-| 93~107 | (CZT-2~4 같은 모양) | 2~4번 센서도 같은 방법으로 집계 |
-| 108~112 | `if CZT_CNT > 0 :` → Avg, Max, Min, `PV Valid = 1` | 정상 센서가 1개라도 있으면 평균(합계÷개수)·최대·최소를 쓰고 "유효" 표시 |
-| 113~117 | `else :` → 모두 0, `PV Valid = 0` | 정상 센서가 하나도 없으면 0과 "무효" 표시 |
-| 120~148 | (HZT-1~2 같은 모양) | 열복도 온도 2개도 같은 방법 |
-| 151~179 | (RDP-1~2 같은 모양) | 실 차압 2개도 같은 방법 |
-| 182~185 | `czh1 = READPOINT("VP_FWU_CZH-1")` … | 냉복도 습도 4개 읽기 |
-| 186~188 | `CZH Avg / Max / Min` | 습도는 고장 판정 없이 4개 그대로 평균·최대·최소 (표시용) |
-| 196 | `if … CZT PV Valid == 1 :` | CZT 값이 유효하면 |
-| 197~200 | `if CZT Select == 0 : PV = Avg else : PV = Max` | 선택 0이면 평균, 1이면 최대값을 제어값(PV)으로 |
-| 201~202 | `else : CZT PV = 0` | 무효면 0 |
-| 204~210 | (HZT 같은 모양) | HZT도 평균 또는 최대 |
-| 212~218 | (RDP: 0 = Avg, 1 = **Min**) | 차압은 낮은 쪽이 위험하므로 선택 1이면 최소값 |
-| 234 | `COMP_W = MIN(MAX(Adj Comp Weight / 100, 0), 1)` | 인접 존 보상 비율(%)을 0~1 사이 숫자로 (70 % → 0.7) |
-| 237~239 | `CZT_OWN = CZT PV`, `CZT_SP = CZT SP`, `CZT_COMP = CZT_OWN` | 자기 존 값과 목표값. 기본은 보상 없이 자기 값 |
-| 240 | `if CZT PV Valid == 1 and COMP_W > 0 :` | 자기 값이 유효하고 보상을 쓸 때만 |
-| 241 | `CZT_NB = -1000` | 인접 존 최대값 찾기 시작값 |
-| 242~249 | `if CZT Adj-n >= 0 : CZT_NB = MAX(…)` | 인접 존 온도 4개 중 정상 범위(0 이상)인 값의 최대 |
-| 250 | `if CZT_NB > CZT_SP and CZT_OWN >= CZT_SP - Own Margin :` | 인접 존이 목표보다 덥고, 자기 존이 너무 차갑지 않으면 |
-| 251 | `CZT_COMP = MAX(CZT_OWN, CZT_SP + COMP_W × (CZT_NB − CZT_SP))` | 인접 존의 초과분에 가중치를 곱해 더한 값과 자기 값 중 **더 나쁜(높은) 값** |
-| 252 | `WRITEPOINT("VP_FWU_CZT Comp PV", CZT_COMP)` | CZT 제어모드가 실제로 쓰는 값 |
-| 255~266 | (RDP 같은 모양, 방향 반대) | 차압은 인접 존이 목표보다 **낮으면** 보상, **더 낮은 값** 사용 |
-| 269 | `DeltaT PV = FWU_RAT - FWU_SAT` | 환기온도 − 급기온도 = 공기 온도차(ΔT) |
-| 274~281 | `SF1_CF = READPOINT("VP_FWU_SF-1 Comm Fault")` … | 팬 8대 통신 이상 상태 읽기 (판정은 Alarm-3) |
-| 288~290 | `FAIL_RPM = … Failure RPM Set`, `SAFLOW_DP = …`, `SF_RUN = 0` | 팬 운전 판단 기준 RPM(기본 150), 급기 차압, "운전 중" 표시 시작값 0 |
-| 293~295 | `if SF1_CF == 1 : if SAFLOW_DP > 10 : SF_RUN = 1` | 1번 팬 통신 이상이면 RPM을 못 읽으니 급기 차압이 10 Pa 넘으면 돈다고 봄 |
-| 296~298 | `else : if SF-1 RPM > FAIL_RPM : SF_RUN = 1` | 통신 정상이면 RPM이 기준보다 높으면 돈다고 봄 |
-| 301~354 | (SF-2~8 같은 모양) | 8대 중 하나라도 돌면 `SF_RUN = 1` |
-| 358~361 | `if SF_RUN != SF Status : if SECTIMER(5, 1) > 5 : WRITEPOINT("SF Status", SF_RUN)` | 새 상태가 5초 계속돼야 SF Status를 바꿈 (깜빡임 방지) |
-| 362~363 | `else : SECTIMER(5, 0)` | 상태가 같으면 타이머 리셋 |
-| 369~371 | `if SF Status == 1 and DP >= 5 : saflow = 235.75 × √DP × SAF VA-2` | 팬이 돌고 차압이 5 Pa 이상이면 풍량(CMH) 계산 |
-| 372~373 | `else : SA Flow = 0` | 아니면 0 |
-| 380 | `if REMOTE SELECTION == 1 :` | 현장 선택 스위치가 원격(Remote)이면 |
-| 381 | `RELEASE_PRI("VP_FWU_Command", 5)` | BMS 운전명령을 덮지 않도록 P5 해제 |
-| 382~383 | `Command-HMI = Command` (P5, P11) | BMS 명령을 터치스크린 명령에 복사 (화면 표시 일치) |
-| 384~387 | `else :` 반대로 `Command = Command-HMI` | 로컬이면 터치스크린 명령을 운전명령에 복사 |
-| 390 | `SF Max RPM = MIN(Design RPM × 1.1, 1920)` | 팬 최대 RPM = 설계 RPM의 110 %, 단 1920 rpm을 넘지 않음 |
+| 51 | `HB = READPOINT("VP_FWU_BMS PLC Heartbeat")` | BMS PLC가 계속 바꿔 주는 하트비트 값을 읽음 |
+| 52 | `if HB != … Heartbeat Prev :` | 지난번 저장한 값과 다르면 = BMS가 살아 있음 |
+| 53 | `WRITEPOINT("… Heartbeat Prev", HB)` | 이번 값을 저장해 다음 스캔에 비교 |
+| 54 | `SECTIMER(6, 0)` | 6번 타이머 리셋 (무변화 시간 다시 셈) |
+| 55 | `HB_OK = 1` | 통신 정상 표시 (이번 스캔 안에서만 쓰는 변수) |
+| 56~57 | `else : if SECTIMER(6, 1) > 30 :` | 값이 안 바뀐 채 30초가 넘으면 |
+| 58~59 | `HB_OK = 0`, `WRITEPOINT("… Comm Fault", 1)` | 통신 이상으로 판정하고 알람 1. 다시 0으로 돌리는 코드가 여기엔 없으므로 **래치**됨 |
+| 60~61 | `else : HB_OK = 1` | 30초가 안 됐으면 아직 정상 |
+| 64 | `if … Comm Reset == 1 :` | 운전자가 Reset 버튼을 누르면 |
+| 65~66 | `if HB_OK == 1 : WRITEPOINT("… Comm Fault", 0)` | 하트비트가 살아 있을 때만 통신 이상 해제 |
+| 67~69 | `if SECTIMER(7, 1) > 5 : WRITEPOINT_PRI("… Comm Reset", 0, 11)` | Reset을 5초 유지(HMI 확인용) 후 0으로 되돌림 |
+| 70~71 | `else : SECTIMER(7, 0)` | Reset이 아니면 7번 타이머 리셋 |
+| 73~76 | `if … Comm Fault == 1 : BMS_OK = 0 else 1` | 통신 이상이면 BMS가 준 존 센서값을 쓰지 않기 위한 표시 |
+| 79~82 | `czt1 = READPOINT("VP_FWU_CZT-1")` … `czt4` | 냉복도 온도센서 4개 값 읽기 (BMS PLC가 써 줌) |
+| 86~89 | `CZT_CNT = 0`, `CZT_SUM = 0`, `CZT_MAXV = -1000`, `CZT_MINV = 1000` | 개수·합계·최대·최소 계산용 시작값 |
+| 90 | `if BMS_OK == 1 and … CZT-1 Failure Alarm == 0 :` | 통신 정상이고 1번 센서가 고장이 아니면 (고장 판정은 Alarm-2) |
+| 91~94 | `CZT_CNT + 1`, `CZT_SUM + czt1`, `MAX`, `MIN` | 1번 센서를 집계에 포함 |
+| 95~109 | (CZT-2~4 같은 모양) | 2~4번 센서도 같은 방법으로 집계 |
+| 110~114 | `if CZT_CNT > 0 :` → Avg, Max, Min, `PV Valid = 1` | 정상 센서가 1개라도 있으면 평균(합계÷개수)·최대·최소를 쓰고 "유효" 표시 |
+| 115~119 | `else :` → 모두 0, `PV Valid = 0` | 정상 센서가 하나도 없으면 0과 "무효" 표시 |
+| 122~150 | (HZT-1~2 같은 모양) | 열복도 온도 2개도 같은 방법 (감시·알람용) |
+| 153~181 | (RDP-1~2 같은 모양) | 실 차압 2개도 같은 방법 |
+| 184~187 | `czh1 = READPOINT("VP_FWU_CZH-1")` … | 냉복도 습도 4개 읽기 |
+| 188~190 | `CZH Avg / Max / Min` | 습도는 고장 판정 없이 4개 그대로 평균·최대·최소 (감시용) |
+| 198 | `if … CZT PV Valid == 1 :` | CZT 값이 유효하면 |
+| 199~202 | `if CZT Select == 0 : PV = Avg else : PV = Max` | 선택 0이면 평균, 1이면 최대값을 **대표 온도(CZT PV)**로. SF Control의 CZT 모드가 이 값으로 제어 |
+| 203~204 | `else : CZT PV = 0` | 무효면 0 (SF Control은 이때 고정값 운전) |
+| 206~212 | (HZT 같은 모양) | HZT도 평균 또는 최대 |
+| 214~220 | (RDP: 0 = Avg, 1 = **Min**) | 차압은 낮은 쪽이 위험하므로 선택 1이면 최소값. SF Control의 RDP 모드가 이 값으로 제어 |
+| 222~226 | (주석) | 인접 존 보상은 상위 제어단 기능이라 이 로직에서 뺐다는 메모. 관련 관제점은 남아 있음 |
+| 229 | `DeltaT PV = FWU_RAT - FWU_SAT` | 환기온도 − 급기온도 = 공기 온도차(ΔT). SF Control의 ΔT 모드가 이 값으로 제어 |
+| 234~241 | `SF1_CF = READPOINT("VP_FWU_SF-1 Comm Fault")` … | 팬 8대 통신 이상 상태 읽기 (판정은 Alarm-3) |
+| 248~250 | `FAIL_RPM = … Failure RPM Set`, `SAFLOW_DP = …`, `SF_RUN = 0` | 팬 운전 판단 기준 RPM(기본 150), 급기 차압, "운전 중" 표시 시작값 0 |
+| 253~255 | `if SF1_CF == 1 : if SAFLOW_DP > 10 : SF_RUN = 1` | 1번 팬 통신 이상이면 RPM을 못 읽으니 급기 차압이 10 Pa 넘으면 돈다고 봄 |
+| 256~258 | `else : if SF-1 RPM > FAIL_RPM : SF_RUN = 1` | 통신 정상이면 RPM이 기준보다 높으면 돈다고 봄 |
+| 261~314 | (SF-2~8 같은 모양) | 8대 중 하나라도 돌면 `SF_RUN = 1` |
+| 318~321 | `if SF_RUN != SF Status : if SECTIMER(5, 1) > 5 : WRITEPOINT("SF Status", SF_RUN)` | 새 상태가 5초 계속돼야 SF Status를 바꿈 (깜빡임 방지) |
+| 322~323 | `else : SECTIMER(5, 0)` | 상태가 같으면 타이머 리셋 |
+| 329~331 | `if SF Status == 1 and DP >= 5 : saflow = 235.75 × √DP × SAF VA-2` | 팬이 돌고 차압이 5 Pa 이상이면 풍량(CMH) 계산 |
+| 332~333 | `else : SA Flow = 0` | 아니면 0 |
+| 340 | `if REMOTE SELECTION == 1 :` | 현장 선택 스위치가 원격(Remote)이면 |
+| 341 | `RELEASE_PRI("VP_FWU_Command", 5)` | BMS 운전명령을 덮지 않도록 P5 해제 |
+| 342~343 | `Command-HMI = Command` (P5, P11) | BMS 명령을 터치스크린 명령에 복사 (화면 표시 일치) |
+| 344~347 | `else :` 반대로 `Command = Command-HMI` | 로컬이면 터치스크린 명령을 운전명령에 복사 |
+| 350 | `SF Max RPM = MIN(Design RPM × 1.1, 1920)` | 팬 최대 RPM = 설계 RPM의 110 %, 단 1920 rpm을 넘지 않음 |
 
 ---
 
@@ -244,7 +245,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["제어모드 준비: FIXED, BMS_FAIL, BACKUP 판단"] --> B{"비상정지?"}
+    A["제어모드 준비: FIXED, BMS_FAIL 판단"] --> B{"비상정지?"}
     B -->|"예"| E1["운전명령 0, 속도 0, 팬 출력 0 (P1), 팬 멈추면 댐퍼 닫음 (P1)"]
     B -->|"아니오"| R1["P1 해제"]
     R1 --> M{"자동 모드?"}
@@ -275,12 +276,9 @@ flowchart TD
     F -->|"예 (FIXED)"| FX["속도 = Speed SP (최저~최대로 제한)"]
     F -->|"아니오"| SEL{"모드 번호"}
     SEL -->|"1"| RAT["RAT PI (type 1): 환기온도 높으면 속도 증가"]
-    SEL -->|"2"| RDP["RDP PI (type 0): 실 차압 낮으면 속도 증가"]
+    SEL -->|"2"| RDP["RDP PI (type 0): 실 차압(RDP PV) 낮으면 속도 증가"]
     SEL -->|"3"| DT["ΔT PI (type 1): ΔT 높으면 속도 증가, 낮으면 감소"]
-    SEL -->|"4"| CZT["CZT PI (type 1): 냉복도 온도 높으면 속도 증가"]
-    BMAX & BHOLD & FX & RAT & RDP & DT & CZT --> BK{"Backup 운전 지령<br/>(자기 Failover 아님)?"}
-    BK -->|"예"| MX["속도 = 최대 (항상 우선)"]
-    BK -->|"아니오"| END["결정한 속도"]
+    SEL -->|"4"| CZT["CZT PI (type 1): 냉복도 온도(CZT PV) 높으면 속도 증가"]
 ```
 
 ### 6.3 줄별 해석
@@ -288,57 +286,54 @@ flowchart TD
 | 줄 | 코드 (요약) | 해석 |
 | --- | --- | --- |
 | 1 | `engine = ddc_logic()` | 시작 |
-| 72 | `SF_SEL = READPOINT("VP_FWU_SF Control Select")` | 팬 제어모드 번호 (0 고정값, 1 RAT, 2 RDP, 3 ΔT, 4 CZT) |
-| 73 | `FIXED = 0` | 고정값 제어 여부 시작값 |
-| 74~75 | `if 0 <= SF_SEL < 1 : FIXED = 1` | 모드 0이면 고정값 |
-| 76~77 | `if 2 <= SF_SEL < 3 and RDP PV Valid != 1 : FIXED = 1` | RDP 모드인데 정상 차압센서가 없으면 고정값으로 |
-| 78~79 | `if 4 <= SF_SEL < 5 and CZT PV Valid != 1 : FIXED = 1` | CZT 모드인데 정상 온도센서가 없으면 고정값으로 |
-| 87 | `BMS_FAIL = 0` | BMS 통신 이상 대응 여부 시작값 |
-| 88 | `if BMS PLC Comm Fault == 1 :` | BMS PLC 통신 이상이면 (QTS 129~131) |
-| 89~90 | `if 2 <= SF_SEL < 3 or 4 <= SF_SEL < 5 : BMS_FAIL = 1` | RDP·CZT 모드는 BMS가 주는 존 센서를 쓰므로 대응 대상 |
-| 91~92 | `if 0 <= SF_SEL < 1 and REMOTE SELECTION == 1 : BMS_FAIL = 1` | 원격 모드의 고정값은 BMS가 쓰는 Speed SP라서 대응 대상 (로컬은 터치스크린 값이라 제외) |
-| 93~94 | `if BMS_FAIL == 1 : FIXED = 0` | BMS 이상 대응이 고정값 대신 적용됨 |
-| 97 | `DeltaT PV = RAT - SAT` | ΔT 계산 (Initialization과 같은 값) |
-| 100~109 | `SA_HZT_P = …` … `SA_CZT_I = …` | 모드별 PI 게인 읽기 (HZT 게인은 읽기만 하고 쓰지 않음) |
-| 112~115 | `if Backup Operation == 1 and Failover Alarm == 0 : BACKUP = 1` | BMS가 백업 운전을 지시했고 자기 FWU가 고장이 아니면 백업 |
-| 118 | `if FWU_EMERGENCY == 0 :` | 비상정지가 아니면 (평상시) |
-| 120~130 | `RELEASE_PRI(…, 1)` 11줄 | 비상 때 P1에 넣었던 0을 지움 (팬 AO 2, 팬 RPM 8, 댐퍼 1) |
-| 132 | `if Operation Mode == 1 :` | 자동 모드이면 |
-| 133 | `if VP_FWU_Command == 1 :` | 운전명령 ON이면 |
-| 135 | `WRITEPOINT("FWU_SAD-1_4 COMMAND", 1)` | 댐퍼 4개 열림 명령 |
-| 137 | `if SAD-1~4 OPEN STATUS 모두 1 :` | 4개가 모두 열린 게 확인되면 팬 제어 시작 |
-| 142~145 | `if FIXED == 1 :` → `speed = MIN(MAX(Speed SP, Speed Min), Speed Max)` | 고정값 모드: Speed SP를 최저~최대 사이로 제한해 속도로 씀 |
-| 146~149 | `LOOP2_INIT(1~4)` | PI 루프 4개 모두 초기화 (안 쓰므로) |
-| 151~152 | `if FIXED == 0 and 1 <= SF_SEL < 2 : LOOP2(1, "FWU_RAT", …, 1, 0)` | RAT 모드: 환기온도를 RAT SP로 맞추는 PI. type 1 = 높으면 속도 증가. 시작값 60 %, 출력 범위 최저~최대, 루프 1번 |
-| 153~155 | `LOOP2_INIT(2, 3, 4)` | 다른 루프 초기화 |
-| 158~159 | `if FIXED == 0 and BMS_FAIL == 0 and 2 <= SF_SEL < 3 : LOOP2(0, "VP_FWU_RDP Comp PV", …, 2, 0)` | RDP 모드: 실 차압(보상값)을 RDP SP로. type 0 = 낮으면 속도 증가. 루프 2번 |
-| 166~167 | `if FIXED == 0 and 3 <= SF_SEL < 4 : LOOP2(1, "VP_FWU_DeltaT PV", …, 3, 0)` | ΔT 모드: type 1. ΔT가 SP보다 크면 속도 증가(풍량↑ → ΔT↓), 작으면 감소. 루프 3번 |
-| 173~174 | `if FIXED == 0 and BMS_FAIL == 0 and 4 <= SF_SEL < 5 : LOOP2(1, "VP_FWU_CZT Comp PV", …, 4, 0)` | CZT 모드: 냉복도 온도(보상값)를 CZT SP로. type 1. 루프 4번 |
-| 185 | `if BMS_FAIL == 1 :` | BMS 통신 이상 대응 |
-| 186~187 | `if Comm Fail Mode == 1 or Speed Value < Speed Min : Speed Value = Speed Max` | 설정 1이면 최대. 설정 0이어도 지금 속도가 없으면(최저 미만, 예: 막 기동) 최대. 그 외에는 아무것도 안 써서 **마지막 속도 유지** |
-| 188~191 | `LOOP2_INIT(1~4)` | PI 멈춤 → 초기화 |
-| 194~199 | `if BACKUP == 1 : Speed Value = Speed Max`, `LOOP2_INIT(1~4)` | 백업 운전이면 어떤 모드든 최대 속도. 맨 마지막에 써서 항상 우선 |
-| 203~208 | `if SAD-1~4 CLOSE STATUS 모두 1 :` → `LOOP2_INIT`, `Speed Value = 0` | 운전 중 댐퍼 4개가 모두 닫혀 있으면 바람길이 막힌 것 → 팬 정지 |
-| 211 | `else:` | 운전명령 OFF이면 |
-| 213~216 | `LOOP2_INIT(1~4)` | PI 초기화 |
-| 218~219 | `if PICV FEEDBACK < 5 : Speed Value = 0` | 냉수밸브가 거의 닫힌 뒤에 팬 정지 (결로 방지 순서) |
-| 221~222 | `if SF Status == 0 : SAD COMMAND = 0` | 팬이 멈춘 걸 확인한 뒤 댐퍼 닫음 |
-| 224~225 | `WRITEPOINT_PRI(Speed Value, …, 11)`, `WRITEPOINT_PRI(SAD COMMAND, …, 11)` | 자동 값을 P11에 복사 → 수동으로 바꿔도 그 값에서 시작 |
-| 227~233 | `else:` (수동) → `LOOP2_INIT(1~4)`, `RELEASE_PRI(Speed Value, 5)`, `RELEASE_PRI(SAD COMMAND, 5)` | 수동 모드: 자동 제어 값(P5)을 지워 운전자 값이 적용되게 함 |
-| 234 | `else:` | 비상정지이면 |
-| 236~237 | `Command / Command-HMI = 0 (P11)` | 운전명령 끔 (해제 후 자동 재기동 방지) |
-| 238~243 | `LOOP2_INIT(1~4)`, `Speed Value = 0` (P5, P11) | PI 초기화, 속도 0 |
-| 245~248 | `if SF Status == 0 : SAD COMMAND = 0 (P5, P11, P1)` | 팬이 멈춘 뒤 댐퍼 닫음 (P1로 강제) |
-| 250~259 | `WRITEPOINT_PRI(…SPEED CONTROL / Target RPM Set, 0, 1)` 10줄 | 팬 아날로그 출력 2개, 팬 RPM 8개를 P1로 0 강제 |
-| 264~272 | `if Speed Value > 0 : SF-1~8 Run Command = 1` | 속도가 있으면 팬 8대 운전 지령 ON |
-| 273~281 | `else : Run Command = 0` | 속도가 0이면 OFF (원격·연기 정지 중에는 Remote Shutdown이 P2로 0 강제) |
-| 292 | `if SECTIMER(1, 1) > 5 :` | 5초마다 한 번 팬에 속도를 보냄 (통신량 줄이기) |
-| 293~294 | `SF_SPEED = Speed Value`, `SF_MAXRPM = SF Max RPM` | 현재 속도(%)와 최대 RPM |
-| 295 | `sfrpmset = MIN(SF_SPEED × SF_MAXRPM / 100, SF_MAXRPM)` | Modbus로 보낼 목표 RPM (% → rpm) |
-| 296 | `sfaoset = SF_SPEED × SF_MAXRPM / 1920` | 아날로그 출력값 (1920 rpm 기준 0~100 %) |
-| 298~309 | `if SF Comm Fault == 1 :` → AO = sfaoset, Target RPM = 0 | 팬 하나라도 통신 이상이면 아날로그 출력으로 운전 |
-| 310~321 | `else :` → AO = 0, Target RPM = sfrpmset | 통신 정상이면 Modbus 목표 RPM으로 운전 |
-| 323 | `SECTIMER(1, 0)` | 5초 타이머 다시 시작 |
+| 75 | `SF_SEL = READPOINT("VP_FWU_SF Control Select")` | 팬 제어모드 번호 (0 고정값, 1 RAT, 2 RDP, 3 ΔT, 4 CZT) |
+| 76 | `FIXED = 0` | 고정값 제어 여부 시작값 |
+| 77~78 | `if 0 <= SF_SEL < 1 : FIXED = 1` | 모드 0이면 고정값 |
+| 79~80 | `if 2 <= SF_SEL < 3 and RDP PV Valid != 1 : FIXED = 1` | RDP 모드인데 정상 차압센서가 없으면 고정값으로 |
+| 81~82 | `if 4 <= SF_SEL < 5 and CZT PV Valid != 1 : FIXED = 1` | CZT 모드인데 정상 온도센서가 없으면 고정값으로 |
+| 90 | `BMS_FAIL = 0` | BMS 통신 이상 대응 여부 시작값 |
+| 91 | `if BMS PLC Comm Fault == 1 :` | BMS PLC 통신 이상이면 (QTS 129~131) |
+| 92~93 | `if 2 <= SF_SEL < 3 or 4 <= SF_SEL < 5 : BMS_FAIL = 1` | RDP·CZT 모드는 BMS가 주는 존 센서를 쓰므로 대응 대상 |
+| 94~95 | `if 0 <= SF_SEL < 1 and REMOTE SELECTION == 1 : BMS_FAIL = 1` | 원격 모드의 고정값은 BMS가 쓰는 Speed SP라서 대응 대상 (로컬은 터치스크린 값이라 제외) |
+| 96~97 | `if BMS_FAIL == 1 : FIXED = 0` | BMS 이상 대응이 고정값 대신 적용됨 |
+| 102~109 | `SA_RDP_P = …` … `SA_CZT_I = …` | 모드별 PI 게인(반응 세기 설정값) 읽기: RDP, RAT, ΔT, CZT |
+| 112 | `if FWU_EMERGENCY == 0 :` | 비상정지가 아니면 (평상시) |
+| 114~124 | `RELEASE_PRI(…, 1)` 11줄 | 비상 때 P1에 넣었던 0을 지움 (팬 AO 2, 팬 RPM 8, 댐퍼 1) |
+| 126 | `if Operation Mode == 1 :` | 자동 모드이면 |
+| 127 | `if VP_FWU_Command == 1 :` | 운전명령 ON이면 |
+| 129 | `WRITEPOINT("FWU_SAD-1_4 COMMAND", 1)` | 댐퍼 4개 열림 명령 |
+| 131 | `if SAD-1~4 OPEN STATUS 모두 1 :` | 4개가 모두 열린 게 확인되면 팬 제어 시작 |
+| 136~139 | `if FIXED == 1 :` → `speed = MIN(MAX(Speed SP, Speed Min), Speed Max)` | 고정값 모드: Speed SP를 최저~최대 사이로 제한해 속도로 씀 |
+| 140~143 | `LOOP2_INIT(1~4)` | PI 루프 4개 모두 초기화 (안 쓰므로) |
+| 145~146 | `if FIXED == 0 and 1 <= SF_SEL < 2 : LOOP2(1, "FWU_RAT", …, 1, 0)` | RAT 모드: 환기온도를 RAT SP로 맞추는 PI. type 1 = 높으면 속도 증가. 시작값 60 %, 출력 범위 최저~최대, 루프 1번 |
+| 147~149 | `LOOP2_INIT(2, 3, 4)` | 다른 루프 초기화 |
+| 152~153 | `if FIXED == 0 and BMS_FAIL == 0 and 2 <= SF_SEL < 3 : LOOP2(0, "VP_FWU_RDP PV", …, 2, 0)` | RDP 모드: 실 차압 대표값(Initialization이 만든 RDP PV)을 RDP SP로. type 0 = 낮으면 속도 증가. 루프 2번 |
+| 160~161 | `if FIXED == 0 and 3 <= SF_SEL < 4 : LOOP2(1, "VP_FWU_DeltaT PV", …, 3, 0)` | ΔT 모드: Initialization이 만든 ΔT로 제어. type 1 = ΔT가 SP보다 크면 속도 증가(풍량↑ → ΔT↓), 작으면 감소. 루프 3번 |
+| 167~168 | `if FIXED == 0 and BMS_FAIL == 0 and 4 <= SF_SEL < 5 : LOOP2(1, "VP_FWU_CZT PV", …, 4, 0)` | CZT 모드: 냉복도 온도 대표값(CZT PV)을 CZT SP로. type 1. 루프 4번 |
+| 179 | `if BMS_FAIL == 1 :` | BMS 통신 이상 대응 |
+| 180~181 | `if Comm Fail Mode == 1 or Speed Value < Speed Min : Speed Value = Speed Max` | 설정 1이면 최대. 설정 0이어도 지금 속도가 없으면(최저 미만, 예: 막 기동) 최대. 그 외에는 아무것도 안 써서 **마지막 속도 유지** |
+| 182~185 | `LOOP2_INIT(1~4)` | PI 멈춤 → 초기화 |
+| 189~194 | `if SAD-1~4 CLOSE STATUS 모두 1 :` → `LOOP2_INIT`, `Speed Value = 0` | 운전 중 댐퍼 4개가 모두 닫혀 있으면 바람길이 막힌 것 → 팬 정지 |
+| 197 | `else:` | 운전명령 OFF이면 |
+| 199~202 | `LOOP2_INIT(1~4)` | PI 초기화 |
+| 204~205 | `if PICV FEEDBACK < 5 : Speed Value = 0` | 냉수밸브가 거의 닫힌 뒤에 팬 정지 (결로 방지 순서) |
+| 207~208 | `if SF Status == 0 : SAD COMMAND = 0` | 팬이 멈춘 걸 확인한 뒤 댐퍼 닫음 |
+| 210~211 | `WRITEPOINT_PRI(Speed Value, …, 11)`, `WRITEPOINT_PRI(SAD COMMAND, …, 11)` | 자동 값을 P11에 복사 → 수동으로 바꿔도 그 값에서 시작 |
+| 213~219 | `else:` (수동) → `LOOP2_INIT(1~4)`, `RELEASE_PRI(Speed Value, 5)`, `RELEASE_PRI(SAD COMMAND, 5)` | 수동 모드: 자동 제어 값(P5)을 지워 운전자 값이 적용되게 함 |
+| 220 | `else:` | 비상정지이면 |
+| 222~223 | `Command / Command-HMI = 0 (P11)` | 운전명령 끔 (해제 후 자동 재기동 방지) |
+| 224~229 | `LOOP2_INIT(1~4)`, `Speed Value = 0` (P5, P11) | PI 초기화, 속도 0 |
+| 231~234 | `if SF Status == 0 : SAD COMMAND = 0 (P5, P11, P1)` | 팬이 멈춘 뒤 댐퍼 닫음 (P1로 강제) |
+| 236~245 | `WRITEPOINT_PRI(…SPEED CONTROL / Target RPM Set, 0, 1)` 10줄 | 팬 아날로그 출력 2개, 팬 RPM 8개를 P1로 0 강제 |
+| 250~258 | `if Speed Value > 0 : SF-1~8 Run Command = 1` | 속도가 있으면 팬 8대 운전 지령 ON |
+| 259~267 | `else : Run Command = 0` | 속도가 0이면 OFF (원격·연기 정지 중에는 Remote Shutdown이 P2로 0 강제) |
+| 278 | `if SECTIMER(1, 1) > 5 :` | 5초마다 한 번 팬에 속도를 보냄 (통신량 줄이기) |
+| 279~280 | `SF_SPEED = Speed Value`, `SF_MAXRPM = SF Max RPM` | 현재 속도(%)와 최대 RPM |
+| 281 | `sfrpmset = MIN(SF_SPEED × SF_MAXRPM / 100, SF_MAXRPM)` | Modbus로 보낼 목표 RPM (% → rpm) |
+| 282 | `sfaoset = SF_SPEED × SF_MAXRPM / 1920` | 아날로그 출력값 (1920 rpm 기준 0~100 %) |
+| 284~295 | `if SF Comm Fault == 1 :` → AO = sfaoset, Target RPM = 0 | 팬 하나라도 통신 이상이면 아날로그 출력으로 운전 |
+| 296~307 | `else :` → AO = 0, Target RPM = sfrpmset | 통신 정상이면 Modbus 목표 RPM으로 운전 |
+| 309 | `SECTIMER(1, 0)` | 5초 타이머 다시 시작 |
 
 ---
 
@@ -348,35 +343,30 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A{"Backup 운전?"} -->|"예"| A1["적용 SP = SAT SP − 0.5 ℃"]
-    A -->|"아니오"| A2["적용 SP = SAT SP"]
-    A1 & A2 --> B{"비상정지?"}
-    B -->|"예"| E["밸브 0 % (P1, P11), PI 초기화"]
+    B{"비상정지?"} -->|"예"| E["밸브 0 % (P1, P11), PI 초기화"]
     B -->|"아니오"| C{"자동 모드?"}
     C -->|"수동"| M["PI 초기화, P5 해제 → 운전자 값"]
     C -->|"자동"| D{"운전명령 1 그리고 팬 운전 중?"}
     D -->|"예"| F{"급기온도 센서 고장?"}
     F -->|"예"| F1["밸브 100 % (냉각 확보)"]
-    F -->|"아니오"| F2["SAT PI 제어 (type 1): 급기온도 높으면 밸브 더 열기"]
+    F -->|"아니오"| F2["SAT PI 제어 (type 1): 급기온도가 PICV SAT SP보다 높으면 밸브 더 열기"]
     D -->|"운전명령 0"| G["PI 초기화, 밸브 0 %"]
     F1 & F2 & G --> H["자동 값 P11에 복사"]
 ```
 
 | 줄 | 코드 (요약) | 해석 |
 | --- | --- | --- |
-| 31~32 | `PICV_P = …PGain`, `PICV_I = …IGain` | PI 게인 |
-| 35~36 | `if Backup Operation == 1 and Failover Alarm == 0 : SAT SP Active = SAT SP - 0.5` | 백업 운전 중에는 급기온도를 0.5 ℃ 더 낮게 → 냉방 더 함 |
-| 37~38 | `else : SAT SP Active = SAT SP` | 평상시 설정값 그대로 |
-| 41 | `if FWU_EMERGENCY == 0 :` | 비상정지가 아니면 |
-| 43 | `RELEASE_PRI("FWU_PICV CONTROL", 1)` | 비상 때 넣은 P1 해제 |
-| 45 | `if Operation Mode == 1:` | 자동 모드 |
-| 46 | `if Command == 1 and SF Status == 1 :` | 운전 중이고 팬이 돌 때만 밸브 제어 (바람 없이 냉수만 흐르지 않게) |
-| 48~49 | `if SAT Failure Alarm == 1 : PICV = 100` | 급기온도 센서 고장이면 밸브 활짝 (과열 방지) |
-| 51~52 | `else : LOOP2(1, "FWU_SAT", "FWU_PICV CONTROL", "… SAT SP Active", P, I, 0, 1, 100, MinSP, 100, 1, 0)` | 급기온도 PI. type 1, 샘플링 1초, 시작 100 %, 범위 MinSP~100 %, 루프 1번 |
-| 53~56 | `if Command == 0 : LOOP2_INIT(1)`, `PICV = 0` | 운전명령 OFF면 PI 초기화 후 밸브 닫음 |
-| 58 | `WRITEPOINT_PRI("FWU_PICV CONTROL", 현재값, 11)` | 자동 값을 P11에 복사 |
-| 60~62 | `else:` (수동) → `LOOP2_INIT(1)`, `RELEASE_PRI(…, 5)` | 수동: 자동 값 지움 → 운전자 값 |
-| 63~68 | `else:` (비상) → `LOOP2_INIT(1)`, `PICV = 0 (P1, P11)` | 비상: 밸브 0 % 강제, P11도 0이라 비상 해제 후 저절로 다시 열리지 않음 |
+| 32~33 | `PICV_P = …PGain`, `PICV_I = …IGain` | PI 게인 |
+| 36 | `if FWU_EMERGENCY == 0 :` | 비상정지가 아니면 |
+| 38 | `RELEASE_PRI("FWU_PICV CONTROL", 1)` | 비상 때 넣은 P1 해제 |
+| 40 | `if Operation Mode == 1:` | 자동 모드 |
+| 41 | `if Command == 1 and SF Status == 1 :` | 운전 중이고 팬이 돌 때만 밸브 제어 (바람 없이 냉수만 흐르지 않게) |
+| 43~44 | `if SAT Failure Alarm == 1 : PICV = 100` | 급기온도 센서 고장이면 밸브 활짝 (과열 방지) |
+| 46~47 | `else : LOOP2(1, "FWU_SAT", "FWU_PICV CONTROL", "VP_FWU_PICV SAT SP", P, I, 0, 1, 100, MinSP, 100, 1, 0)` | 급기온도 PI. 목표는 급기온도 설정값(PICV SAT SP). type 1, 샘플링 1초, 시작 100 %, 범위 MinSP~100 %, 루프 1번 |
+| 48~51 | `if Command == 0 : LOOP2_INIT(1)`, `PICV = 0` | 운전명령 OFF면 PI 초기화 후 밸브 닫음 |
+| 53 | `WRITEPOINT_PRI("FWU_PICV CONTROL", 현재값, 11)` | 자동 값을 P11에 복사 |
+| 55~57 | `else:` (수동) → `LOOP2_INIT(1)`, `RELEASE_PRI(…, 5)` | 수동: 자동 값 지움 → 운전자 값 |
+| 58~63 | `else:` (비상) → `LOOP2_INIT(1)`, `PICV = 0 (P1, P11)` | 비상: 밸브 0 % 강제, P11도 0이라 비상 해제 후 저절로 다시 열리지 않음 |
 
 ---
 
@@ -510,31 +500,29 @@ flowchart TD
 
 ---
 
-## 12. Failover.py — 용량 부족 알람
+## 12. Failover.py — FWU 고장 판정과 정지
 
-**역할 한 줄:** 이 FWU가 냉방을 제대로 못 하는 상황이 5초 계속되면 Failover 알람을 걸고 정지시켜, BMS PLC가 이웃 FWU에 백업 운전을 시키게 합니다.
+**역할 한 줄:** 이 FWU가 냉방을 제대로 못 하는 고장이 5초 계속되면 Failover 알람을 걸고(래치) 한 번 정지시킵니다. 상위 제어단은 이 알람을 읽어 이웃 FWU 보충 운전(Backup) 등을 판단합니다.
 
 ```mermaid
 flowchart TD
-    A["원인 1~3: SAD 미개방 / SAD 전폐 / 팬 4대 이상 고장"] --> T
-    B{"원인 4: 그룹 제어 중 운전명령 0?"} -->|"예, 단 원격정지·비상·연기정지 아님"| T{"원인 5초 계속?"}
-    T -->|"예"| F["Failover Alarm = 1 (래치)<br/>운전명령 0 (P11)"]
+    A["원인 1: 댐퍼 미개방 (120초)<br/>원인 2: 댐퍼 전폐<br/>원인 3: 팬 8대 중 4대 이상 고장"] --> T{"원인 5초 계속?"}
+    T -->|"예"| F["Failover Alarm = 1 (래치)<br/>운전명령 0 (P11) 한 번"]
     R{"Failover Reset = 1?"} -->|"원인 없음"| R1["알람 해제"]
     R --> R2["5초 후 Reset을 0으로 (P11)"]
 ```
 
+**래치:** 원인이 사라져도 알람이 저절로 꺼지지 않고, 운전자가 Reset해야 꺼집니다. 고장이 있었다는 기록이 남고, 고장이 반복될 때 팬이 계속 켜졌다 꺼지는 것을 막습니다. 운전명령 0은 알람이 걸리는 순간 한 번만 쓰므로, 운전자가 확인 후 다시 운전명령을 켜면 재기동할 수 있습니다.
+
 | 줄 | 코드 (요약) | 해석 |
 | --- | --- | --- |
-| 37 | `FAIL_TOTAL = 0` | 고장 원인 여부 시작값 |
-| 40~41 | `if SAD Not Open or SAD Full Close or SF Failure : FAIL_TOTAL = 1` | 원인 1~3 |
-| 45 | `if Group Control Mode == 1 and Command == 0 :` | 그룹 제어 중인데 운전명령이 꺼짐 |
-| 46 | `if Remote Shutdown Command == 0 and FWU_EMERGENCY == 0 :` | 원격 정지·비상정지로 끈 게 아니고 |
-| 47~48 | `if Fire Alarm == 0 or Smoke Action == 0 : FAIL_TOTAL = 1` | 연기 정지로 끈 것도 아니면 → 원인 4 |
-| 53~56 | `if FAIL_TOTAL == 1 : if SECTIMER(1, 1) > 5 and 알람 0 : Failover Alarm = 1, Command = 0 (P11)` | 원인이 5초 계속되면 알람(래치)하고 한 번 정지 |
-| 58~59 | `else : SECTIMER(1, 0)` | 원인이 없으면 타이머 리셋 (알람은 Reset 전까지 유지) |
-| 64~66 | `if Failover Reset == 1 : if FAIL_TOTAL == 0 : Failover Alarm = 0` | 운전자가 Reset하면 원인이 없을 때만 해제 |
-| 69~71 | `if SECTIMER(2, 1) > 5 : Reset = 0 (P11)` | Reset을 5초 유지 후 0으로 되돌림 |
-| 72~73 | `else : SECTIMER(2, 0)` | |
+| 34 | `FAIL_TOTAL = 0` | 고장 원인 여부 시작값 |
+| 37~38 | `if SAD Not Open or SAD Full Close or SF Failure : FAIL_TOTAL = 1` | 원인 1~3 (판정은 Alarm-1) |
+| 43~47 | `if FAIL_TOTAL == 1 : if SECTIMER(1, 1) > 5 and 알람 0 : Failover Alarm = 1, Command = 0 (P11)` | 원인이 5초 계속되면 알람(래치)하고 한 번 정지 |
+| 48~49 | `else : SECTIMER(1, 0)` | 원인이 없으면 타이머 리셋 (알람은 Reset 전까지 유지) |
+| 54~57 | `if Failover Reset == 1 : if FAIL_TOTAL == 0 : Failover Alarm = 0` | 운전자가 Reset하면 원인이 없을 때만 해제 |
+| 59~61 | `if SECTIMER(2, 1) > 5 : Reset = 0 (P11)` | Reset을 5초 유지 후 0으로 되돌림 |
+| 62~63 | `else : SECTIMER(2, 0)` | |
 
 ---
 
@@ -544,16 +532,17 @@ flowchart TD
 | --- | --- | --- | --- | --- |
 | 정상 자동 운전 | 선택 모드 PI | SAT PI | 열림 | - |
 | BMS PLC 통신 이상 (RDP·CZT·원격 고정값) | 마지막 속도 유지 또는 최대 | SAT PI | 열림 | BMS PLC Comm Fault |
-| 백업 운전 지령 | 최대 | SAT SP − 0.5 ℃ | 열림 | - |
 | 급기온도 센서 고장 | 모드대로 | 100 % | 열림 | SAT Failure |
 | 팬 1대 고장 | 나머지 운전 | SAT PI | 열림 | SF-n Run Fail |
-| 팬 4대 이상 고장 | 정지 (Failover) | 0 % | 닫힘 | SF Failure, Failover |
+| 팬 4대 이상 고장 | 정지 (Failover, 운전자 재기동 필요) | 0 % | 닫힘 | SF Failure, Failover |
 | 연기 감지, Smoke Action 0 | 계속 | 계속 | 열림 | Fire Alarm |
 | 연기 감지, Smoke Action 1 | 정지 (P2) | 0 % (P2) | 닫힘 | Fire Alarm |
 | 누수 감지 | 계속 | 계속 | 열림 | Leak Alarm |
 | 원격 정지 | 정지 (P2) | 0 % (P2) | 닫힘 | - |
 | 비상정지 | 정지 (P1) | 0 % (P1) | 닫힘 (P1) | - |
 | 팬 통신 이상 | 아날로그 출력으로 운전 | SAT PI | 열림 | SF Comm Fault |
+
+이웃 FWU 고장 시 보충 운전(Backup)은 이 로직에 없습니다. 상위 제어단이 Failover 알람을 보고, 이웃 FWU의 제어모드·Speed SP·PICV SAT SP를 직접 바꿔 구현합니다(1.4절).
 
 ---
 
