@@ -6,8 +6,9 @@ engine = ddc_logic()
 #  - Auto : Command = 1 -> SAD-1~4 open; SF control starts when all four
 #           SAD open status are ON. 5 control modes (SF Control Select) :
 #           0 Fixed value, 1 RAT, 2 RDP, 3 Delta T, 4 CZT
-#           Loop direction : RAT / CZT = 1 (PV > SP -> speed up),
-#                            RDP / Delta T = 0 (PV > SP -> speed down)
+#           Loop direction (LDPL LOOP2 type) :
+#             RAT / CZT / Delta T = 1 (PV > SP -> speed up, PV < SP -> speed down)
+#             RDP                 = 0 (PV < SP -> speed up, PV > SP -> speed down)
 #           All SAD-1~4 closed while Command = 1 -> SF speed 0
 #           Command = 0 -> SF speed 0 after PICV feedback < 5 %,
 #           SAD-1~4 close after the SF has stopped
@@ -51,6 +52,12 @@ engine = ddc_logic()
 #      (Speed SP). Before, RDP / CZT went to the fixed value (Speed SP).
 #      RAT (1) / Delta T (3) use the FWU sensors and keep controlling.
 #      Backup operation still has priority (written after).
+#  - rev. 2026-11-11 (2) : Delta T loop direction 0 -> 1. Delta T = RAT - SAT
+#      rises when the airflow falls, so Delta T < SP -> speed down (Delta T up),
+#      Delta T > SP -> speed up (Delta T down) = LDPL type 1. With type 0 the
+#      loop moved the speed the wrong way and ran away to Speed Min / Max.
+#      VP_FWU_DeltaT SP default is -2 (VirtualPoint.xml) : with Delta T > 0 the
+#      fan goes to Speed Max. Set the design Delta T before using mode 3.
 #
 # Timers (SECTIMER)
 #  1 : Speed output interval (5 s)
@@ -153,9 +160,11 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
 					engine.LOOP2_INIT(1)
 					engine.LOOP2_INIT(3)
 					engine.LOOP2_INIT(4)
-				# 3 : Delta T PI control (loop 3) - Delta T > Delta T SP -> speed down
+				# 3 : Delta T PI control (loop 3), type 1
+				#     Delta T (RAT - SAT) rises when the airflow falls :
+				#     Delta T < Delta T SP -> speed down, Delta T > Delta T SP -> speed up
 				if FIXED == 0 and 3 <= SF_SEL < 4 :
-					engine.LOOP2(0,"VP_FWU_DeltaT PV","VP_FWU_SF Speed Value","VP_FWU_DeltaT SP",DeltaT_P,DeltaT_I,0,0,60,engine.READPOINT("VP_FWU_SF Speed Min"),engine.READPOINT("VP_FWU_SF Speed Max"),3,0)
+					engine.LOOP2(1,"VP_FWU_DeltaT PV","VP_FWU_SF Speed Value","VP_FWU_DeltaT SP",DeltaT_P,DeltaT_I,0,0,60,engine.READPOINT("VP_FWU_SF Speed Min"),engine.READPOINT("VP_FWU_SF Speed Max"),3,0)
 					engine.LOOP2_INIT(1)
 					engine.LOOP2_INIT(2)
 					engine.LOOP2_INIT(4)
