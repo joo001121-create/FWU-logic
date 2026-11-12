@@ -1,15 +1,22 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Alarm-3 (SF Comm Fault)  (rev. 2026-10-31)
+# FWU-F8-ATS : Alarm-3 (SF Comm Fault)  (rev. 2026-11-11)
 #  - SF-1~8 comm fault detection (point alarm 8 = comm fail on the fan
 #    Current RPM, 10 s) and the summary VP_FWU_SF Comm Fault (any fan)
 #  - Separate logic because Initialization has no free timers for 8 fans
 #    (10 timers per logic). Register "Alarm-3" in DDC.xml BEFORE
 #    "Initialization" (Initialization reads these points in the same scan).
+#  - ATS / flow meter (port 3) comm fault (point alarm 8 = comm fail, 10 s) :
+#      VP_FWU_ATS Comm Fault  : FWU-ATS.Current Power
+#      VP_FWU_Flow Comm Fault : FWU-Flow.Rate (Alarm-1 does not judge the
+#                               flow based PICV checks while it is ON)
+#  - rev. 2026-11-11 (QTS 140 / 148) : ATS / flow meter comm fault added
 #
 # Timers (SECTIMER)
 #  0~7 : SF-1~8 comm fault delay (10 s)
+#  8   : ATS comm fault delay (10 s)
+#  9   : Flow meter comm fault delay (10 s)
 # =====================================================================
 
 # SF-1
@@ -81,3 +88,22 @@ if engine.READPOINT("VP_FWU_SF-1 Comm Fault") == 1 or engine.READPOINT("VP_FWU_S
 	engine.WRITEPOINT("VP_FWU_SF Comm Fault", 1)
 else :
 	engine.WRITEPOINT("VP_FWU_SF Comm Fault", 0)
+
+# =====================================================================
+# ATS / flow meter comm fault (port 3, point alarm 8 = comm fail, 10 s)
+# =====================================================================
+# ATS
+if engine.READPOINT_ALARM("FWU-ATS.Current Power") == 8 :
+	if engine.SECTIMER(8, 1) > 10 :
+		engine.WRITEPOINT("VP_FWU_ATS Comm Fault", 1)
+else :
+	engine.WRITEPOINT("VP_FWU_ATS Comm Fault", 0)
+	engine.SECTIMER(8, 0)
+
+# Flow meter
+if engine.READPOINT_ALARM("FWU-Flow.Rate") == 8 :
+	if engine.SECTIMER(9, 1) > 10 :
+		engine.WRITEPOINT("VP_FWU_Flow Comm Fault", 1)
+else :
+	engine.WRITEPOINT("VP_FWU_Flow Comm Fault", 0)
+	engine.SECTIMER(9, 0)

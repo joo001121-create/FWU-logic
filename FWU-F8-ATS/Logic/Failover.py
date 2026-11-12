@@ -1,7 +1,7 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Failover  (rev. 2026-10-28)
+# FWU-F8-ATS : Failover  (rev. 2026-11-11)
 #  - VP_FWU_Failover Alarm : tells the BMS PLC that this FWU cannot supply its
 #    cooling capacity (the BMS PLC starts the backup operation of the
 #    neighbouring FWUs : fan 100 %, lower cooling set temperature)
@@ -10,7 +10,8 @@ engine = ddc_logic()
 #      2) SAD Full Close Alarm
 #      3) SF Failure Alarm (4 or more of the 8 fans failed = 50 % capacity)
 #      4) Group Control Mode = 1 and Operation Command = Off
-#         (not judged during Remote Shutdown / Emergency, a deliberate stop)
+#         (not judged during Remote Shutdown / Emergency / smoke shutdown,
+#          a deliberate stop)
 #  - A cause lasting 5 s sets the Failover Alarm (latched) and stops the
 #    FWU once : Command / Command-HMI = 0 (P11). PICV closes in PICV Control
 #    (Command 0) and the SF stops in SF Control. The operator can start the
@@ -22,6 +23,8 @@ engine = ddc_logic()
 #  - Failover Reset = 1 : the alarm is released immediately only when no
 #    cause is present, Reset is held 5 s for the HMI read-back and then
 #    returned to 0 (P11)
+#  - rev. 2026-11-11 (QTS) : smoke shutdown (VP_FWU_Fire Alarm = 1 and
+#    VP_FWU_Smoke Action = 1, done in Remote Shutdown) is not a failover cause
 #
 # Timers (SECTIMER)
 #  1 : Failover cause confirmation (5 s)
@@ -38,10 +41,11 @@ if engine.READPOINT("VP_FWU_SAD Not Open Alarm") == 1 or engine.READPOINT("VP_FW
 	FAIL_TOTAL = 1
 
 # 4) Group Control Mode = 1 and Operation Command = Off
-#    (a stop by Remote Shutdown / Emergency is not a failure)
+#    (a stop by Remote Shutdown / Emergency / smoke shutdown is not a failure)
 if engine.READPOINT("VP_FWU_Group Control Mode") == 1 and engine.READPOINT("VP_FWU_Command") == 0 :
 	if engine.READPOINT("VP_FWU_Remote Shutdown Command") == 0 and engine.READPOINT("FWU_EMERGENCY") == 0 :
-		FAIL_TOTAL = 1
+		if engine.READPOINT("VP_FWU_Fire Alarm") == 0 or engine.READPOINT("VP_FWU_Smoke Action") == 0 :
+			FAIL_TOTAL = 1
 
 # ---------------------------------------------------------------------
 # 2. Failover Alarm : cause confirmed for 5 s -> alarm (latched) and stop once

@@ -1,7 +1,7 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : SF Control  (rev. 2026-10-28)
+# FWU-F8-ATS : SF Control  (rev. 2026-11-11)
 #  - HZT / CZT / RDP PV selection (Avg or Max) and Delta T PV
 #  - Auto : Command = 1 -> SAD-1~4 open; SF control starts when all four
 #           SAD open status are ON. 5 control modes (SF Control Select) :
@@ -14,7 +14,11 @@ engine = ddc_logic()
 #  - Manual : SF speed and SAD operated by the operator
 #  - Emergency : Command 0 (P11), SF speed 0 (P1),
 #           SAD-1~4 close (P1) after the SF has stopped
-#           Fire does not stop the FWU (no Fire interlock)
+#           Fire : no interlock here. The FWU keeps running unless
+#           VP_FWU_Smoke Action = 1 (smoke shutdown in Remote Shutdown, P2)
+#  - BMS PLC comm fault (QTS 129~131) : RDP / CZT modes, and the fixed value
+#           mode in Remote, use VP_FWU_BMS Comm Fail Mode
+#           (0 = last known speed held, 1 = SF Speed Max)
 #  - Auto values (SF Speed Value, SAD-1_4 COMMAND) are also written to P11 so
 #    that the values are kept when the operation mode is switched to manual
 #  - SF-1~8 Run Command = 1 while SF Speed Value > 0
@@ -41,6 +45,12 @@ engine = ddc_logic()
 #      Emergency also writes 0 to P11 (no stale value in manual mode)
 #  - rev. 2026-10-31 (2) : Backup speed (SF Speed Max) only while SAD-1~4 are
 #      all open (was applied while the SAD was still moving)
+#  - rev. 2026-11-11 (QTS 129~131) : BMS PLC comm fault fan speed option
+#      (VP_FWU_BMS Comm Fail Mode) for the modes that use values written by the
+#      BMS : RDP (2) / CZT (4) (zone sensors), fixed value (0) in Remote
+#      (Speed SP). Before, RDP / CZT went to the fixed value (Speed SP).
+#      RAT (1) / Delta T (3) use the FWU sensors and keep controlling.
+#      Backup operation still has priority (written after).
 #
 # Timers (SECTIMER)
 #  1 : Speed output interval (5 s)
@@ -50,7 +60,8 @@ engine = ddc_logic()
 # (CZT Comp PV, RDP Comp PV) are made in Initialization
 
 # Fixed value control : SF Control Select 0, or the control PV is not available
-#  (CZT / RDP : all sensors failed or BMS PLC comm fault) -> Speed SP
+#  (CZT / RDP : all sensors failed) -> Speed SP
+#  (BMS PLC comm fault : BMS_FAIL below, not the fixed value)
 SF_SEL = engine.READPOINT("VP_FWU_SF Control Select")
 FIXED = 0
 if 0 <= SF_SEL < 1 :
@@ -59,6 +70,21 @@ if 2 <= SF_SEL < 3 and engine.READPOINT("VP_FWU_RDP PV Valid") != 1 :
 	FIXED = 1
 if 4 <= SF_SEL < 5 and engine.READPOINT("VP_FWU_CZT PV Valid") != 1 :
 	FIXED = 1
+
+# BMS PLC comm fault (QTS 129~131) : BMS_FAIL = 1 for the control modes that
+# use values written by the BMS
+#  - RDP (2) / CZT (4) : zone sensors written by the BMS PLC (Local or Remote)
+#  - Fixed value (0)   : Speed SP written by the BMS (Remote only; in Local
+#                        the Speed SP is set on the touch screen)
+#  BMS_FAIL = 1 takes the place of the fixed value control of RDP / CZT
+BMS_FAIL = 0
+if engine.READPOINT("VP_FWU_BMS PLC Comm Fault") == 1 :
+	if 2 <= SF_SEL < 3 or 4 <= SF_SEL < 5 :
+		BMS_FAIL = 1
+	if 0 <= SF_SEL < 1 and engine.READPOINT("REMOTE SELECTION") == 1 :
+		BMS_FAIL = 1
+if BMS_FAIL == 1 :
+	FIXED = 0
 
 # Delta T PV = RAT - SAT
 engine.WRITEPOINT("VP_FWU_DeltaT PV", engine.READPOINT("FWU_RAT") - engine.READPOINT("FWU_SAT"))
@@ -104,7 +130,8 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
 			if engine.READPOINT("FWU_SAD-1 OPEN STATUS") == 1 and engine.READPOINT("FWU_SAD-2 OPEN STATUS") == 1 and engine.READPOINT("FWU_SAD-3 OPEN STATUS") == 1 and engine.READPOINT("FWU_SAD-4 OPEN STATUS") == 1 :
 				# SF Control Select : 0 Fixed value, 1 RAT, 2 RDP, 3 Delta T, 4 CZT
 				# 0 : Fixed value - Speed SP limited to SF Speed Min ~ Max
-				#     (also used when the RDP / CZT control PV is not available)
+				#     (also used when the RDP / CZT control PV is not available
+				#      because all sensors failed)
 				if FIXED == 1 :
 					speed = engine.MAX(engine.READPOINT("VP_FWU_Speed SP"), engine.READPOINT("VP_FWU_SF Speed Min"))
 					speed = engine.MIN(speed, engine.READPOINT("VP_FWU_SF Speed Max"))
@@ -121,7 +148,7 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
 					engine.LOOP2_INIT(4)
 				# 2 : RDP PI control (loop 2) - RDP > RDP SP -> speed down
 				#     PV = RDP Comp PV (own RDP, adjacent compensation included)
-				if FIXED == 0 and 2 <= SF_SEL < 3 :
+				if FIXED == 0 and BMS_FAIL == 0 and 2 <= SF_SEL < 3 :
 					engine.LOOP2(0,"VP_FWU_RDP Comp PV","VP_FWU_SF Speed Value","VP_FWU_RDP SP",SA_RDP_P,SA_RDP_I,0,0,60,engine.READPOINT("VP_FWU_SF Speed Min"),engine.READPOINT("VP_FWU_SF Speed Max"),2,0)
 					engine.LOOP2_INIT(1)
 					engine.LOOP2_INIT(3)
@@ -134,11 +161,25 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
 					engine.LOOP2_INIT(4)
 				# 4 : CZT PI control (loop 4) - CZT > CZT SP -> speed up
 				#     PV = CZT Comp PV (own CZT, adjacent compensation included)
-				if FIXED == 0 and 4 <= SF_SEL < 5 :
+				if FIXED == 0 and BMS_FAIL == 0 and 4 <= SF_SEL < 5 :
 					engine.LOOP2(1,"VP_FWU_CZT Comp PV","VP_FWU_SF Speed Value","VP_FWU_CZT SP",SA_CZT_P,SA_CZT_I,0,0,60,engine.READPOINT("VP_FWU_SF Speed Min"),engine.READPOINT("VP_FWU_SF Speed Max"),4,0)
 					engine.LOOP2_INIT(1)
 					engine.LOOP2_INIT(2)
 					engine.LOOP2_INIT(3)
+				# BMS PLC comm fault (QTS 129~131) : VP_FWU_BMS Comm Fail Mode
+				#   0 : last known speed held (no write). SF Speed Max when there is
+				#       no last speed (Speed Value below SF Speed Min, e.g. 0 after
+				#       a start or after all SAD were closed)
+				#   1 : SF Speed Max
+				#   SF Speed Value is backupEnable=1, so the held speed is kept
+				#   after a DDC duplex switchover
+				if BMS_FAIL == 1 :
+					if engine.READPOINT("VP_FWU_BMS Comm Fail Mode") == 1 or engine.READPOINT("VP_FWU_SF Speed Value") < engine.READPOINT("VP_FWU_SF Speed Min") :
+						engine.WRITEPOINT("VP_FWU_SF Speed Value", engine.READPOINT("VP_FWU_SF Speed Max"))
+					engine.LOOP2_INIT(1)
+					engine.LOOP2_INIT(2)
+					engine.LOOP2_INIT(3)
+					engine.LOOP2_INIT(4)
 
 				# Backup operation : SF speed at the maximum setting (all control modes)
 				if BACKUP == 1 :
