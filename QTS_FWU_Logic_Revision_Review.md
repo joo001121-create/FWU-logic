@@ -21,7 +21,7 @@
    - BMS Modbus 맵에 `VP_FWU_BMS PLC Heartbeat` 추가 (없으면 30초 후 BMS PLC 통신 이상 래치)
    - 신규 관제점 3개 정의 (`FWU_LEAK DETECT`, `VP_FWU_Leak Alarm`, `VP_FWU_Filter Alarm`) 후 Alarm-2 다운로드
 4. 하드웨어·동작 규칙이 정해지지 않은 항목(냉수 입·출구 온도, 원격 3단자, 팬별 풍량 스위치)은 관제점 목록만 만들고 로직에는 넣지 않았다.
-5. 맵 추가·신규 관제점 77점은 `QTS_BMS맵_추가_관제점_목록.xlsx`에 한국어 이름·의미·신호 출처와 함께 정리했다.
+5. 이번 수정으로 새로 생긴 관제점 7점(그중 XML 정의가 필요한 점 3점)은 `QTS_신규_관제점_목록.xlsx`에 한국어 이름·의미·신호 출처와 함께 정리했다. 원래부터 BMS 맵에 없던 기존 관제점 61점은 같은 파일의 참고 시트에 따로 두었다.
 
 | 구분 | 내용 | 상태 |
 | --- | --- | --- |
@@ -42,7 +42,7 @@
 | `FWU-F8-ATS/ControlPoint/*.xml` | IO / Modbus / VirtualPoint 정의와 기본값 |
 | `FWU-F8-ATS/ProtocolSerivce/Modbus/ModbusServiceInfo.xml` | BMS Modbus 슬레이브 맵 |
 | `QTS_SW_통신_관제점_반영현황.xlsx` | QTS 반영 현황표 (ver2) |
-| `QTS_BMS맵_추가_관제점_목록.xlsx` | 맵 추가·신규 관제점 목록 |
+| `QTS_신규_관제점_목록.xlsx` | 이번 수정으로 생긴 신규 관제점 7점 (참고: 처음 쓰기 시작한 기존점 12점, BMS 맵 미등록 기존점 61점) |
 
 ### 2.1 설정 파일에서 확인한 구성
 
@@ -165,7 +165,7 @@
 | --- | --- | --- | --- |
 | K01 | P0 | Heartbeat 맵 | `VP_FWU_BMS PLC Heartbeat`를 BMS 맵(HR 쓰기)에 추가. 가장 먼저 처리 |
 | K02 | P0 | 신규 Point | `FWU_LEAK DETECT`(DI), `VP_FWU_Leak Alarm`, `VP_FWU_Filter Alarm` 정의 후 Alarm-2 다운로드 |
-| K03 | P0 | BMS 맵 추가 | `QTS_BMS맵_추가_관제점_목록.xlsx` 1번 시트 75점 |
+| K03 | P0 | BMS 맵 추가 | 신규 7점(`QTS_신규_관제점_목록.xlsx` 1번 시트). BMS PLC 연동에 필요한 기존 점은 3번 시트 참고 |
 | K04 | P0 | `READPOINT_ALARM` | LDPL v27에는 `ALARM`만 있으나 기존 코드에서 쓰던 함수라 유지. 현장 DDC에서 동작 확인 |
 | K05 | P1 | Comm Fail Mode 기본값 | 현재 0(유지). 냉각 우선이면 1(최대). Heartbeat 연결 전 시운전 중에는 1 권장 |
 | K06 | P1 | Smoke Action | 1로 바꾸기 전 `FWU_FIRE ALARM` 극성(1 = 연기 감지) 확인 |
