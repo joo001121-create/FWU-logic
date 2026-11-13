@@ -1,11 +1,11 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Alarm-1  (rev. 2026-11-11)
+# FWU-F8-ATS : Alarm-1  (rev. 2026-11-13)
 #  - Temperature / humidity / pressure limit alarms (RAT, RAH, SAT, SAH, CZT,
 #    HZT, RDP), judged 300 s after SF start
 #  - SF-1~8 Run Fail Alarm (per fan, QTS 109) and SF Failure Alarm
-#    (4 or more of 8 fans failed)
+#    (50 % or more of the installed fans failed, VP_FWU_SF Count)
 #      fan comm normal : Current RPM < VP_FWU_SF Failure RPM Set
 #      fan comm fault  : SAFLOW DP <= 10 Pa
 #  - SAT / SAH / RAT / RAH sensor failure alarms (20 s); CZT / HZT / RDP sensor
@@ -35,6 +35,12 @@ engine = ddc_logic()
 #      Flow meter comm fault : the "open but no flow" / "closed but flow"
 #        checks are not judged (frozen flow value); the command / feedback
 #        deviation check is unchanged
+#  - rev. 2026-11-13 : model dependent values moved to setting points
+#      (defaults = the former fixed values) :
+#      SF Failure : 4 -> 50 % of VP_FWU_SF Count (8 -> 4 fans, same result)
+#      fan comm fault judgement DP 10 Pa -> VP_FWU_SF Run DP Set
+#      SAF failure 300 rpm / 1 Pa -> VP_FWU_SAF Fail RPM Set / Fail DP Set
+#      PICV flow 30 / 10 LPM -> VP_FWU_PICV No Flow Set / Leak Flow Set
 #
 # Timers (SECTIMER)
 #  0 : limit alarm start delay after SF start (300 s)
@@ -162,14 +168,15 @@ if engine.READPOINT("VP_FWU_SF Status") == 0 :
 # SF Failure (Command ON, Speed Value >= Speed Min, after 60 s)
 #  - Each fan (internal judgement only) :
 #      fan comm normal : Current RPM < VP_FWU_SF Failure RPM Set
-#      fan comm fault  : SAFLOW DP <= 10 Pa
+#      fan comm fault  : SAFLOW DP <= VP_FWU_SF Run DP Set (default 10 Pa)
 #  - SF-n Run Fail Alarm : per fan judgement result (QTS 109)
-#  - SF Failure Alarm : 4 or more of SF-1~8 failed (50 % capacity)
+#  - SF Failure Alarm : 50 % or more of the installed fans failed
+#      (failed count x 2 >= VP_FWU_SF Count; 8 fans -> 4, 9 -> 5, 5 -> 3)
 # =====================================================================
 if engine.READPOINT("VP_FWU_Command") == 1 and engine.READPOINT("VP_FWU_SF Speed Value") >= engine.READPOINT("VP_FWU_SF Speed Min") :
 	if engine.SECTIMER(1, 1) > 60 :
 		FAIL_RPM = engine.READPOINT("VP_FWU_SF Failure RPM Set")
-		SF_DP_LOW = engine.READPOINT("FWU_SAFLOW DP") <= 10
+		SF_DP_LOW = engine.READPOINT("FWU_SAFLOW DP") <= engine.READPOINT("VP_FWU_SF Run DP Set")
 
 		# SF-1
 		if engine.READPOINT("VP_FWU_SF-1 Comm Fault") == 0 :
@@ -262,8 +269,9 @@ if engine.READPOINT("VP_FWU_Command") == 1 and engine.READPOINT("VP_FWU_SF Speed
 		else :
 			engine.WRITEPOINT("VP_FWU_SF-8 Run Fail Alarm", 0)
 
-		# SF Failure Alarm : 4 or more of 8 fans failed (50 % capacity)
-		if SF_FAIL_CNT >= 4 :
+		# SF Failure Alarm : 50 % or more of the installed fans failed
+		#  (VP_FWU_SF Count, at least 1 so that a wrong 0 does not raise the alarm)
+		if SF_FAIL_CNT * 2 >= engine.MAX(engine.READPOINT("VP_FWU_SF Count"), 1) :
 			engine.WRITEPOINT("VP_FWU_SF Failure Alarm", 1)
 		else :
 			engine.WRITEPOINT("VP_FWU_SF Failure Alarm", 0)
@@ -317,8 +325,9 @@ else :
 	engine.SECTIMER(5, 0)
 	engine.WRITEPOINT("VP_FWU_RAH Failure Alarm", 0)
 
-# SA flow sensor : DP < 1 Pa while any of the 8 fans runs above 300 rpm, 20 s
-if engine.READPOINT("FWU_SAFLOW DP") < 1 and engine.MAX(engine.MAX(engine.READPOINT("FWU SF-1.Current RPM"), engine.READPOINT("FWU SF-2.Current RPM"), engine.READPOINT("FWU SF-3.Current RPM"), engine.READPOINT("FWU SF-4.Current RPM")), engine.MAX(engine.READPOINT("FWU SF-5.Current RPM"), engine.READPOINT("FWU SF-6.Current RPM"), engine.READPOINT("FWU SF-7.Current RPM"), engine.READPOINT("FWU SF-8.Current RPM"))) > 300 :
+# SA flow sensor : DP < VP_FWU_SAF Fail DP Set (1 Pa) while any of the 8 fans runs
+# above VP_FWU_SAF Fail RPM Set (300 rpm), 20 s
+if engine.READPOINT("FWU_SAFLOW DP") < engine.READPOINT("VP_FWU_SAF Fail DP Set") and engine.MAX(engine.MAX(engine.READPOINT("FWU SF-1.Current RPM"), engine.READPOINT("FWU SF-2.Current RPM"), engine.READPOINT("FWU SF-3.Current RPM"), engine.READPOINT("FWU SF-4.Current RPM")), engine.MAX(engine.READPOINT("FWU SF-5.Current RPM"), engine.READPOINT("FWU SF-6.Current RPM"), engine.READPOINT("FWU SF-7.Current RPM"), engine.READPOINT("FWU SF-8.Current RPM"))) > engine.READPOINT("VP_FWU_SAF Fail RPM Set") :
 	if engine.SECTIMER(6, 1) > 20 :
 		engine.WRITEPOINT("VP_FWU_SAF Failure Alarm", 1)
 else :
@@ -392,11 +401,13 @@ else :
 # =====================================================================
 # PICV / flow mismatch alarm
 #  - Command within feedback +/- 30 % (valve follows the command) :
-#      feedback > 30 % and flow < 30 LPM : alarm (open but no flow)
+#      feedback > 30 % and flow < VP_FWU_PICV No Flow Set (30 LPM) : alarm
+#        (open but no flow)
 #        only while chilled water supply is normal
 #        (VP_FWU_Chilled Water Supply Condition = 1, written by the BMS),
 #        to avoid alarms on every FWU when the chilled water plant stops
-#      feedback < 1 % and flow > 10 LPM : alarm (closed but flow, passing)
+#      feedback < 1 % and flow > VP_FWU_PICV Leak Flow Set (10 LPM) : alarm
+#        (closed but flow, passing)
 #      otherwise : alarm reset (no delay)
 #      flow meter comm fault (VP_FWU_Flow Comm Fault = 1) : the two flow
 #        based checks are not judged, alarm reset (frozen flow value)
@@ -409,11 +420,11 @@ if engine.READPOINT("FWU_PICV FEEDBACK") - 30 < engine.READPOINT("FWU_PICV CONTR
 		engine.WRITEPOINT("VP_FWU_PICV_Alarm", 0)
 	else :
 		# Open but no flow (chilled water supply normal only)
-		if engine.READPOINT("VP_FWU_Chilled Water Supply Condition") == 1 and engine.READPOINT("FWU_PICV FEEDBACK") > 30 and engine.READPOINT("FWU-Flow.Rate") < 30 :
+		if engine.READPOINT("VP_FWU_Chilled Water Supply Condition") == 1 and engine.READPOINT("FWU_PICV FEEDBACK") > 30 and engine.READPOINT("FWU-Flow.Rate") < engine.READPOINT("VP_FWU_PICV No Flow Set") :
 			engine.WRITEPOINT("VP_FWU_PICV_Alarm", 1)
 		else :
 			# Closed but flow (passing)
-			if engine.READPOINT("FWU_PICV FEEDBACK") < 1 and engine.READPOINT("FWU-Flow.Rate") > 10 :
+			if engine.READPOINT("FWU_PICV FEEDBACK") < 1 and engine.READPOINT("FWU-Flow.Rate") > engine.READPOINT("VP_FWU_PICV Leak Flow Set") :
 				engine.WRITEPOINT("VP_FWU_PICV_Alarm", 1)
 			else :
 				engine.WRITEPOINT("VP_FWU_PICV_Alarm", 0)

@@ -1,7 +1,7 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : SF Control  (rev. 2026-11-12)
+# FWU-F8-ATS : SF Control  (rev. 2026-11-13)
 #  - CZT / RDP PV and Delta T PV are made in Initialization (read here)
 #  - Auto : Command = 1 -> SAD-1~4 open; SF control starts when all four
 #           SAD open status are ON. 5 control modes (SF Control Select) :
@@ -26,7 +26,7 @@ engine = ddc_logic()
 #  - Speed output every 5 s, switched by the SF comm fault summary
 #    (VP_FWU_SF Comm Fault = any one of SF-1~8 in comm fault) :
 #           comm normal : Modbus Target RPM to SF-1~8, analog AO = 0
-#           comm fault  : analog AO SF-1_4 / SF-5_8 (% of 1920 rpm),
+#           comm fault  : analog AO SF-1_4 / SF-5_8 (% of VP_FWU_SF Rated Max RPM),
 #                         Modbus Target RPM = 0
 #  - rev. 2026-10-28 (CRAH pattern) :
 #      SF stop when all SAD are closed (was done by Alarm with P3 / P11)
@@ -62,6 +62,8 @@ engine = ddc_logic()
 #      VP_FWU_Backup Operation stays defined, not used here). Unused HZT gain
 #      reads and the duplicate Delta T PV calculation (made in Initialization,
 #      which runs before this logic) removed
+#  - rev. 2026-11-13 : analog speed scale 1920 rpm -> VP_FWU_SF Rated Max RPM
+#      (setting point, default 1920)
 #
 # Timers (SECTIMER)
 #  1 : Speed output interval (5 s)
@@ -272,14 +274,14 @@ else :
 #    one of SF-1~8 is in comm fault) :
 #      comm normal : Modbus Target RPM = Speed Value x Max RPM / 100
 #                    (limited to Max RPM), analog AO = 0
-#      comm fault  : analog AO (0-10 V) = Speed Value x Max RPM / 1920
+#      comm fault  : analog AO (0-10 V) = Speed Value x Max RPM / Rated Max RPM
 #                    for both groups (SF-1_4, SF-5_8), Modbus Target RPM = 0
 # =====================================================================
 if engine.SECTIMER(1, 1) > 5 :
 	SF_SPEED = engine.READPOINT("VP_FWU_SF Speed Value")
 	SF_MAXRPM = engine.READPOINT("VP_FWU_SF Max RPM")
 	sfrpmset = engine.MIN(SF_SPEED * SF_MAXRPM / 100, SF_MAXRPM)
-	sfaoset = SF_SPEED * SF_MAXRPM / 1920
+	sfaoset = SF_SPEED * SF_MAXRPM / engine.MAX(engine.READPOINT("VP_FWU_SF Rated Max RPM"), 1)
 
 	if engine.READPOINT("VP_FWU_SF Comm Fault") == 1 :
 		# Comm fault : analog output

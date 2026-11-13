@@ -1,7 +1,7 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Initialization  (rev. 2026-11-12)
+# FWU-F8-ATS : Initialization  (rev. 2026-11-13)
 #  - BMS PLC comm status (heartbeat unchanged for 30 s = comm fault, latched;
 #    cleared by the operator with BMS PLC Comm Reset)
 #  - CZT / HZT / RDP Avg, Max, Min of the healthy sensors only (sensor failure
@@ -11,11 +11,12 @@ engine = ddc_logic()
 #  - SF-1~8 comm fault : detected in "Alarm-3"
 #  - SF Status : ON when any of the 8 fans is running, judged per fan
 #      fan comm normal : Current RPM > VP_FWU_SF Failure RPM Set
-#      fan comm fault  : RPM is not available -> SAFLOW DP > 10 Pa
+#      fan comm fault  : RPM is not available -> SAFLOW DP > VP_FWU_SF Run DP Set
 #      SF Status changes only when the new state lasts 5 s (ON and OFF)
 #  - SA flow calculation (DP < 5 Pa or SF stopped : 0)
 #  - Local / Remote command selection
-#  - SF Max RPM (110 % of design RPM, limited to 1920 rpm)
+#  - SF Max RPM (design RPM x VP_FWU_SF Max RPM Ratio, limited to
+#    VP_FWU_SF Rated Max RPM)
 #  - rev. 2026-10-31 (F8) : 8 fans; SF comm fault detection moved to "Alarm-3"
 #  - rev. 2026-10-28 (CRAH pattern) :
 #      SF comm fault moved here from Alarm (10 s delay, summary = any fan)
@@ -31,6 +32,10 @@ engine = ddc_logic()
 #  - rev. 2026-11-12 : adjacent zone compensation removed (upper control item;
 #      points kept, not used). CZT / RDP control modes use CZT PV / RDP PV.
 #      Delta T PV is made only here (the copy in SF Control removed)
+#  - rev. 2026-11-13 : model dependent values moved to setting points
+#      (defaults = the former fixed values) : fan running DP 10 Pa ->
+#      VP_FWU_SF Run DP Set, SA flow coefficient 235.751976 -> VP_FWU_SA Flow Coef,
+#      SF Max RPM 110 % / 1920 rpm -> VP_FWU_SF Max RPM Ratio / Rated Max RPM
 #
 # Timers (SECTIMER)
 #  (1~4 : not used, SF-1~8 comm fault delays are in "Alarm-3")
@@ -243,15 +248,16 @@ SF8_CF = engine.READPOINT("VP_FWU_SF-8 Comm Fault")
 # =====================================================================
 # SF Status : ON when any fan is running (per fan)
 #  - Fan comm normal : Current RPM > VP_FWU_SF Failure RPM Set
-#  - Fan comm fault  : RPM is not available -> SAFLOW DP > 10 Pa
+#  - Fan comm fault  : RPM is not available -> SAFLOW DP > VP_FWU_SF Run DP Set
 # =====================================================================
 FAIL_RPM = engine.READPOINT("VP_FWU_SF Failure RPM Set")
 SAFLOW_DP = engine.READPOINT("FWU_SAFLOW DP")
+RUN_DP = engine.READPOINT("VP_FWU_SF Run DP Set")
 SF_RUN = 0
 
 # SF-1
 if SF1_CF == 1 :
-	if SAFLOW_DP > 10 :
+	if SAFLOW_DP > RUN_DP :
 		SF_RUN = 1
 else :
 	if engine.READPOINT("FWU SF-1.Current RPM") > FAIL_RPM :
@@ -259,7 +265,7 @@ else :
 
 # SF-2
 if SF2_CF == 1 :
-	if SAFLOW_DP > 10 :
+	if SAFLOW_DP > RUN_DP :
 		SF_RUN = 1
 else :
 	if engine.READPOINT("FWU SF-2.Current RPM") > FAIL_RPM :
@@ -267,7 +273,7 @@ else :
 
 # SF-3
 if SF3_CF == 1 :
-	if SAFLOW_DP > 10 :
+	if SAFLOW_DP > RUN_DP :
 		SF_RUN = 1
 else :
 	if engine.READPOINT("FWU SF-3.Current RPM") > FAIL_RPM :
@@ -275,7 +281,7 @@ else :
 
 # SF-4
 if SF4_CF == 1 :
-	if SAFLOW_DP > 10 :
+	if SAFLOW_DP > RUN_DP :
 		SF_RUN = 1
 else :
 	if engine.READPOINT("FWU SF-4.Current RPM") > FAIL_RPM :
@@ -283,7 +289,7 @@ else :
 
 # SF-5
 if SF5_CF == 1 :
-	if SAFLOW_DP > 10 :
+	if SAFLOW_DP > RUN_DP :
 		SF_RUN = 1
 else :
 	if engine.READPOINT("FWU SF-5.Current RPM") > FAIL_RPM :
@@ -291,7 +297,7 @@ else :
 
 # SF-6
 if SF6_CF == 1 :
-	if SAFLOW_DP > 10 :
+	if SAFLOW_DP > RUN_DP :
 		SF_RUN = 1
 else :
 	if engine.READPOINT("FWU SF-6.Current RPM") > FAIL_RPM :
@@ -299,7 +305,7 @@ else :
 
 # SF-7
 if SF7_CF == 1 :
-	if SAFLOW_DP > 10 :
+	if SAFLOW_DP > RUN_DP :
 		SF_RUN = 1
 else :
 	if engine.READPOINT("FWU SF-7.Current RPM") > FAIL_RPM :
@@ -307,7 +313,7 @@ else :
 
 # SF-8
 if SF8_CF == 1 :
-	if SAFLOW_DP > 10 :
+	if SAFLOW_DP > RUN_DP :
 		SF_RUN = 1
 else :
 	if engine.READPOINT("FWU SF-8.Current RPM") > FAIL_RPM :
@@ -323,11 +329,11 @@ else :
 	engine.SECTIMER(5, 0)
 
 # =====================================================================
-# SA flow (CMH) = 235.751976 x sqrt(SAFLOW DP) x SAF VA-2
+# SA flow (CMH) = VP_FWU_SA Flow Coef (235.751976) x sqrt(SAFLOW DP) x SAF VA-2
 #  - SF stopped or DP < 5 Pa : 0
 # =====================================================================
 if engine.READPOINT("VP_FWU_SF Status") == 1 and engine.READPOINT("FWU_SAFLOW DP") >= 5 :
-	saflow = 235.751976 * engine.READPOINT("FWU_SAFLOW DP") ** 0.5 * engine.READPOINT("VP_FWU_SAF VA-2")
+	saflow = engine.READPOINT("VP_FWU_SA Flow Coef") * engine.READPOINT("FWU_SAFLOW DP") ** 0.5 * engine.READPOINT("VP_FWU_SAF VA-2")
 	engine.WRITEPOINT("VP_FWU_SA Flow", saflow)
 else :
 	engine.WRITEPOINT("VP_FWU_SA Flow", 0)
@@ -346,5 +352,5 @@ else :
 	engine.WRITEPOINT("VP_FWU_Command", engine.READPOINT("VP_FWU_Command-HMI"))
 	engine.WRITEPOINT_PRI("VP_FWU_Command", engine.READPOINT("VP_FWU_Command-HMI"), 11)
 
-# SF Max RPM = Design RPM x 110 %, limited to 1920 rpm
-engine.WRITEPOINT("VP_FWU_SF Max RPM", engine.MIN(engine.READPOINT("VP_FWU_SF Design RPM") * 1.1, 1920))
+# SF Max RPM = Design RPM x Max RPM Ratio (110 %), limited to the fan rated max (1920 rpm)
+engine.WRITEPOINT("VP_FWU_SF Max RPM", engine.MIN(engine.READPOINT("VP_FWU_SF Design RPM") * engine.READPOINT("VP_FWU_SF Max RPM Ratio") / 100, engine.READPOINT("VP_FWU_SF Rated Max RPM")))
