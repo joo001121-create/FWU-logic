@@ -1,14 +1,15 @@
 engine = ddc_logic()
 
 # =====================================================================
-# FWU-F8-ATS : Failover  (rev. 2026-11-12)
+# FWU-F8-ATS : Failover  (rev. 2026-11-13)
 #  - VP_FWU_Failover Alarm : this FWU cannot supply its cooling capacity.
 #    It is the information the upper control (BMS / DCIM) reads to decide a
 #    backup operation of the neighbouring FWUs (done by the upper control)
 #  - Failover causes (DoO "FWU Failover Criteria", F8 = 8 fans) :
 #      1) SAD Not Open Alarm
 #      2) SAD Full Close Alarm
-#      3) SF Failure Alarm (4 or more of the 8 fans failed = 50 % capacity)
+#      3) SF Failure Alarm (50 % or more of the installed fans failed,
+#         VP_FWU_SF Count; F8 : 4 of 8)
 #  - A cause lasting 5 s sets the Failover Alarm (latched) and stops the
 #    FWU once : Command / Command-HMI = 0 (P11). PICV closes in PICV Control
 #    (Command 0) and the SF stops in SF Control. The operator can start the
@@ -33,7 +34,7 @@ engine = ddc_logic()
 # ---------------------------------------------------------------------
 FAIL_TOTAL = 0
 
-# 1) SAD Not Open, 2) SAD Full Close, 3) SF Failure (4 or more fans)
+# 1) SAD Not Open, 2) SAD Full Close, 3) SF Failure (50 % or more of the fans)
 if engine.READPOINT("VP_FWU_SAD Not Open Alarm") == 1 or engine.READPOINT("VP_FWU_SAD Full Close Alarm") == 1 or engine.READPOINT("VP_FWU_SF Failure Alarm") == 1 :
 	FAIL_TOTAL = 1
 

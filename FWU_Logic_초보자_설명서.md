@@ -9,7 +9,7 @@
 
 ## 0. 이 문서 읽는 법
 
-1. **1장**에서 용어 6개(관제점, 스캔, 우선순위, 타이머, PI 루프, 루프 초기화)를 먼저 익힙니다.
+1. **1장**에서 용어 6개(관제점, 스캔, 우선순위, 타이머, PI 루프, 루프 초기화)를 먼저 익힙니다. 1.5절에 새로 추가된 관제점 18개, 1.6절에 BMS Heartbeat 동작을 정리했습니다.
 2. **2장** 그림으로 장비가 어떻게 연결되는지, **3장**에서 8개 파일이 어떤 순서로 도는지 봅니다.
 3. **4장**에서 FWU가 켜지고 꺼지는 과정을 흐름도로 봅니다.
 4. **5장부터** 파일별로 "역할 한 줄 → 흐름도 → 줄별 해석" 순서로 읽습니다.
@@ -84,21 +84,111 @@ FWU 한 대의 DDC에는 **그 FWU 혼자 판단하고 운전·보호할 수 있
 
 상위 제어단은 FWU가 올려 주는 정보(Failover 알람, 팬 고장, 운전 상태 등)를 읽고, FWU가 원래 받는 명령점(운전명령, 제어모드, Speed SP, 급기온도 SP)을 써서 이 기능들을 구현합니다. 필요한 관제점 목록은 `QTS_신규_관제점_목록.xlsx`의 "4_상위 제어 연동" 시트에 있습니다.
 
-### 1.5 모델별 하드웨어 값은 설정 관제점
+### 1.5 새로 추가된 관제점 18개 쉽게 보기
 
-팬 수, 팬 정격 최대 회전수처럼 FWU 모델에 따라 달라지는 값은 코드에 숫자로 쓰지 않고 설정 관제점으로 읽습니다. 기본값은 이 F8 모델 값입니다.
+이번 수정으로 새로 생긴 관제점은 18개입니다. 성격에 따라 네 묶음으로 나뉩니다. 전체 목록과 BMS 맵 제안 주소는 `QTS_신규_관제점_목록.xlsx` 1번 시트에 있습니다.
 
-| 설정 관제점 | 뜻 | 기본값 | 쓰는 곳 |
+```mermaid
+flowchart LR
+    subgraph IN["현장 입력 (센서·장치)"]
+        I1["FWU_LEAK DETECT<br/>누수 감지 줄"]
+        I2["FWU_FILTER ALARM<br/>필터 차압 스위치 (기존)"]
+        I3["ATS·유량계 통신"]
+        I4["냉수 입·출수 온도<br/>(부품 미확정, 이름만 예약)"]
+    end
+    subgraph SET["설정 (사람이 정함)"]
+        S1["동작 선택 2개<br/>BMS Comm Fail Mode, Smoke Action"]
+        S2["모델 설정 9개<br/>팬 수, 정격 회전수 등"]
+    end
+    subgraph LOGIC["DDC 로직"]
+        L1["Alarm-2"]
+        L2["Alarm-3"]
+        L3["SF Control, Remote Shutdown"]
+        L4["Alarm-1, Initialization"]
+    end
+    subgraph OUT["결과 (알람 → 화면·BMS)"]
+        O1["Leak Alarm, Filter Alarm"]
+        O2["ATS / Flow Comm Fault"]
+        O3["팬 속도·정지 동작"]
+        O4["팬 고장 판정, 풍량·최대 RPM 계산"]
+    end
+    I1 & I2 --> L1 --> O1
+    I3 --> L2 --> O2
+    S1 --> L3 --> O3
+    S2 --> L4 --> O4
+```
+
+**① 현장 입력과 알람 (5개) - 로직이 자동으로 판단**
+
+| 관제점 | 쉽게 말하면 | 예시 |
+| --- | --- | --- |
+| `FWU_LEAK DETECT` | 바닥 누수 감지 줄에 물이 닿으면 1이 들어오는 입력 | 배관에서 물이 새 바닥이 젖으면 1. **부품 미확정이라 단자가 정해지면 정의** |
+| `VP_FWU_Leak Alarm` | 누수 입력이 5초 계속되면 1 | 물이 새도 FWU는 **멈추지 않고** 냉방 유지, 알람만 (QTS: 누수로 정지 금지) |
+| `VP_FWU_Filter Alarm` | 필터 차압 스위치가 30초 계속 켜지면 1 | "필터 교체 필요". 운전은 계속 |
+| `VP_FWU_ATS Comm Fault` | ATS(두 전원 중 하나를 자동으로 고르는 장치)와 통신이 10초 끊기면 1 | 전원 상태를 못 읽는다는 뜻. 냉방에는 영향 없음 |
+| `VP_FWU_Flow Comm Fault` | 유량계와 통신이 10초 끊기면 1 | 이때는 유량값이 멈춰 있으니 "밸브 열렸는데 물이 안 흐름" 알람을 판단하지 않음 (엉뚱한 알람 방지) |
+
+**② 동작 선택 스위치 (2개) - 현장 운영 정책으로 시운전 때 정함**
+
+| 관제점 | 0이면 | 1이면 |
+| --- | --- | --- |
+| `VP_FWU_BMS Comm Fail Mode` | BMS 통신이 끊기기 직전 속도 그대로 (예: 65 %로 돌았으면 계속 65 %) | 무조건 최대 속도 (냉각 우선) |
+| `VP_FWU_Smoke Action` | 연기가 감지돼도 알람만 내고 계속 운전 (기본) | 원격 정지와 똑같이 멈춤 |
+
+**③ 모델 설정값 (9개) - 모델 엔지니어링 때(출하 전) 입력, 기본값은 F8 모델 값**
+
+예전에는 코드에 숫자로 박혀 있던 값입니다. 모델마다 달라질 수 있어 설정 관제점으로 뺐습니다.
+
+| 관제점 | 쉽게 말하면 | 기본값 | 예시 |
 | --- | --- | --- | --- |
-| `VP_FWU_SF Count` | 설치 팬 수 (고장 50 % 판정 기준) | 8 | Alarm-1 |
-| `VP_FWU_SF Rated Max RPM` | 팬 정격 최대 회전수 (최대 RPM 상한, 아날로그 출력 환산) | 1920 rpm | Initialization, SF Control |
-| `VP_FWU_SF Max RPM Ratio` | 설계 RPM 대비 최대 RPM 비율 | 110 % | Initialization |
-| `VP_FWU_SA Flow Coef` | 급기 풍량 계산 계수 | 235.751976 | Initialization |
-| `VP_FWU_SF Run DP Set` | 통신 이상 팬의 운전/고장 판단 급기 차압 | 10 Pa | Initialization, Alarm-1 |
-| `VP_FWU_SAF Fail RPM Set` / `Fail DP Set` | 급기 차압센서 고장 판정 (팬 회전수 / 차압) | 300 rpm / 1 Pa | Alarm-1 |
-| `VP_FWU_PICV No Flow Set` / `Leak Flow Set` | 냉수밸브 열림 무유량 / 닫힘 유량 판정 | 30 LPM / 10 LPM | Alarm-1 |
+| `VP_FWU_SF Count` | 이 FWU에 달린 팬 개수 | 8 | 고장 팬이 절반 이상이면 FWU 고장(Failover). 8대 → 4대, 9대 모델이면 9를 넣어 5대부터 |
+| `VP_FWU_SF Rated Max RPM` | 팬이 낼 수 있는 최고 회전수 (팬 사양서 값) | 1920 rpm | 팬 최대 속도의 상한. 팬 통신이 끊기면 아날로그 0~10 V를 0~1920 rpm으로 환산 |
+| `VP_FWU_SF Max RPM Ratio` | 설계 회전수보다 얼마나 더 돌게 허용할지 | 110 % | 설계 1569 rpm × 1.1 = 약 1726 rpm까지 (정격 최대는 넘지 않음) |
+| `VP_FWU_SA Flow Coef` | 급기 차압으로 풍량을 계산하는 계수 | 235.751976 | 풍량 = 계수 × √차압 × 보정값. 차압 100 Pa면 235.75 × 10 = 2,357.5 CMH |
+| `VP_FWU_SF Run DP Set` | 팬 통신이 끊겼을 때 "팬이 도는지"를 차압으로 판단하는 기준 | 10 Pa | 10 Pa보다 크면 돈다, 이하면 멈췄다(고장) |
+| `VP_FWU_SAF Fail RPM Set` | 차압센서 고장 판정의 팬 회전수 기준 | 300 rpm | 팬이 300 rpm 넘게 도는데 차압이 거의 0이면 센서 고장 |
+| `VP_FWU_SAF Fail DP Set` | 위 판정의 "차압 거의 0" 기준 | 1 Pa | 1 Pa 미만이 20초 계속되면 센서 고장 |
+| `VP_FWU_PICV No Flow Set` | 밸브가 열렸는데 "물이 안 흐른다"의 유량 기준 | 30 LPM | 밸브 30 % 넘게 열렸는데 30 LPM 미만이면 알람 |
+| `VP_FWU_PICV Leak Flow Set` | 밸브가 닫혔는데 "물이 샌다(패싱)"의 유량 기준 | 10 LPM | 밸브 1 % 미만인데 10 LPM 넘게 흐르면 알람 |
+
+잘못 넣었을 때의 보호: 팬 개수나 정격 회전수에 0을 넣어도 로직이 멈추지 않도록 1로 취급합니다. 다만 팬 개수를 0으로 넣으면 팬 1대 고장에도 FWU가 정지하므로, 화면·BMS에서 입력 범위를 제한하는 것이 좋습니다(예: 팬 수 4~9).
+
+**④ 예약 (2개) - 부품이 정해지면 정의**
+
+| 관제점 | 쉽게 말하면 |
+| --- | --- |
+| `FWU_CHW ENT TEMP` | 코일로 들어오는 냉수 온도 (예: 18 ℃) |
+| `FWU_CHW LVG TEMP` | 코일을 지나 나가는 냉수 온도 (예: 24 ℃). 입수와의 차이와 유량으로 냉방량을 알 수 있음 |
 
 타이머 지연 시간, 히스테리시스 같은 운전 튜닝값과 센서 원리상 고정값(온도 0 ℃ 미만 = 단선 등)은 코드 상수로 둡니다.
+
+### 1.6 BMS Heartbeat (사용 확정)
+
+Heartbeat는 "BMS가 살아 있다"는 신호입니다. BMS가 `VP_FWU_BMS PLC Heartbeat` 값을 **주기적으로 바꿔 써 주고**, DDC는 이 값이 계속 바뀌는지 봅니다. 사람의 맥박을 재는 것과 같습니다.
+
+```mermaid
+sequenceDiagram
+    participant BMS as BMS (상위)
+    participant DDC as FWU DDC (Initialization)
+    loop 정상 (예: 1초마다)
+        BMS->>DDC: Heartbeat = 이전 값 + 1
+        DDC->>DDC: 값이 바뀜 → 30초 타이머 리셋 (통신 정상)
+    end
+    Note over BMS,DDC: BMS 고장·통신선 단선으로 값이 멈춤
+    DDC->>DDC: 30초 동안 안 바뀜 → BMS PLC Comm Fault = 1 (래치)
+    DDC->>DDC: BMS가 준 존 센서값을 쓰지 않음. CZT·RDP·원격 고정값 모드의 팬은 Comm Fail Mode대로 (유지 또는 최대), RAT·ΔT 모드는 계속 제어
+    Note over BMS,DDC: 통신 복구 후에도 알람은 남음
+    BMS->>DDC: Heartbeat 다시 바뀜
+    Note over DDC: 운전자가 Comm Reset = 1 → 해제, 원래 제어로 복귀
+```
+
+| 꼭 지킬 것 | 이유 |
+| --- | --- |
+| BMS 맵에 `VP_FWU_BMS PLC Heartbeat`를 추가하고, BMS가 30초보다 훨씬 짧은 주기(예: 1~5초)로 값을 바꿔 써야 함 | 안 쓰면 기동 30초 뒤 통신 이상이 걸려, CZT·RDP 모드와 원격 고정값 모드가 존 센서·Speed SP를 무시하고 "유지 또는 최대"로만 돎 |
+| 값은 "바뀌기만" 하면 됨 (증가하는 숫자, 0/1 반복 모두 가능) | DDC는 지난 값과 다른지만 봄 |
+| 통신 이상은 래치 → 복구 후 운전자가 `VP_FWU_BMS PLC Comm Reset` | 통신이 끊겼던 사실을 운전자가 확인하도록 |
+
+---
 
 ---
 
@@ -528,17 +618,32 @@ flowchart TD
     R --> R2["5초 후 Reset을 0으로 (P11)"]
 ```
 
+**원인 3 "팬 고장"은 이렇게 판단합니다 (Alarm-1 → Failover):**
+
+```mermaid
+flowchart TD
+    A["운전명령 1, 속도 ≥ 최저 속도로 60초 지남"] --> B["팬 8대를 하나씩 판정"]
+    B --> C{"그 팬 통신 정상?"}
+    C -->|"예"| D["회전수 < 고장 판정 RPM(기본 150)이면 고장"]
+    C -->|"아니오"| E["급기 차압 ≤ SF Run DP Set(기본 10 Pa)이면 고장"]
+    D & E --> F["팬별 Run Fail Alarm 기록, 고장 대수 세기"]
+    F --> G{"고장 대수 × 2 ≥ 설치 팬 수<br/>(VP_FWU_SF Count, 기본 8)?"}
+    G -->|"예 (8대 중 4대 이상)"| H["SF Failure Alarm = 1"]
+    G -->|"아니오"| I["SF Failure Alarm = 0 (남은 팬으로 계속 운전)"]
+    H --> J["Failover: 5초 계속되면 알람(래치) + 운전명령 0 (P11) 한 번"]
+```
+
 **래치:** 원인이 사라져도 알람이 저절로 꺼지지 않고, 운전자가 Reset해야 꺼집니다. 고장이 있었다는 기록이 남고, 고장이 반복될 때 팬이 계속 켜졌다 꺼지는 것을 막습니다. 운전명령 0은 알람이 걸리는 순간 한 번만 쓰므로, 운전자가 확인 후 다시 운전명령을 켜면 재기동할 수 있습니다.
 
 | 줄 | 코드 (요약) | 해석 |
 | --- | --- | --- |
-| 34 | `FAIL_TOTAL = 0` | 고장 원인 여부 시작값 |
-| 37~38 | `if SAD Not Open or SAD Full Close or SF Failure : FAIL_TOTAL = 1` | 원인 1~3 (판정은 Alarm-1) |
-| 43~47 | `if FAIL_TOTAL == 1 : if SECTIMER(1, 1) > 5 and 알람 0 : Failover Alarm = 1, Command = 0 (P11)` | 원인이 5초 계속되면 알람(래치)하고 한 번 정지 |
-| 48~49 | `else : SECTIMER(1, 0)` | 원인이 없으면 타이머 리셋 (알람은 Reset 전까지 유지) |
-| 54~57 | `if Failover Reset == 1 : if FAIL_TOTAL == 0 : Failover Alarm = 0` | 운전자가 Reset하면 원인이 없을 때만 해제 |
-| 59~61 | `if SECTIMER(2, 1) > 5 : Reset = 0 (P11)` | Reset을 5초 유지 후 0으로 되돌림 |
-| 62~63 | `else : SECTIMER(2, 0)` | |
+| 35 | `FAIL_TOTAL = 0` | 고장 원인 여부 시작값 |
+| 38~39 | `if SAD Not Open or SAD Full Close or SF Failure : FAIL_TOTAL = 1` | 원인 1~3 (판정은 Alarm-1) |
+| 44~48 | `if FAIL_TOTAL == 1 : if SECTIMER(1, 1) > 5 and 알람 0 : Failover Alarm = 1, Command = 0 (P11)` | 원인이 5초 계속되면 알람(래치)하고 한 번 정지 |
+| 49~50 | `else : SECTIMER(1, 0)` | 원인이 없으면 타이머 리셋 (알람은 Reset 전까지 유지) |
+| 55~58 | `if Failover Reset == 1 : if FAIL_TOTAL == 0 : Failover Alarm = 0` | 운전자가 Reset하면 원인이 없을 때만 해제 |
+| 60~62 | `if SECTIMER(2, 1) > 5 : Reset = 0 (P11)` | Reset을 5초 유지 후 0으로 되돌림 |
+| 63~64 | `else : SECTIMER(2, 0)` | |
 
 ---
 

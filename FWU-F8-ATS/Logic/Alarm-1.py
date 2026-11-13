@@ -7,7 +7,7 @@ engine = ddc_logic()
 #  - SF-1~8 Run Fail Alarm (per fan, QTS 109) and SF Failure Alarm
 #    (50 % or more of the installed fans failed, VP_FWU_SF Count)
 #      fan comm normal : Current RPM < VP_FWU_SF Failure RPM Set
-#      fan comm fault  : SAFLOW DP <= 10 Pa
+#      fan comm fault  : SAFLOW DP <= VP_FWU_SF Run DP Set (default 10 Pa)
 #  - SAT / SAH / RAT / RAH sensor failure alarms (20 s); CZT / HZT / RDP sensor
 #    failure alarms are made in Alarm-2, BMS PLC comm fault in Initialization
 #  - SA flow sensor failure alarm (20 s)
