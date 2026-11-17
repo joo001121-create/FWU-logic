@@ -1,0 +1,18 @@
+test_all_blocks_no_new_missing_reads (test_control.ControlTests.test_all_blocks_no_new_missing_reads) ... ok
+test_damper_delays_independent_and_clear (test_control.ControlTests.test_damper_delays_independent_and_clear) ... ok
+test_f8_failure_threshold_ignores_count_vp (test_control.ControlTests.test_f8_failure_threshold_ignores_count_vp) ... ok
+test_independent_sensor_failure_and_recovery (test_control.ControlTests.test_independent_sensor_failure_and_recovery) ... ok
+test_internal_sensor_fallback_only_for_relevant_mode (test_control.ControlTests.test_internal_sensor_fallback_only_for_relevant_mode) ... ok
+test_no_sample_is_not_closed_and_stale_expires (test_control.ControlTests.test_no_sample_is_not_closed_and_stale_expires) ... ok
+test_picv_sat_failure_manual_and_emergency_priorities (test_control.ControlTests.test_picv_sat_failure_manual_and_emergency_priorities) ... ok
+test_position_comparison_not_used_in_flow_mode (test_control.ControlTests.test_position_comparison_not_used_in_flow_mode) ... ok
+test_remote_priority_wins_over_picv_and_fan (test_control.ControlTests.test_remote_priority_wins_over_picv_and_fan) ... ok
+test_sensor_counts_zero_one_ten_and_unused_outlier (test_control.ControlTests.test_sensor_counts_zero_one_ten_and_unused_outlier) ... ok
+test_stop_needs_all_four_valid_and_below_five (test_control.ControlTests.test_stop_needs_all_four_valid_and_below_five) ... ok
+test_upper_fail_hold_max_and_local_exclusion (test_control.ControlTests.test_upper_fail_hold_max_and_local_exclusion) ... ok
+test_upper_timeout_latch_reset_and_disable (test_control.ControlTests.test_upper_timeout_latch_reset_and_disable) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.238s
+
+OK

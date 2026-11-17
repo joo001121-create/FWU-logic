@@ -1,0 +1,151 @@
+{
+  "status": "DRAFT_NOT_COMMISSIONED",
+  "python_parse": "PASS",
+  "xml_parse": "PASS",
+  "point_name_id_uniqueness": "PASS",
+  "logic_registration": "PASS",
+  "new_undefined_references": [],
+  "inherited_undefined_references": [
+    "FWU_LEAK DETECT"
+  ],
+  "timers": {
+    "SF Control": {
+      "SPEED_OUTPUT_TIMER": 1
+    },
+    "Alarm-1": {
+      "LIMIT_TIMER": 0,
+      "FAN_FAIL_TIMER": 1,
+      "SAT_FAIL_TIMER": 2,
+      "SAH_FAIL_TIMER": 3,
+      "RAT_FAIL_TIMER": 4,
+      "RAH_FAIL_TIMER": 5,
+      "SAF_FAIL_TIMER": 6,
+      "SAD_CLOSE_TIMER": 8,
+      "SAD_OPEN_TIMER": 7
+    },
+    "Zone CZT Alarm": {
+      "CZT_1_FAIL_TIMER": 0,
+      "CZT_2_FAIL_TIMER": 1,
+      "CZT_3_FAIL_TIMER": 2,
+      "CZT_4_FAIL_TIMER": 3,
+      "CZT_5_FAIL_TIMER": 4,
+      "CZT_6_FAIL_TIMER": 5,
+      "CZT_7_FAIL_TIMER": 6,
+      "CZT_8_FAIL_TIMER": 7,
+      "CZT_9_FAIL_TIMER": 8,
+      "CZT_10_FAIL_TIMER": 9
+    },
+    "Initialization": {
+      "UPPER_HEARTBEAT_TIMER": 6,
+      "UPPER_RESET_TIMER": 7,
+      "SF_STATUS_TIMER": 5
+    },
+    "Alarm-2": {
+      "LEAK_TIMER": 8,
+      "FILTER_TIMER": 9
+    },
+    "Zone HZT Alarm": {
+      "HZT_1_FAIL_TIMER": 0,
+      "HZT_2_FAIL_TIMER": 1,
+      "HZT_3_FAIL_TIMER": 2,
+      "HZT_4_FAIL_TIMER": 3,
+      "HZT_5_FAIL_TIMER": 4,
+      "HZT_6_FAIL_TIMER": 5,
+      "HZT_7_FAIL_TIMER": 6,
+      "HZT_8_FAIL_TIMER": 7,
+      "HZT_9_FAIL_TIMER": 8,
+      "HZT_10_FAIL_TIMER": 9
+    },
+    "Remote Shutdown": {
+      "FIRE_CONFIRM_TIMER": 0
+    },
+    "Failover": {
+      "FAILOVER_CONFIRM_TIMER": 1,
+      "FAILOVER_RESET_TIMER": 2
+    },
+    "Damper Signal Alarm": {
+      "SAD_1_UNKNOWN_TIMER": 0,
+      "SAD_1_CONFLICT_TIMER": 4,
+      "SAD_2_UNKNOWN_TIMER": 1,
+      "SAD_2_CONFLICT_TIMER": 5,
+      "SAD_3_UNKNOWN_TIMER": 2,
+      "SAD_3_CONFLICT_TIMER": 6,
+      "SAD_4_UNKNOWN_TIMER": 3,
+      "SAD_4_CONFLICT_TIMER": 7
+    },
+    "Zone RDP Alarm": {
+      "RDP_1_FAIL_TIMER": 0,
+      "RDP_2_FAIL_TIMER": 1,
+      "RDP_3_FAIL_TIMER": 2,
+      "RDP_4_FAIL_TIMER": 3,
+      "RDP_5_FAIL_TIMER": 4,
+      "RDP_6_FAIL_TIMER": 5,
+      "RDP_7_FAIL_TIMER": 6,
+      "RDP_8_FAIL_TIMER": 7,
+      "RDP_9_FAIL_TIMER": 8,
+      "RDP_10_FAIL_TIMER": 9
+    },
+    "PICV Control": {},
+    "PICV Feedback": {
+      "PICV_1_INPUT_TIMER": 0,
+      "PICV_1_DEVIATION_TIMER": 4,
+      "PICV_2_INPUT_TIMER": 1,
+      "PICV_2_DEVIATION_TIMER": 5,
+      "PICV_3_INPUT_TIMER": 2,
+      "PICV_3_DEVIATION_TIMER": 6,
+      "PICV_4_INPUT_TIMER": 3,
+      "PICV_4_DEVIATION_TIMER": 7
+    },
+    "Alarm-3": {
+      "SF_1_COMM_TIMER": 0,
+      "SF_2_COMM_TIMER": 1,
+      "SF_3_COMM_TIMER": 2,
+      "SF_4_COMM_TIMER": 3,
+      "SF_5_COMM_TIMER": 4,
+      "SF_6_COMM_TIMER": 5,
+      "SF_7_COMM_TIMER": 6,
+      "SF_8_COMM_TIMER": 7,
+      "ATS_COMM_TIMER": 8
+    }
+  },
+  "loops": {
+    "SF Control": {
+      "RAT_LOOP": 1,
+      "RDP_LOOP": 2,
+      "DELTA_T_LOOP": 3,
+      "CZT_LOOP": 4
+    },
+    "PICV Control": {
+      "PICV_LOOP": 1
+    }
+  },
+  "changed_runtime_files": [
+    "ControlPoint/VirtualPoint.xml",
+    "DDC.xml",
+    "Logic/Alarm-1.py",
+    "Logic/Alarm-2.py",
+    "Logic/Alarm-3.py",
+    "Logic/Damper Signal Alarm.py",
+    "Logic/Failover.py",
+    "Logic/Initialization.py",
+    "Logic/PICV Control.py",
+    "Logic/PICV Feedback.py",
+    "Logic/Remote Shutdown.py",
+    "Logic/SF Control.py",
+    "Logic/Zone CZT Alarm.py",
+    "Logic/Zone HZT Alarm.py",
+    "Logic/Zone RDP Alarm.py"
+  ],
+  "untouched_physical_maps": [
+    "ControlPoint/IO.xml",
+    "ControlPoint/Modbus1.xml",
+    "ControlPoint/Modbus2.xml",
+    "ControlPoint/Modbus3.xml"
+  ],
+  "limitations": [
+    "No DDC firmware execution",
+    "No physical Modbus/AO mapping completion",
+    "No actual PI dynamics verification",
+    "FWU_LEAK DETECT remains unbound"
+  ]
+}
