@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<projectInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" index="2" name="SMX01_FWU_PAC">
+  <ddcInfo name="FWU-F4-ATS" index="0" type="General" ip="192.168.1.144" port="7000" programId="0" isP1DsmrSupport="false" isBEMSPackage="false" isDDC3.0="false" />
+  <ddcInfo name="FWU-F4" index="1" type="General" ip="10.10.10.2" port="7000" programId="0" isP1DsmrSupport="false" isBEMSPackage="false" isDDC3.0="false" />
+  <ddcInfo name="FWU-F8-ATS" index="2" type="General" ip="10.10.10.3" port="7000" programId="0" isP1DsmrSupport="false" isBEMSPackage="false" isDDC3.0="false" />
+  <ddcInfo name="FWU-F8" index="3" type="General" ip="10.10.10.4" port="7000" programId="0" isP1DsmrSupport="false" isBEMSPackage="false" isDDC3.0="false" />
+  <ddcInfo name="PAC-F4-ATS" index="13" type="General" ip="192.168.1.142" port="7000" programId="0" isP1DsmrSupport="false" isBEMSPackage="false" isDDC3.0="false" />
+  <ddcInfo name="PAC-F4" index="12" type="General" ip="10.10.10.121" port="7000" programId="0" isP1DsmrSupport="false" isBEMSPackage="false" isDDC3.0="false" />
+</projectInfo>

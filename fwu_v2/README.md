@@ -1,21 +1,33 @@
-# FWU v2 — F8 검토용 코드
+# FWU v2 — 후속 알람·정지 리뷰 반영본
 
-세 제어 블록과 필요한 연계 로직을 작성했다. **실장용 통신·IO 연결은 미완성이며, 현재 파일을 그대로 장비에 다운로드하는 단계는 아니다.**
+2026-11-17. 이전 v2 전체 폴더에 Alarm-1/2/3, Remote Shutdown, Failover 합의와 관제점 명칭 정리를 반영했다. 기존 Initialize·SF·PICV 및 보조 블록을 포함한 **전체본**이다. 코드 블록은 **13개로 그대로**다.
 
-기준: `joo001121-create/FWU-logic`, `jh`, `a017e7f1fe52ede6e510cee8c66d1125f07bd8b6`.
+**검토용 코드이며 실제 장비 다운로드 전 통신·IO 연결과 DDC 시험이 필요하다.** 팬·ATS·PICV의 새 포트 배치, Belimo 수신 어댑터, AO3 배율, 누수 DI 등은 아직 실장 완료 상태가 아니다.
 
-먼저 [IMPLEMENTATION.md](IMPLEMENTATION.md)를 읽는다. 반영 내용과 실제 장비 적용 전에 남은 일이 정리돼 있다.
+## 먼저 볼 파일
 
-- [CONTROL_DECISIONS.md](CONTROL_DECISIONS.md): 코드 작성 전 합의 원본. 문서에 쓰인 미구현 상태는 작성 당시의 기록이다.
-- [INTEGRATION.md](INTEGRATION.md): 벨리모 수신 연결, 통신맵, HMI·현장 설정 조건
-- [WORK_LOG.md](WORK_LOG.md): 작업 이력과 검증 범위
-- [POINTS_ADDED.csv](POINTS_ADDED.csv): 추가된 관제점 111개의 이름·ID·기본값
-- [STATIC_CHECKS.json](STATIC_CHECKS.json), [TEST_RESULTS.txt](TEST_RESULTS.txt): 정적 검사와 모의시험 결과
-- [CHANGES.diff](CHANGES.diff): v1 대비 실행 코드·XML 차이
-- [SOURCE_HEADERS.md](SOURCE_HEADERS.md): 기존 코드 주석 이력 보존
+1. [DELIVERY_NOTES.md](DELIVERY_NOTES.md): 이번 변경, PC 적용 순서, 검증 범위
+2. [REVIEW_DECISIONS_ALARMS_SHUTDOWN_FAILOVER.md](REVIEW_DECISIONS_ALARMS_SHUTDOWN_FAILOVER.md): 후속 다섯 블록 합의서
+3. [POINT_RENAME_MAP.csv](POINT_RENAME_MAP.csv): 공백 관제점 구명칭→신명칭, 기존 ID·주소
+4. [INTEGRATION.md](INTEGRATION.md): 실제 통신·IO 연결 및 HMI 조건
 
-`Logic`에는 기존 8개와 보조 5개로 총 13개 블록이 있다. `DDC.xml`에 등록했지만 실제 도구에서 블록 추가·ID·실행 순서를 검증해야 한다. 물리 IO와 팬/ATS/유량계의 기존 통신 설정은 원본을 보존했다. 새 HW의 완성된 맵이 아니다.
+기존 [CONTROL_DECISIONS.md](CONTROL_DECISIONS.md)는 최초 세 블록 합의 원본이다. 과거 이름과 작성 당시 상태를 보존했으며, 현재 이름은 대응표와 실행 코드가 기준이다. [SOURCE_HEADERS.md](SOURCE_HEADERS.md)는 기존 작성 이력 보관용으로 현재 동작 설명과 구분한다.
 
-PC 모의시험: `python -m unittest discover -s fwu_v2/tests -v`
+[IMPLEMENTATION.md](IMPLEMENTATION.md), [WORK_LOG.md](WORK_LOG.md)에 구현 및 작업 이력을 기록했다. [POINTS_ADDED.csv](POINTS_ADDED.csv)는 최초 v2에서 추가한 111개 점의 현재 명칭이다. 이번 후속 수정에서는 관제점을 추가하지 않았다.
 
-현재 GitHub 앱 쓰기가 거절되는 상태이므로 ZIP으로 전달한다. PC에서 기존 저장소의 `jh`에 이 폴더를 추가하고, diff 검토 후 일반 커밋·푸시한다. 기존 `FWU_v1`과 SMX01 폴더를 덮어쓰지 않는다.
+## PC에서 검사
+
+Python 3 환경에서 `fwu_v2` 폴더의 상위 폴더를 열고 실행한다. 추가 패키지는 필요 없다.
+
+```sh
+python -m unittest discover -s fwu_v2/tests -v
+python fwu_v2/tests/validate_project.py
+```
+
+- [TEST_RESULTS.txt](TEST_RESULTS.txt): 모의시험 27개 결과
+- [STATIC_CHECKS.json](STATIC_CHECKS.json): 구문·관제점·타이머·등록 정적 검사
+- [CHANGES.diff](CHANGES.diff): 기준 v1 대비 코드·XML 누적 차이
+- [FOLLOWUP_CHANGES.diff](FOLLOWUP_CHANGES.diff): 이전 전달 ZIP 대비 코드·XML 차이
+- [PACKAGE_SHA256.json](PACKAGE_SHA256.json): 이 파일 자체를 제외한 패키지 파일 체크섬
+
+비교 기준 v1: `joo001121-create/FWU-logic`, `jh`, `a017e7f1fe52ede6e510cee8c66d1125f07bd8b6`. 최신 원격 커밋을 새로 내려받은 결과물이 아니라 이전 전달본의 후속 수정본이다. 원격 저장소에 커밋·푸시하지 않았다.

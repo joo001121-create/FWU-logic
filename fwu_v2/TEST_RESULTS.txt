@@ -1,3 +1,5 @@
+PC mock tests; real DDC, PI dynamics and hardware not tested.
+
 test_all_blocks_no_new_missing_reads (test_control.ControlTests.test_all_blocks_no_new_missing_reads) ... ok
 test_damper_delays_independent_and_clear (test_control.ControlTests.test_damper_delays_independent_and_clear) ... ok
 test_f8_failure_threshold_ignores_count_vp (test_control.ControlTests.test_f8_failure_threshold_ignores_count_vp) ... ok
@@ -11,8 +13,22 @@ test_sensor_counts_zero_one_ten_and_unused_outlier (test_control.ControlTests.te
 test_stop_needs_all_four_valid_and_below_five (test_control.ControlTests.test_stop_needs_all_four_valid_and_below_five) ... ok
 test_upper_fail_hold_max_and_local_exclusion (test_control.ControlTests.test_upper_fail_hold_max_and_local_exclusion) ... ok
 test_upper_timeout_latch_reset_and_disable (test_control.ControlTests.test_upper_timeout_latch_reset_and_disable) ... ok
+test_failover_excludes_group_and_individual_new_alarms (test_followup.FollowupTests.test_failover_excludes_group_and_individual_new_alarms) ... ok
+test_failover_latch_reset_and_reset_hold (test_followup.FollowupTests.test_failover_latch_reset_and_reset_hold) ... ok
+test_failover_p11_does_not_override_p5_and_reset_writer_must_release (test_followup.FollowupTests.test_failover_p11_does_not_override_p5_and_reset_writer_must_release) ... ok
+test_failover_three_causes_delay_and_stop_once (test_followup.FollowupTests.test_failover_three_causes_delay_and_stop_once) ... ok
+test_fan_ats_comm_delay_recovery_and_ao_return (test_followup.FollowupTests.test_fan_ats_comm_delay_recovery_and_ao_return) ... ok
+test_humidity_hysteresis_and_invalid_clear_during_startup (test_followup.FollowupTests.test_humidity_hysteresis_and_invalid_clear_during_startup) ... ok
+test_interrupted_failover_condition_restarts_delay (test_followup.FollowupTests.test_interrupted_failover_condition_restarts_delay) ... ok
+test_invalid_reading_clears_limits_before_failure_confirmation (test_followup.FollowupTests.test_invalid_reading_clears_limits_before_failure_confirmation) ... ok
+test_invalid_sensor_does_not_hide_other_valid_sensor_alarm (test_followup.FollowupTests.test_invalid_sensor_does_not_hide_other_valid_sensor_alarm) ... ok
+test_leak_filter_delays_auto_clear_and_no_stop (test_followup.FollowupTests.test_leak_filter_delays_auto_clear_and_no_stop) ... ok
+test_limit_run_delay_stop_clear_and_temperature_hysteresis (test_followup.FollowupTests.test_limit_run_delay_stop_clear_and_temperature_hysteresis) ... ok
+test_shutdown_applies_in_all_modes_and_p1_wins (test_followup.FollowupTests.test_shutdown_applies_in_all_modes_and_p1_wins) ... ok
+test_shutdown_release_retains_higher_priority_command_and_damper_sequence (test_followup.FollowupTests.test_shutdown_release_retains_higher_priority_command_and_damper_sequence) ... ok
+test_smoke_option_confirmation_and_auto_clear (test_followup.FollowupTests.test_smoke_option_confirmation_and_auto_clear) ... ok
 
 ----------------------------------------------------------------------
-Ran 13 tests in 0.238s
+Ran 27 tests in 0.487s
 
 OK

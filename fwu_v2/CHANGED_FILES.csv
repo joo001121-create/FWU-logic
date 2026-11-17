@@ -1,0 +1,32 @@
+﻿path,change_from_previous_zip
+ControlPoint/IO.xml,modified
+ControlPoint/Modbus1.xml,modified
+ControlPoint/Modbus2.xml,modified
+ControlPoint/Modbus3.xml,modified
+ControlPoint/VirtualPoint.xml,modified
+DELIVERY_NOTES.md,added
+IMPLEMENTATION.md,modified
+INTEGRATION.md,modified
+Logic/Alarm-1.py,modified
+Logic/Alarm-2.py,modified
+Logic/Alarm-3.py,modified
+Logic/Damper Signal Alarm.py,modified
+Logic/Failover.py,modified
+Logic/Initialization.py,modified
+Logic/PICV Control.py,modified
+Logic/PICV Feedback.py,modified
+Logic/Remote Shutdown.py,modified
+Logic/SF Control.py,modified
+Logic/Zone CZT Alarm.py,modified
+Logic/Zone HZT Alarm.py,modified
+Logic/Zone RDP Alarm.py,modified
+POINTS_ADDED.csv,modified
+POINT_RENAME_MAP.csv,added
+README.md,modified
+REVIEW_DECISIONS_ALARMS_SHUTDOWN_FAILOVER.md,added
+STATIC_CHECKS.json,modified
+TEST_RESULTS.txt,modified
+WORK_LOG.md,modified
+tests/test_control.py,modified
+tests/test_followup.py,added
+tests/validate_project.py,added
