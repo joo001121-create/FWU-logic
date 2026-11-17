@@ -1,4 +1,3 @@
-# LJH[2026.1117]기존 단일 유량계 감시 분리: S ----
 SF_1_COMM_TIMER = 0
 SF_2_COMM_TIMER = 1
 SF_3_COMM_TIMER = 2
@@ -13,7 +12,6 @@ FAN_COMM_CONFIRM_SECONDS = 10
 ATS_COMM_CONFIRM_SECONDS = 10
 # ATS는 CH2 RS485 구성으로 연결할 것. DI 입력 표기와 실제 HW 구성을 대조한다.
 # 현재 XML 통신 포트 배치는 구형 맵이므로 실장 전에 수정해야 한다.
-# 주요 블록의 기존 실행 순서를 유지하며, 앞선 블록은 직전 판정값을 사용할 수 있다.
 engine = ddc_logic()
 
 if engine.READPOINT_ALARM("FWU_SF-1.Current_RPM") == COMM_FAULT_CODE :
@@ -84,4 +82,4 @@ else :
     engine.WRITEPOINT("VP_FWU_ATS_Comm_Fault", 0)
     engine.SECTIMER(ATS_COMM_TIMER, 0)
 
-# LJH[2026.1117]기존 단일 유량계 감시 분리: E ----
+# LJH[2026.1117]기존 단일 유량계 감시 분리

@@ -1,7 +1,6 @@
-# LJH[2026.1117]센서 알람 분리와 누수 필터 감시 유지: S ----
 LEAK_TIMER = 8
 FILTER_TIMER = 9
-# 누수 입력 DI 주소는 HW 확인 후 연결. 외부 센서 고장은 Zone 블록에서 처리.
+# 누수 입력 DI 주소는 HW 확인 후 연결
 LEAK_CONFIRM_SECONDS = 5
 FILTER_CONFIRM_SECONDS = 30
 engine = ddc_logic()
@@ -13,16 +12,13 @@ else :
     engine.WRITEPOINT("VP_FWU_Leak_Alarm", 0)
 
 # 필터 알람은 기존대로 입력 ON이 30초를 초과하면 발생하고 OFF 시 해제한다.
-# 향후 필터 교체시점 예측 방식 적용 예정(차압 스위치 작동풍량 출원의뢰서 v8).
+# 향후 필터 교체시점 예측 방식 적용 예정(차압 스위치 작동풍량 출원의뢰서 참조).
 # OFF->ON 전환 시 풍량을 기록하고, 새 필터/교체 기준 필터의 기준풍량과
 # 비교한 막힘 지표 및 운전시간 이력으로 잔여 운전시간을 예측한다.
-# 적용 전 기준풍량 시험, FMS 풍량 정확도, 전환 검출 및 이력 보존을 확인할 것.
-# 진단용 작동차압에서는 정상 필터도 ON될 수 있으므로 기존 알람과의 구분이 필요하다.
-# 전환풍량은 30초 알람 확정 시점이 아닌 실제 OFF->ON 시점에서 취득할 것.
 if engine.READPOINT("FWU_FILTER_ALARM") == 1 :
     if engine.SECTIMER(FILTER_TIMER, 1) > FILTER_CONFIRM_SECONDS :
         engine.WRITEPOINT("VP_FWU_Filter_Alarm", 1)
 else :
     engine.SECTIMER(FILTER_TIMER, 0)
     engine.WRITEPOINT("VP_FWU_Filter_Alarm", 0)
-# LJH[2026.1117]센서 알람 분리와 누수 필터 감시 유지: E ----
+# LJH[2026.1117]센서 알람 분리와 누수 필터 감시 유지

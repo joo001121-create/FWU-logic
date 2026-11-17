@@ -1,6 +1,5 @@
-# LJH[2026.1117]댐퍼 위치 미확인 및 접점 모순 감시: S ----
 engine = ddc_logic()
-# 5초는 접점 순간 변화 배제용 임시값. 액추에이터 시험 후 조정.
+
 SAD_1_UNKNOWN_TIMER = 0
 if engine.READPOINT("VP_FWU_SF_Status") == 1 and engine.READPOINT("FWU_SAD-1_4_COMMAND") == 1 and engine.READPOINT("FWU_SAD-1_OPEN_STATUS") == 0 and engine.READPOINT("FWU_SAD-1_CLOSE_STATUS") == 0:
     if engine.SECTIMER(SAD_1_UNKNOWN_TIMER, 1) > engine.READPOINT("VP_FWU_SAD_Unknown_Delay"):
@@ -57,4 +56,4 @@ if engine.READPOINT("FWU_SAD-4_OPEN_STATUS") == 1 and engine.READPOINT("FWU_SAD-
 else:
     engine.SECTIMER(SAD_4_CONFLICT_TIMER, 0)
     engine.WRITEPOINT("VP_FWU_SAD-4_Signal_Conflict_Alarm", 0)
-# LJH[2026.1117]댐퍼 위치 미확인 및 접점 모순 감시: E ----
+# LJH[2026.1117]댐퍼 위치 미확인 및 접점 모순 감시

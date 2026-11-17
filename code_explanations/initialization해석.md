@@ -1,6 +1,6 @@
 # Initialization 줄별 해석
 
-> **대상 코드** : `fwu_v2/Logic/Initialization.py` (커밋 f217cb1, 453 줄)  
+> **대상 코드** : `fwu_v2/Logic/Initialization.py` (현재 jh 작업 코드, 453 줄)  
 > **행** = 코드 줄 번호 (빈 줄은 생략)  
 > **표기** : `→` 들여쓰기 단계 · *[주석]* 코드 안 주석 · **[신규]** 이번에 새로 들어간 동작 · **※** 검토할 점
 
@@ -38,7 +38,7 @@
 |---:|---|
 | 6 | *[주석] 상위(BMS PLC)가 없는 모델은 감시 기능을 끄고, Local에서 고정속도 / RAT / ΔT 모드로 운전한다는 설명* |
 | 7 | *[주석] 감시를 끄면 외부 온도·차압(CZT/HZT/RDP)은 제어 입력으로 쓰지 않는다는 설명* |
-| 8 | 상위 통신 사용 여부: `VP_FWU_Upper Comm Enable` 이 1 이면 True (기본값 0 = 사용 안 함) |
+| 8 | 상위 통신 사용 여부: `VP_FWU_Upper_Comm_Enable` 이 1 이면 True |
 | 9 | 상위 PLC 가 주기적으로 바꿔 주는 Heartbeat 값을 읽어 heartbeat 변수에 저장 |
 | 10 | Heartbeat 정상 여부 변수 초기화 (0 = 정상 확인 안 됨) |
 | 11 | 상위 통신을 사용하지 않는 경우 : |
@@ -54,12 +54,12 @@
 | 21 | &emsp;&emsp;→&nbsp;무변화 타이머 초기화 |
 | 22 | &emsp;&emsp;→&nbsp;Heartbeat 정상 (`b_hb_ok` = 1) |
 | 23 | &emsp;→&nbsp;Heartbeat 가 이전값과 같으면 (값이 안 바뀜) |
-| 24 | &emsp;&emsp;→&nbsp;무변화 시간이 `VP_FWU_Upper Comm Timeout` (기본 30 초) 을 넘으면 |
+| 24 | &emsp;&emsp;→&nbsp;무변화 시간이 `VP_FWU_Upper_Comm_Timeout` 을 넘으면 |
 | 25 | &emsp;&emsp;&emsp;→&nbsp;BMS PLC 통신 장애 = 1 (래치: 아래 리셋 전까지 유지) |
 | 26 | &emsp;&emsp;→&nbsp;아직 제한시간 안이면 |
 | 27 | &emsp;&emsp;&emsp;→&nbsp;정상으로 간주 (`b_hb_ok` = 1) |
-| 28 | 이번 스캔의 감시 사용 여부를 "이전값" 점에 저장 (16행에서 다음 스캔에 "방금 켜졌는지" 판단용) |
-| 29 | 운전원이 통신 장애 리셋 (`VP_FWU_BMS PLC Comm Reset` = 1) 을 누른 경우 : |
+| 28 | 이번 스캔의 감시 사용 여부를 "이전값" 점에 저장 (16행에서 다음 스캔에 "방금 켜졌는지" 판단용)<br>*[주석] VP_FWU_Upper_Comm_Enable_Prev = 1: 상위 통신 활성화됨* |
+| 29 | 운전원이 통신 장애 리셋 (`VP_FWU_BMS_PLC_Comm_Reset` = 1) 을 누른 경우 : |
 | 30 | &emsp;→&nbsp;Heartbeat 가 정상일 때만 |
 | 31 | &emsp;&emsp;→&nbsp;통신 장애를 0 으로 해제 (Heartbeat 가 멈춰 있으면 해제 안 됨) |
 | 32 | &emsp;→&nbsp;리셋 버튼이 5 초 넘게 유지되면 (HMI 에서 눌린 것을 확인할 시간) |
@@ -80,7 +80,7 @@
 | 40 | CZT 합계 = 0 (평균 계산용) |
 | 41 | CZT 최댓값 초기값 = -1000 (어떤 값이 와도 이보다 크게 시작) |
 | 42 | CZT 최솟값 초기값 = 1000 (어떤 값이 와도 이보다 작게 시작) |
-| 43 | CZT 사용 개수 &gt;= 1 이고 상위 통신 정상이고 CZT-1 고장 알람이 0 이면<br>**※** 개수 설정 기본값 0 → 설정 전에는 센서를 하나도 안 씀 |
+| 43 | CZT 사용 개수 &gt;= 1 이고 상위 통신 정상이고 CZT-1 고장 알람이 0 이면 |
 | 44 | &emsp;→&nbsp;CZT-1 센서값(상위 PLC 가 써 준 값)을 읽어 `sensor_value` 에 저장 |
 | 45 | &emsp;→&nbsp;사용 개수 +1 |
 | 46 | &emsp;→&nbsp;합계에 더함 |
@@ -153,7 +153,7 @@
 | 113 | CZT PV 가 유효하면 제어용 PV 를 고른다 : |
 | 114 | &emsp;→&nbsp;CZT Select = 0 이면 |
 | 115 | &emsp;&emsp;→&nbsp;제어용 CZT PV = 평균 |
-| 116 | &emsp;→&nbsp;CZT Select = 1 이면 |
+| 116 | &emsp;→&nbsp;CZT Select 가 0 이 아니면 |
 | 117 | &emsp;&emsp;→&nbsp;제어용 CZT PV = 최대 (가장 더운 곳 기준으로 제어) |
 | 118 | CZT PV 가 유효하지 않으면 : |
 | 119 | &emsp;→&nbsp;제어용 CZT PV = 0 |
@@ -241,7 +241,7 @@
 | 194 | HZT PV 가 유효하면 : |
 | 195 | &emsp;→&nbsp;HZT Select = 0 이면 |
 | 196 | &emsp;&emsp;→&nbsp;HZT PV = 평균 |
-| 197 | &emsp;→&nbsp;HZT Select = 1 이면 |
+| 197 | &emsp;→&nbsp;HZT Select 가 0 이 아니면 |
 | 198 | &emsp;&emsp;→&nbsp;HZT PV = 최대 |
 | 199 | HZT PV 가 유효하지 않으면 : |
 | 200 | &emsp;→&nbsp;HZT PV = 0 (HZT 는 현재 팬 제어 모드에는 쓰이지 않고 알람·표시용) |
@@ -329,7 +329,7 @@
 | 275 | RDP PV 가 유효하면 : |
 | 276 | &emsp;→&nbsp;RDP Select = 0 이면 |
 | 277 | &emsp;&emsp;→&nbsp;RDP PV = 평균 |
-| 278 | &emsp;→&nbsp;RDP Select = 1 이면 |
+| 278 | &emsp;→&nbsp;RDP Select 가 0 이 아니면 |
 | 279 | &emsp;&emsp;→&nbsp;RDP PV = 최소 (차압이 가장 낮은 곳 기준, CZT 와 반대로 Min) |
 | 280 | RDP PV 가 유효하지 않으면 : |
 | 281 | &emsp;→&nbsp;RDP PV = 0 |
@@ -439,57 +439,57 @@
 | 365 | 팬 SF-6 통신 장애 상태를 읽어 저장 (1 = 통신 장애, Alarm-3 에서 판단) |
 | 366 | 팬 SF-7 통신 장애 상태를 읽어 저장 (1 = 통신 장애, Alarm-3 에서 판단) |
 | 367 | 팬 SF-8 통신 장애 상태를 읽어 저장 (1 = 통신 장애, Alarm-3 에서 판단) |
-| 369 | 팬 정상 운전 판단 기준 RPM (`VP_FWU_SF Failure RPM Set`, 기본 150 rpm) |
-| 370 | 급기 풍량 차압(`FWU_SAFLOW DP`) 읽기 |
-| 371 | 팬 운전 판단 기준 차압 (`VP_FWU_SF Run DP Set`, 기본 10 Pa) |
+| 369 | 팬 정상 운전 판단 기준 RPM (`VP_FWU_SF_Failure_RPM_Set`) |
+| 370 | 급기 풍량 차압(`FWU_SAFLOW_DP`) 읽기 |
+| 371 | 팬 운전 판단 기준 차압 (`VP_FWU_SF_Run_DP_Set`) |
 | 372 | "팬이 1 대라도 돌고 있다" 변수 초기화 (0 = 아직 확인 안 됨) |
 | 374 | SF-1 이 통신 장애이면 (RPM 을 읽을 수 없음) : |
 | 375 | &emsp;→&nbsp;풍량 차압이 운전 판단 차압보다 크면 (바람이 나가고 있으면) |
 | 376 | &emsp;&emsp;→&nbsp;팬 운전 중으로 판단 |
 | 377 | SF-1 통신이 정상이면 : |
-| 378 | &emsp;→&nbsp;SF-1 현재 RPM 이 기준 RPM 보다 크면 |
+| 378 | &emsp;→&nbsp;SF-1 현재 RPM 이 기준 RPM 이상이면 |
 | 379 | &emsp;&emsp;→&nbsp;팬 운전 중으로 판단 |
 | 381 | SF-2 통신 장애이면 : |
 | 382 | &emsp;→&nbsp;차압 &gt; 운전 판단 차압 이면 |
 | 383 | &emsp;&emsp;→&nbsp;운전 중 |
 | 384 | SF-2 통신 정상이면 : |
-| 385 | &emsp;→&nbsp;SF-2 현재 RPM &gt; 기준 RPM 이면 |
+| 385 | &emsp;→&nbsp;SF-2 현재 RPM &gt;= 기준 RPM 이면 |
 | 386 | &emsp;&emsp;→&nbsp;운전 중 |
 | 388 | SF-3 통신 장애이면 : |
 | 389 | &emsp;→&nbsp;차압 &gt; 운전 판단 차압 이면 |
 | 390 | &emsp;&emsp;→&nbsp;운전 중 |
 | 391 | SF-3 통신 정상이면 : |
-| 392 | &emsp;→&nbsp;SF-3 현재 RPM &gt; 기준 RPM 이면 |
+| 392 | &emsp;→&nbsp;SF-3 현재 RPM &gt;= 기준 RPM 이면 |
 | 393 | &emsp;&emsp;→&nbsp;운전 중 |
 | 395 | SF-4 통신 장애이면 : |
 | 396 | &emsp;→&nbsp;차압 &gt; 운전 판단 차압 이면 |
 | 397 | &emsp;&emsp;→&nbsp;운전 중 |
 | 398 | SF-4 통신 정상이면 : |
-| 399 | &emsp;→&nbsp;SF-4 현재 RPM &gt; 기준 RPM 이면 |
+| 399 | &emsp;→&nbsp;SF-4 현재 RPM &gt;= 기준 RPM 이면 |
 | 400 | &emsp;&emsp;→&nbsp;운전 중 |
 | 402 | SF-5 통신 장애이면 : |
 | 403 | &emsp;→&nbsp;차압 &gt; 운전 판단 차압 이면 |
 | 404 | &emsp;&emsp;→&nbsp;운전 중 |
 | 405 | SF-5 통신 정상이면 : |
-| 406 | &emsp;→&nbsp;SF-5 현재 RPM &gt; 기준 RPM 이면 |
+| 406 | &emsp;→&nbsp;SF-5 현재 RPM &gt;= 기준 RPM 이면 |
 | 407 | &emsp;&emsp;→&nbsp;운전 중 |
 | 409 | SF-6 통신 장애이면 : |
 | 410 | &emsp;→&nbsp;차압 &gt; 운전 판단 차압 이면 |
 | 411 | &emsp;&emsp;→&nbsp;운전 중 |
 | 412 | SF-6 통신 정상이면 : |
-| 413 | &emsp;→&nbsp;SF-6 현재 RPM &gt; 기준 RPM 이면 |
+| 413 | &emsp;→&nbsp;SF-6 현재 RPM &gt;= 기준 RPM 이면 |
 | 414 | &emsp;&emsp;→&nbsp;운전 중 |
 | 416 | SF-7 통신 장애이면 : |
 | 417 | &emsp;→&nbsp;차압 &gt; 운전 판단 차압 이면 |
 | 418 | &emsp;&emsp;→&nbsp;운전 중 |
 | 419 | SF-7 통신 정상이면 : |
-| 420 | &emsp;→&nbsp;SF-7 현재 RPM &gt; 기준 RPM 이면 |
+| 420 | &emsp;→&nbsp;SF-7 현재 RPM &gt;= 기준 RPM 이면 |
 | 421 | &emsp;&emsp;→&nbsp;운전 중 |
 | 423 | SF-8 통신 장애이면 : |
 | 424 | &emsp;→&nbsp;차압 &gt; 운전 판단 차압 이면 |
 | 425 | &emsp;&emsp;→&nbsp;운전 중 |
 | 426 | SF-8 통신 정상이면 : |
-| 427 | &emsp;→&nbsp;SF-8 현재 RPM &gt; 기준 RPM 이면 |
+| 427 | &emsp;→&nbsp;SF-8 현재 RPM &gt;= 기준 RPM 이면 |
 | 428 | &emsp;&emsp;→&nbsp;운전 중 |
 | 430 | 방금 판단한 운전 상태가 현재 SF Status 와 다르면 (켜짐↔꺼짐이 바뀌려 하면) : |
 | 431 | &emsp;→&nbsp;그 상태가 5 초 넘게 유지되면 |
@@ -504,9 +504,9 @@
 
 | 행 | 해석 |
 |---:|---|
-| 437 | 팬 운전 중이고 풍량 차압이 5 Pa 이상이면 :<br>**※** 5 Pa 는 아직 고정값 (설정점 아님) |
-| 438 | &emsp;→&nbsp;급기 풍량(CMH) = 풍량 계수(235.75) x √차압 x VA-2(기본 9) |
-| 439 | &emsp;→&nbsp;계산한 풍량을 `VP_FWU_SA Flow` 에 기록 |
+| 437 | 팬 운전 중이고 풍량 차압이 5 Pa 이상이면 :<br>**※** 5 Pa 는 아직 고정값 (설정점 아님)<br>*[주석] 위에서 정의한 `saflow_dp`를 사용해 `saflow_dp >= 5`로 수정하는 것은 어떤지?* |
+| 438 | &emsp;→&nbsp;급기 풍량 = `VP_FWU_SA_Flow_Coef` × `FWU_SAFLOW_DP` ** 0.5 × `VP_FWU_SAF_VA-2`<br>*[주석] VP_FWU_SAF_VA-2 상수는 무슨 값인지?* |
+| 439 | &emsp;→&nbsp;계산한 풍량을 `VP_FWU_SA_Flow` 에 기록 |
 | 440 | 팬 정지 또는 차압 5 Pa 미만이면 : |
 | 441 | &emsp;→&nbsp;풍량 0 (음수 차압의 제곱근 방지) |
 
@@ -516,7 +516,7 @@
 
 | 행 | 해석 |
 |---:|---|
-| 443 | Remote 선택 (`REMOTE SELECTION` DI = 1, BMS 명령 사용) 이면 : |
+| 443 | Remote 선택 (`REMOTE_SELECTION` DI = 1, BMS 명령 사용) 이면 : |
 | 444 | &emsp;→&nbsp;BMS 명령점(`VP_FWU_Command`)의 P5 를 해제 (BMS 가 쓴 값이 살아 있게) |
 | 445 | &emsp;→&nbsp;터치스크린 명령점(Command-HMI)에 BMS 명령을 P5 로 복사 (터치스크린에서 못 바꾸게) |
 | 446 | &emsp;→&nbsp;같은 값을 P11 에도 기록 (Local 로 바꿀 때 값이 튀지 않게) |
@@ -531,6 +531,6 @@
 
 | 행 | 해석 |
 |---:|---|
-| 452 | 팬 최대 RPM = MIN(설계 RPM x 최대 RPM 비율(110 %) / 100, 팬 정격 최대 RPM(1920)) |
+| 452 | 팬 최대 RPM = `engine.MIN(engine.READPOINT("VP_FWU_SF_Design_RPM") * engine.READPOINT("VP_FWU_SF_Max_RPM_Ratio") / 100, engine.READPOINT("VP_FWU_SF_Rated_Max_RPM"))` |
 | 453 | *[주석] LJH 2026-11-17 수정 구간 끝 표시* |
 

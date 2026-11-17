@@ -25,7 +25,7 @@ else:
             engine.WRITEPOINT("VP_FWU_BMS_PLC_Comm_Fault", 1)
         else:
             b_hb_ok = 1
-engine.WRITEPOINT("VP_FWU_Upper_Comm_Enable_Prev", b_upper_enabled)
+engine.WRITEPOINT("VP_FWU_Upper_Comm_Enable_Prev", b_upper_enabled)     #VP_FWU_Upper_Comm_Enable_Prev = 1: 상위 통신 활성화됨
 if engine.READPOINT("VP_FWU_BMS_PLC_Comm_Reset") == 1:
     if b_hb_ok == 1:
         engine.WRITEPOINT("VP_FWU_BMS_PLC_Comm_Fault", 0)
@@ -434,8 +434,8 @@ if b_sf_run != engine.READPOINT("VP_FWU_SF_Status") :
 else :
     engine.SECTIMER(SF_STATUS_TIMER, 0)
 
-if engine.READPOINT("VP_FWU_SF_Status") == 1 and engine.READPOINT("FWU_SAFLOW_DP") >= 5 :
-    sa_flow = engine.READPOINT("VP_FWU_SA_Flow_Coef") * engine.READPOINT("FWU_SAFLOW_DP") ** 0.5 * engine.READPOINT("VP_FWU_SAF_VA-2")
+if engine.READPOINT("VP_FWU_SF_Status") == 1 and engine.READPOINT("FWU_SAFLOW_DP") >= 5 :       #윗 정의대로 ("saflow_dp") >= 5 : 으로 수정하는건 어떤지?
+    sa_flow = engine.READPOINT("VP_FWU_SA_Flow_Coef") * engine.READPOINT("FWU_SAFLOW_DP") ** 0.5 * engine.READPOINT("VP_FWU_SAF_VA-2")      #VP_FWU_SAF_VA-2 상수는 무슨값?
     engine.WRITEPOINT("VP_FWU_SA_Flow", sa_flow)
 else :
     engine.WRITEPOINT("VP_FWU_SA_Flow", 0)

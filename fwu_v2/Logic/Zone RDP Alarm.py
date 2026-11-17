@@ -1,4 +1,3 @@
-# LJH[2026.1117]RDP 센서 10개 고장 감시: S ----
 engine = ddc_logic()
 # 미사용 센서는 알람과 타이머를 해제한다. 기존 20초 판정 유지.
 RDP_1_FAIL_TIMER = 0
@@ -71,4 +70,4 @@ if engine.READPOINT("VP_FWU_RDP_Count") >= 10 and engine.READPOINT("VP_FWU_RDP-1
 else:
     engine.SECTIMER(RDP_10_FAIL_TIMER, 0)
     engine.WRITEPOINT("VP_FWU_RDP-10_Failure_Alarm", 0)
-# LJH[2026.1117]RDP 센서 10개 고장 감시: E ----
+# LJH[2026.1117]RDP 센서 10개 고장 감시

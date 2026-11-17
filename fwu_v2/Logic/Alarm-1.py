@@ -1,4 +1,3 @@
-# LJH[2026.1117]내부 센서 유효성 및 팬·댐퍼 알람: S ----
 LIMIT_TIMER = 0
 FAN_FAIL_TIMER = 1
 SAT_FAIL_TIMER = 2
@@ -233,7 +232,6 @@ if engine.READPOINT("VP_FWU_Command") == 1 and engine.READPOINT("VP_FWU_SF_Speed
         # 신규 팬의 정압-풍량 곡선과 허용 최대속도를 기준으로, 팬 고장 시에도
         # 요구 정압에서 목표 풍량을 확보할 수 있는 고장 허용 대수를 확인할 것.
         # 확인 결과에 맞춰 아래 종합 고장 대수 기준과 Failover 정지 연계를 재검토한다.
-        # FAN_COUNT는 모델의 실제 설치 대수이며, 고장 기준 조정을 위해 변경하지 않는다.
         if sf_fail_count * 2 >= FAN_COUNT :
             engine.WRITEPOINT("VP_FWU_SF_Failure_Alarm", 1)
         else :
@@ -327,4 +325,4 @@ else :
     engine.WRITEPOINT("VP_FWU_SAD_Not_Close_Alarm", 0)
     engine.SECTIMER(SAD_CLOSE_TIMER, 0)
 
-# LJH[2026.1117]내부 센서 유효성 및 팬·댐퍼 알람: E ----
+# LJH[2026.1117]내부 센서 유효성 및 팬·댐퍼 알람
