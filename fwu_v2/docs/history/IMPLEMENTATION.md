@@ -20,7 +20,7 @@
 | HB 고장 유지/최대 | SF Control | v1 적용 모드와 예외 유지 |
 | ΔT 방향·-2·최소30 | SF Control, 기존 VP | 값·방향 유지, 확인 주석 추가 |
 | 댐퍼 0/0 120초·1/1 5초 | Damper Signal Alarm | 개별 8점과 설정 2점. 알람만 추가, 기존 보호 유지 |
-| PICV 공통 명령·네 입력 | PICV Control, PICV Feedback | 제어·수신 인터페이스 구현. 실제 CH3 어댑터와 맵 미완성 |
+| PICV 공통 명령·네 입력 | PICV Control, PICV Feedback | 공통 AO 제어 유지. PICV Feedback은 DDC 관제점 읽기로 수정. 실제 CH3 통신점 등록 미완성 |
 | 네 밸브 정상 닫힘 확인 | PICV Feedback → SF | 유효 샘플 4개 모두 5% 미만. 초기/오래된 0은 제외 |
 | 일부 밸브 고장 계속 운전 | PICV Feedback | 개별 알람, 기존 Failover 원인에 추가하지 않음 |
 | SAT 고장100·무풍 유지·수동·PI복구 | PICV Control | 기존 실행 동작 유지 및 주석 |

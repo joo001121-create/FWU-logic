@@ -10,6 +10,13 @@ class Engine:
         # Existing unresolved DI; synthetic input only, not a fabricated physical address.
         self.defaults['FWU_LEAK_DETECT']=0
         self.point_alarms={};self.writes=[];self.values={};self.time=0;self.timers={};self.block='';self.loops=[];self.resets=[]
+        # Synthetic unbound inputs. Alarm=8 is a TEST setup, not an assertion
+        # about actual firmware behavior before its first Modbus response.
+        for i in range(1, 5):
+            for quantity in ('Position', 'Flow', 'Temperature'):
+                point = f'FWU_PICV-{i}.{quantity}'
+                assert point in self.defaults  # Required in delivered Modbus XML
+                self.point_alarms[point] = 8
     def set(self,p,v,priority=16):
         if p not in self.defaults:raise KeyError(p)
         self.values.setdefault(p,{})[priority]=v
@@ -89,25 +96,29 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(self.get('VP_FWU_SAD-2_Signal_Conflict_Alarm'),1);self.assertEqual(self.get('VP_FWU_SAD-1_Position_Unknown_Alarm'),0)
         self.e.tick(115);self.e.run('Damper Signal Alarm');self.assertEqual(self.get('VP_FWU_SAD-1_Position_Unknown_Alarm'),1)
         self.set('FWU_SAD-1_OPEN_STATUS',1);self.e.run('Damper Signal Alarm');self.assertEqual(self.get('VP_FWU_SAD-1_Position_Unknown_Alarm'),0)
-    def receive(self,seq=1):
+    def receive(self):
         self.set('VP_FWU_PICV_Input_Enable',1)
         for i in range(1,5):
-            self.set(f'VP_FWU_PICV-{i}_Input_OK',1);self.set(f'VP_FWU_PICV-{i}_Sample_Seq',seq);self.set(f'VP_FWU_PICV-{i}_Position',0)
+            for quantity in ('Position','Flow','Temperature'):
+                point=f'FWU_PICV-{i}.{quantity}'
+                self.set(point,0)
+                self.e.point_alarms[point]=0
         self.e.run('PICV Feedback')
-    def test_no_sample_is_not_closed_and_stale_expires(self):
+    def test_disabled_and_driver_fault_are_not_closed(self):
         self.e.run('PICV Feedback');self.assertEqual(self.get('VP_FWU_PICV_All_Closed'),0)
         self.receive();self.assertEqual(self.get('VP_FWU_PICV_All_Closed'),1)
-        self.e.tick(11);self.e.run('PICV Feedback');self.assertEqual(self.get('VP_FWU_PICV_All_Closed'),0)
-        self.receive(2);self.assertEqual(self.get('VP_FWU_PICV_All_Closed'),1)
+        self.e.point_alarms['FWU_PICV-1.Position']=8
+        self.e.run('PICV Feedback');self.assertEqual(self.get('VP_FWU_PICV_All_Closed'),0)
+        self.receive();self.assertEqual(self.get('VP_FWU_PICV_All_Closed'),1)
     def test_stop_needs_all_four_valid_and_below_five(self):
         self.running();self.set('VP_FWU_Command',0);self.set('VP_FWU_SF_Speed_Value',65)
-        self.receive();self.set('VP_FWU_PICV-4_Position',5);self.e.run('PICV Feedback');self.e.run('SF Control');self.assertEqual(self.get('VP_FWU_SF_Speed_Value'),65)
-        self.set('VP_FWU_PICV-4_Position',4);self.e.run('PICV Feedback');self.e.run('SF Control');self.assertEqual(self.get('VP_FWU_SF_Speed_Value'),0)
+        self.receive();self.set('FWU_PICV-4.Position',5);self.e.run('PICV Feedback');self.e.run('SF Control');self.assertEqual(self.get('VP_FWU_SF_Speed_Value'),65)
+        self.set('FWU_PICV-4.Position',4);self.e.run('PICV Feedback');self.e.run('SF Control');self.assertEqual(self.get('VP_FWU_SF_Speed_Value'),0)
     def test_position_comparison_not_used_in_flow_mode(self):
         self.receive();self.set('VP_FWU_PICV_Control_Mode',2);self.set('FWU_PICV_CONTROL',100)
-        self.e.run('PICV Feedback');self.e.tick(41);self.receive(2)
+        self.e.run('PICV Feedback');self.e.tick(41);self.receive()
         self.assertEqual(self.get('VP_FWU_PICV-1_Alarm'),0)
-        self.set('VP_FWU_PICV_Control_Mode',1);self.e.run('PICV Feedback');self.e.tick(41);self.receive(3)
+        self.set('VP_FWU_PICV_Control_Mode',1);self.e.run('PICV Feedback');self.e.tick(41);self.receive()
         self.assertEqual(self.get('VP_FWU_PICV-1_Alarm'),1)
     def test_picv_sat_failure_manual_and_emergency_priorities(self):
         self.running();self.set('VP_FWU_SAT_Failure_Alarm',1);self.e.run('PICV Control');self.assertEqual(self.get('FWU_PICV_CONTROL'),100)

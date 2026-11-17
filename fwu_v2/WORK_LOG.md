@@ -1,3 +1,5 @@
+> 최신 재검토는 문서 마지막의 「LDPL 전체 검토 및 PICV 입력 의존성 수정」을 따른다. 앞선 수신 어댑터/Seq 설명은 당시 구현 이력이며 현재 코드의 연결 지침이 아니다.
+
 # FWU v2 작업 이력
 
 ## 2026-11-17 — 수정 전 합의사항 문서화
@@ -151,3 +153,36 @@
 - 환경 제한: 실제 DDC, HMI/BMS, 물리 통신/배선, PI 응답, 신규 팬/밸브 특성 시험 미수행. 기존 미연결 누수 DI는 시험에서만 가상 공급. Belimo 수신 어댑터 및 신형 포트 맵 미완성.
 - PC 후속: DELIVERY_NOTES 및 INTEGRATION의 명칭 이전·DDC 등록·통신맵·우선순위·기계 성능 시험 수행. 기존 작성자 기록과 최초 합의서는 역사 기록으로 보존.
 - 전달: 새 전체 ZIP으로 제공하며 과거 전달 ZIP과 원격 GitHub는 변경하지 않는다. 동료가 변경한 파일이 있으면 PC에서 비교 병합 후 적용한다.
+
+
+## 2026-11-17 — LDPL 전체 검토 및 PICV 입력 의존성 수정
+
+- 기준: FWU-logic/jh `0e0a374d983bf194220e75da79b28598673bc0fa`. 작업 이력과 합의문서를 먼저 확인하고, 13개 제어 블록·직접 참조하는 관제점/XML·기존 시험·LDPL v27·code_request.md 범위만 검토했다.
+- 수정 원칙: 실제 문제만 고친다. 기존 제어 정책, 정상 동작 코드, 주석을 취향에 따라 재작성하지 않는다.
+- 제어 변경 파일: `Logic/PICV Feedback.py` 하나. 나머지 12개는 기준 커밋의 Git blob와 일치하는 원문을 사용하고 해시로 보존 확인했다. XML 15개도 변경하지 않았다.
+- 변경 이유: 실제 구현 없는 수신 어댑터가 Input_OK/Seq를 생성한다는 의존성 제거.
+- 핵심 변경: 실제 DDC Modbus 입력점의 알람·값을 읽고 기존 표시 VP에 복사. 기존 닫힘·편차·유량·정지 연계는 유지. Input_OK/Seq/Prev/Timeout은 코드에서 미사용. 미사용 관제점의 XML ID는 그대로 보존.
+- 추가/갱신 문서: LDPL_REVIEW.md, README_LDPL_REPAIR.md, README.md, INTEGRATION.md, IMPLEMENTATION.md, DELIVERY_NOTES.md, REVIEW_DECISIONS_ALARMS_SHUTDOWN_FAILOVER.md, WORK_LOG.md, PICV_POINT_MAPPING.csv, LDPL_REPAIR.diff, SOURCE_LOGIC_SHA256.json, 변경 파일 목록·검사 결과·해시. 이전 생성 검사 결과는 audit_history로 구분.
+- 해석 문서: PICV Feedback만 새 코드에 맞게 다시 작성. 나머지 해석 MD 12개는 기존 파일 그대로 포함.
+- 시험 변경: test_control.py의 가상 수신 순번 주입을 실제 통신점/알람 모사로 교체. validate_project.py는 신규 미등록 PICV 12점을 명시적으로 보고. test_ldpl_audit.py에서 API·변경 범위·통신 경보·유량·정지 연계를 확인. test_followup.py는 원본 유지.
+- 검증 완료: Python 구문, XML 파싱, 이름/ID 중복, 이름 변경표, 타이머 번호, 블록 등록, 기존 API와 인수 개수, 12개 코드 원문 보존. 모의시험 38개 PASS. 실제 미등록 입력은 PICV 12점 및 기존 누수 DI 1점으로 보고.
+- 검증하지 못한 항목: 실제 LDPL 컴파일/펌웨어 실행, 첫 통신 전 상태 및 검출 시간, PI 응답과 동일 출력의 모드별 ID 처리, HMI/BMS 맵, 신형 IO/RS485/AO 배선, 전원 복구/이중화 절체.
+- PC 후속: 실제 PICV 통신점 등록·단위 환산 → 누수/팬/ATS 맵 연결 → DDC에서 13블록 컴파일·실행 → 통신 단절/재접속·전원 복구 → 정상 정지/비상/원격 정지 → 5개 팬 모드와 PI 전환 시험.
+- 보류 판단: 독립적인 최신 수신 보증을 요구할지 여부는 DDC 초기 상태 확인 뒤 결정. 별도 어댑터를 또 가정해 구현하지 않음. SF LOOP2 ID는 기존 방식 유지하되 안내서 문구 차이를 명시. 상세 내용은 LDPL_REVIEW.md 4절.
+- 저장소 변경: 이 작업은 전달용 수정안을 생성한 것이며 GitHub 커밋·푸시는 수행하지 않았다.
+
+
+## 2026-11-17 — DDC 프로젝트 전체 구성 반영
+
+- 요청: 해석 MD 제외. ControlPoint/Device/Logic/ProtocolSerivce/ScheduleInfo/DDC.xml을 포함한 전체 교체본 제공.
+- 범위 결정: 이전 WORK_LOG와 직접 관련된 관제점·포트·서비스 참조를 먼저 확인. 저장소 전체 재탐색 없이 로컬 기준본에서 작업.
+- 제어 코드: 직전 전달한 13개와 바이트 단위 동일. 이번 작업에서 코드·주석 추가 변경 없음.
+- 수정 파일: ControlPoint/VirtualPoint.xml, Modbus1.xml, Modbus2.xml, Modbus3.xml, IO.xml, ProtocolSerivce/Modbus/ModbusServiceInfo.xml, DDC.xml. Device/DeviceInfos.xml, ScheduleInfo 3개, BACnet/LGModbus 서비스, ModbusTCP/Slave4는 영향 없어 원문 유지.
+- 수정 이유: 제거된 수신 어댑터의 불필요한 관제점 정리, 실제 통신점·읽기 요청 생성, 확인된 CH1 팬/CH2 ATS/CH3 PICV 구성과 참조 일치.
+- 변경: 불필요 VP 13개 삭제. PICV 실제 통신점 12개 및 RTU 요청 12개 생성. 구형 유량계 4점과 공개 항목 제거. 구형 배선식 PICV 피드백 입력은 미사용 처리하고 외부 공개 제거. 기존 정상 공개 주소는 재배열하지 않음.
+- 신규 근거: Belimo 공식 EPIV Modbus V4.3.0 통신표의 0-based 4/7/21 레지스터, UINT16/UINT16/INT16, 환산 0.01/0.6/0.01. 펌웨어 적용 여부는 실기 확인 전. 장치 주소 1~4는 이번 설치 계획값. DDC CH3는 문서 기본 38400bps/8N2로 설정한 프로파일이며 실제 장치에서 읽어온 설정은 아님.
+- 검증 완료: 모의 제어·구성 검사 44개 PASS. XML 15개 파싱, 이름/ID 중복, 코드 참조와 PICV 12점 실정의, 포트 배치, 요청 프레임 주소·CRC, 타이머·블록 등록, 구형 점 제거, 신규 공개맵 미정의 참조 없음 확인. 실제 누수 입력 1점은 기존 미등록으로 남음.
+- 검증 중 발견: 외부 공개맵에 현재 XML 정의에서 찾을 수 없는 기존 ID 참조 38개. 직전 원본과 목록 동일 확인. 시스템 내부점/폐기점 여부 미확정이므로 보존하고 INHERITED_EXPORT_REFERENCES.csv로 보고. 해당 참조가 실기에서 정상이라는 판정은 하지 않음.
+- 검증하지 못한 항목: 실제 펌웨어/주소·통신 설정, LDPL 엔지니어링 도구 가져오기·컴파일·실행, AO3 2~10V 실제 환산/배선, 누수 DI, 최초 응답 전 상태·전원복구/이중화 절체, 팬 PI 전환, 기존 공개맵 38개 참조의 실제 의미.
+- 회사 PC 후속: 장치 설정 대조 → DDC 도구 import 및 CRC/주소/배율 확인 → 누수 DI와 AO3 실장 확정 → 컴파일·실행 → 통신 단절/복구·전원 재투입 → 정상 정지/비상/원격·팬 모드 전환 시험. 새 외부 공개 주소는 확정 BMS 맵에 맞춰 별도 배정.
+- 전달: fwu_v2 폴더를 포함한 fwu_v2.zip. 해석 MD 미포함. 이전 합의·분석 문서는 docs/history에 보존하고 현재 연결 지침은 README 우선. GitHub 커밋·푸시는 수행하지 않음.

@@ -8,11 +8,26 @@
   "logic_registration": "PASS",
   "logic_count": 13,
   "xml_count": 15,
-  "renamed_points_including_unbound": 466,
-  "new_undefined_references": [],
+  "renamed_points_including_unbound": 453,
+  "new_unbound_physical_references": [],
+  "picv_profile_defined": [
+    "FWU_PICV-1.Flow",
+    "FWU_PICV-1.Position",
+    "FWU_PICV-1.Temperature",
+    "FWU_PICV-2.Flow",
+    "FWU_PICV-2.Position",
+    "FWU_PICV-2.Temperature",
+    "FWU_PICV-3.Flow",
+    "FWU_PICV-3.Position",
+    "FWU_PICV-3.Temperature",
+    "FWU_PICV-4.Flow",
+    "FWU_PICV-4.Position",
+    "FWU_PICV-4.Temperature"
+  ],
   "inherited_undefined_references": [
     "FWU_LEAK_DETECT"
   ],
+  "unexpected_undefined_references": [],
   "timers": {
     "Alarm-1": {
       "LIMIT_TIMER": 0,
@@ -61,13 +76,9 @@
     },
     "PICV Control": {},
     "PICV Feedback": {
-      "PICV_1_INPUT_TIMER": 0,
       "PICV_1_DEVIATION_TIMER": 4,
-      "PICV_2_INPUT_TIMER": 1,
       "PICV_2_DEVIATION_TIMER": 5,
-      "PICV_3_INPUT_TIMER": 2,
       "PICV_3_DEVIATION_TIMER": 6,
-      "PICV_4_INPUT_TIMER": 3,
       "PICV_4_DEVIATION_TIMER": 7
     },
     "Remote Shutdown": {
@@ -137,33 +148,14 @@
   },
   "limitations": [
     "DDC firmware, PI dynamics and hardware not tested",
-    "Physical maps retain old ports/registers/scales; point names updated only",
+    "Fan CH1, ATS CH2, PICV CH3 profile defined; hardware commissioning not performed",
     "FWU_LEAK_DETECT remains unbound",
+    "PICV XML uses Belimo EPIV V4.3.0 profile and station plan 1..4; verify actual firmware/settings",
+    "PICV first-response/freshness guarantee not verified by LDPL code",
     "External HMI/BMS projects not updated; rename map supplied"
   ],
-  "baseline_sha256_preserved": "PASS",
-  "xml_only_names_changed_from_pre_followup": "PASS",
-  "non_alarm1_behavior_preserved_blocks": 12,
-  "mock_tests_passed": 27,
-  "changed_runtime_files": [
-    "ControlPoint/IO.xml",
-    "ControlPoint/Modbus1.xml",
-    "ControlPoint/Modbus2.xml",
-    "ControlPoint/Modbus3.xml",
-    "ControlPoint/VirtualPoint.xml",
-    "DDC.xml",
-    "Logic/Alarm-1.py",
-    "Logic/Alarm-2.py",
-    "Logic/Alarm-3.py",
-    "Logic/Damper Signal Alarm.py",
-    "Logic/Failover.py",
-    "Logic/Initialization.py",
-    "Logic/PICV Control.py",
-    "Logic/PICV Feedback.py",
-    "Logic/Remote Shutdown.py",
-    "Logic/SF Control.py",
-    "Logic/Zone CZT Alarm.py",
-    "Logic/Zone HZT Alarm.py",
-    "Logic/Zone RDP Alarm.py"
-  ]
+  "inherited_unverified_export_references": 38,
+  "rtu_crc_and_station_checks": "PASS",
+  "configuration_tests": "6 PASS",
+  "total_simulated_tests": 44
 }

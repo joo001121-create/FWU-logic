@@ -1,8 +1,9 @@
 # SF Control 줄별 해석
 
 > **대상 코드** : `fwu_v2/Logic/SF Control.py` (현재 jh 작업 코드, 196 줄)  
+> **기준 커밋** : `0e0a374d983bf194220e75da79b28598673bc0fa` (`jh`)  
 > **행** = 코드 줄 번호 (빈 줄은 생략)  
-> **표기** : `→` 들여쓰기 단계 · *[주석]* 코드 안 주석 · **[신규]** 이번에 새로 들어간 동작 · **※** 검토할 점
+> **표기** : `→` 들여쓰기 단계 · *[주석]* 코드 안 주석 · **[신규]** 원문 해석 문서의 v2 신규 표시 (이번 교정에서 코드를 추가했다는 뜻은 아님) · **※** 검토할 점
 
 **목차**
 
@@ -47,9 +48,9 @@
 | 17 | 모드 0(고정속도) (`0 <= sf_select < 1`) 이면 |
 | 18 | &emsp;→&nbsp;고정속도 운전 |
 | 19 | 모드 2(RDP) (`2 <= sf_select < 3`) 인데 RDP PV 가 유효하지 않으면 (센서 모두 고장 / 개수 0 / 상위 통신 장애) |
-| 20 | &emsp;→&nbsp;고정속도로 대체 |
+| 20 | &emsp;→&nbsp;고정속도로 대체할 대상으로 표시 (`b_fixed=1`). 상위 통신 장애 운전 조건이 성립하면 34~35행에서 이 표시를 다시 해제 |
 | 21 | 모드 4(CZT) (`4 <= sf_select < 5`) 인데 CZT PV 가 유효하지 않으면 |
-| 22 | &emsp;→&nbsp;고정속도로 대체 |
+| 22 | &emsp;→&nbsp;고정속도로 대체할 대상으로 표시. 상위 통신 장애 운전 조건이 성립하면 장애 운전을 우선 적용 |
 | 24 | **[신규]** 모드 1(RAT) (`1 <= sf_select < 2`) 인데 RAT 센서 고장 알람이 1 이면 |
 | 25 | &emsp;→&nbsp;고정속도로 대체 (고장 센서로 PI 제어하지 않게) |
 | 26 | **[신규]** 모드 3(ΔT) (`3 <= sf_select < 4`) 인데 RAT 또는 SAT 센서 고장이면 (ΔT = RAT-SAT 계산 불가) |
@@ -58,7 +59,7 @@
 | 29 | 상위 통신 사용 중(Upper Comm Enable=1) 이고 BMS PLC 통신 장애이면 :<br>**※** 상위 미사용 모델은 이 운전을 안 함 |
 | 30 | &emsp;→&nbsp;모드 2(RDP) 또는 4(CZT) (`2 <= sf_select < 3 또는 4 <= sf_select < 5`) 이면 (BMS 가 주는 구역 센서값을 쓰는 모드) |
 | 31 | &emsp;&emsp;→&nbsp;BMS 통신 장애 운전 |
-| 32 | &emsp;→&nbsp;모드 0(고정속도) (`0 <= sf_select < 1`) 이고 Remote 이면 (Speed SP 를 BMS 가 써 주는 경우) |
+| 32 | &emsp;→&nbsp;모드 0(고정속도)이고 Remote 선택 입력이 1이면 : (이 블록은 Speed SP를 누가 썼는지 별도로 확인하지 않음) |
 | 33 | &emsp;&emsp;→&nbsp;BMS 통신 장애 운전 |
 | 34 | BMS 통신 장애 운전이면 |
 | 35 | &emsp;→&nbsp;고정속도 대체는 취소 (아래 90행의 장애 운전이 대신 처리) |
@@ -131,8 +132,8 @@
 | 87 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;RAT 루프 초기화 |
 | 88 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;RDP 루프 초기화 |
 | 89 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;ΔT 루프 초기화 |
-| 90 | &emsp;&emsp;&emsp;&emsp;→&nbsp;BMS 통신 장애 운전이면 (QTS 129\~131) : |
-| 91 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;장애 모드가 1(최대속도) 이거나, 유지할 속도가 없으면 (현재 속도 &lt; 최소속도, 예: 기동 직후 0)<br>*[주석] VP_FWU_BMS_Comm_Fail_Mode = 1: 팬 최대 속도 운전, 0: 마지막 팬 속도 유지* |
+| 90 | &emsp;&emsp;&emsp;&emsp;→&nbsp;BMS 통신 장애 운전이면 : (기존 속도 유지 또는 최대속도 선택) |
+| 91 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;장애 모드가 1(최대속도)이거나 현재 속도값이 최소속도보다 낮으면 :<br>*[주석] VP_FWU_BMS_Comm_Fail_Mode = 1: 팬 최대 속도 운전, 0: 마지막 팬 속도 유지*<br>**※** 둘 다 아니면 속도값을 다시 쓰지 않아 기존 값을 유지. 별도의 장애 직전 속도 저장점을 읽는 것은 아님 |
 | 92 | &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;팬 속도 = 최대속도. |
 | 93 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;RAT 루프 초기화 |
 | 94 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;RDP 루프 초기화 |
@@ -143,17 +144,17 @@
 | 100 | &emsp;&emsp;&emsp;&emsp;→&nbsp;RDP 루프 초기화 |
 | 101 | &emsp;&emsp;&emsp;&emsp;→&nbsp;ΔT 루프 초기화 |
 | 102 | &emsp;&emsp;&emsp;&emsp;→&nbsp;CZT 루프 초기화 |
-| 103 | &emsp;&emsp;&emsp;&emsp;→&nbsp;팬 속도 0 (닫힌 댐퍼에 대고 팬을 돌리지 않음). 댐퍼가 다시 열리면 재기동 |
+| 103 | &emsp;&emsp;&emsp;&emsp;→&nbsp;팬 속도 요구값을 0으로 기록. 자동·운전 명령이 유지되고 댐퍼 열림 조건이 다시 성립하면 위의 속도 제어를 재개할 수 있음 |
 | 105 | &emsp;&emsp;→&nbsp;`VP_FWU_Command`가 1이 아니면 : |
 | 106 | &emsp;&emsp;&emsp;→&nbsp;RAT 루프 초기화 |
 | 107 | &emsp;&emsp;&emsp;→&nbsp;RDP 루프 초기화 |
 | 108 | &emsp;&emsp;&emsp;→&nbsp;ΔT 루프 초기화 |
 | 109 | &emsp;&emsp;&emsp;→&nbsp;CZT 루프 초기화 |
-| 110 | &emsp;&emsp;&emsp;→&nbsp;네 밸브가 모두 닫혔으면 (`VP_FWU_PICV_All_Closed` = 1, PICV Feedback 에서 만듦)<br>&emsp;&emsp;&emsp;**※** 밸브 1대라도 통신 이상이면 0 → 팬이 안 멈춤 (7행 주석) |
+| 110 | &emsp;&emsp;&emsp;→&nbsp;밸브 4대 모두 닫힘 표시(`VP_FWU_PICV_All_Closed`)가 1이면 :<br>**※** PICV Feedback에서 네 피드백이 유효하고 각 개도가 5% 미만일 때 만드는 값. 0이면 이 분기에서는 팬 속도에 0을 쓰지 않음. 비상·원격 정지 처리는 별도 |
 | 111 | &emsp;&emsp;&emsp;&emsp;→&nbsp;팬 속도 0 |
-| 112 | &emsp;&emsp;&emsp;→&nbsp;팬이 모두 멈췄으면 (SF Status = 0) |
+| 112 | &emsp;&emsp;&emsp;→&nbsp;팬 운전 상태 판정(SF Status)이 0이면 : (Initialization의 RPM·공통 차압 기반 판정값) |
 | 113 | &emsp;&emsp;&emsp;&emsp;→&nbsp;급기 댐퍼 닫기 |
-| 114 | &emsp;&emsp;→&nbsp;지금 팬 속도값을 P11 에도 기록 (수동 전환 시 유지) |
+| 114 | &emsp;&emsp;→&nbsp;현재 읽히는 팬 속도값을 P11에도 복사 (수동 전환 시 다른 우선순위 명령이 없으면 이 값이 이어짐) |
 | 115 | &emsp;&emsp;→&nbsp;지금 댐퍼 명령을 P11 에도 기록 |
 
 ## 116~122행 · 수동 운전
@@ -167,25 +168,25 @@
 | 118 | &emsp;&emsp;→&nbsp;RDP 루프 초기화 |
 | 119 | &emsp;&emsp;→&nbsp;ΔT 루프 초기화 |
 | 120 | &emsp;&emsp;→&nbsp;CZT 루프 초기화 |
-| 121 | &emsp;&emsp;→&nbsp;팬 속도의 자동 쓰기 P5 해제 (운전원 값 P11 이 살아남) |
+| 121 | &emsp;&emsp;→&nbsp;팬 속도값의 자동 쓰기 P5를 해제. P2 등 더 높은 우선순위 명령이 없으면 P11 값이 적용될 수 있음 |
 | 122 | &emsp;&emsp;→&nbsp;댐퍼 명령의 자동 쓰기 P5 해제 |
 
 ## 123~145행 · 비상
 
-> Command 0, 팬 0, 댐퍼 닫힘을 P1 로 강제
+> 운전 명령은 P11에 OFF, 팬 AO·목표 RPM은 P1에 0. 댐퍼 P1 닫기는 팬 정지 상태일 때 기록
 
 | 행 | 해석 |
 |---:|---|
 | 123 | 비상 DI가 0이 아니면 : |
-| 124 | &emsp;→&nbsp;BMS 운전 명령을 P11 에 0 으로 (비상이 풀려도 자동 재기동 안 함) |
-| 125 | &emsp;→&nbsp;터치스크린 운전 명령도 P11 에 0 |
+| 124 | &emsp;→&nbsp;FWU 운전 명령(`VP_FWU_Command`)에 P11로 0 기록. 이 기록만으로 비상 해제 후 재기동이 금지되는 것은 아님 |
+| 125 | &emsp;→&nbsp;HMI 운전 명령에도 P11로 0 기록. 더 높은 우선순위에 남은 ON 명령까지 지우지는 않음 |
 | 126 | &emsp;→&nbsp;RAT 루프 초기화 |
 | 127 | &emsp;→&nbsp;RDP 루프 초기화 |
 | 128 | &emsp;→&nbsp;ΔT 루프 초기화 |
 | 129 | &emsp;→&nbsp;CZT 루프 초기화 |
 | 130 | &emsp;→&nbsp;팬 속도값 0 (P5) |
 | 131 | &emsp;→&nbsp;팬 속도값 P11 도 0 |
-| 132 | &emsp;→&nbsp;팬이 모두 멈췄으면 : |
+| 132 | &emsp;→&nbsp;팬 운전 상태 판정(SF Status)이 0이면 : |
 | 133 | &emsp;&emsp;→&nbsp;댐퍼 닫기 (P5) |
 | 134 | &emsp;&emsp;→&nbsp;댐퍼 닫기 P11 |
 | 135 | &emsp;&emsp;→&nbsp;댐퍼 닫기를 비상 P1 로 강제 |
@@ -231,11 +232,11 @@
 
 | 행 | 해석 |
 |---:|---|
-| 166 | 속도 출력 타이머(1) 가 5 초를 넘으면 (5 초마다 한 번 출력) : |
+| 166 | 속도 출력 타이머(1)의 경과시간이 5초를 초과하면 : (실제 실행 간격에 따라 5초보다 조금 늦게 출력될 수 있음) |
 | 167 | &emsp;→&nbsp;팬 속도값(%) 읽기 |
 | 168 | &emsp;→&nbsp;팬 최대 RPM 읽기 (Initialization 에서 계산한 값) |
 | 169 | &emsp;→&nbsp;Modbus 목표 RPM = MIN(속도% x 최대RPM / 100, 최대RPM) |
-| 170 | &emsp;→&nbsp;아날로그 AO 값(%) = 속도% x 최대RPM / 정격최대RPM (정격 0 오입력 시 나눗셈 오류 방지로 최소 1) |
+| 170 | &emsp;→&nbsp;아날로그 AO 값(%) = 속도% × 최대 RPM / MAX(정격 최대 RPM, 1). 분모를 최소 1로 두지만 AO 출력 자체를 0~100%로 제한하는 식은 아님 |
 | 172 | &emsp;→&nbsp;팬 통신 장애 요약(8대 중 1대라도 통신 장애) 이 1 이면 : 전부 아날로그 출력으로 |
 | 173 | &emsp;&emsp;→&nbsp;AO (SF-1\~4) = 아날로그 값 |
 | 174 | &emsp;&emsp;→&nbsp;AO (SF-5\~8) = 아날로그 값 |
@@ -247,7 +248,7 @@
 | 180 | &emsp;&emsp;→&nbsp;SF-6 목표 RPM = 0 |
 | 181 | &emsp;&emsp;→&nbsp;SF-7 목표 RPM = 0 |
 | 182 | &emsp;&emsp;→&nbsp;SF-8 목표 RPM = 0 |
-| 183 | &emsp;→&nbsp;팬 통신이 모두 정상이면 : Modbus 출력으로 |
+| 183 | &emsp;→&nbsp;팬 종합 통신 장애 표시가 1이 아니면 : Modbus 목표 RPM을 출력 |
 | 184 | &emsp;&emsp;→&nbsp;AO (SF-1\~4) = 0 |
 | 185 | &emsp;&emsp;→&nbsp;AO (SF-5\~8) = 0 |
 | 186 | &emsp;&emsp;→&nbsp;SF-1 목표 RPM = 계산한 RPM |
@@ -258,5 +259,11 @@
 | 191 | &emsp;&emsp;→&nbsp;SF-6 목표 RPM = 계산한 RPM |
 | 192 | &emsp;&emsp;→&nbsp;SF-7 목표 RPM = 계산한 RPM |
 | 193 | &emsp;&emsp;→&nbsp;SF-8 목표 RPM = 계산한 RPM |
-| 195 | &emsp;→&nbsp;출력 타이머(1) 초기화 (다시 5 초 세기) |
+| 195 | &emsp;→&nbsp;출력 타이머(1)를 0초로 초기화 (다음 출력까지 다시 경과시간 확인) |
 | 196 | *[주석] LJH 2026-11-17 수정 구간 끝* |
+
+## 코드와 함께 읽을 때
+
+- **※** P11에 OFF를 기록하는 것과 재기동 금지 기능은 다르다. 비상 해제 뒤 남아 있는 명령과 우선순위에 따라 재기동할 수 있다.
+- **※** 일반 정지의 밸브 닫힘 대기 설명은 자동 모드 분기에 해당한다. 비상 및 Remote Shutdown의 출력 강제 처리는 별도이다.
+- **※** 이 파일에 실제로 있는 조건과 출력 설명을 기준으로 정리했다. QTS 항목 번호에 대한 적합성 검증은 이번 문서 대조의 범위가 아니다.

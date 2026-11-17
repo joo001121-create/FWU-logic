@@ -1,11 +1,21 @@
-PC mock tests; real DDC, PI dynamics and hardware not tested.
-
+test_ch3_serial_profile_and_existing_enable_default (test_configuration.ConfigurationTests.test_ch3_serial_profile_and_existing_enable_default) ... ok
+test_every_modbus_query_crc_and_station (test_configuration.ConfigurationTests.test_every_modbus_query_crc_and_station) ... ok
+test_no_new_unresolved_service_references_and_old_meter_removed (test_configuration.ConfigurationTests.test_no_new_unresolved_service_references_and_old_meter_removed) ... /workspace/scratch/1c270014052d/full_project/fwu_v2/tests/test_configuration.py:59: ResourceWarning: unclosed file <_io.TextIOWrapper name='/workspace/scratch/1c270014052d/full_project/fwu_v2/INHERITED_EXPORT_REFERENCES.csv' mode='r' encoding='utf-8-sig'>
+  for r in csv.DictReader((ROOT/'INHERITED_EXPORT_REFERENCES.csv').open(encoding='utf-8-sig'))}
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/workspace/scratch/1c270014052d/full_project/fwu_v2/tests/test_configuration.py:67: ResourceWarning: unclosed file <_io.TextIOWrapper name='/workspace/scratch/1c270014052d/full_project/fwu_v2/RETIRED_POINTS.csv' mode='r' encoding='utf-8-sig'>
+  retired={r['id'] for r in csv.DictReader((ROOT/'RETIRED_POINTS.csv').open(encoding='utf-8-sig'))}
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_picv_definitions_and_queries_match_profile (test_configuration.ConfigurationTests.test_picv_definitions_and_queries_match_profile) ... ok
+test_port_assignments (test_configuration.ConfigurationTests.test_port_assignments) ... ok
+test_retired_adapter_points_absent (test_configuration.ConfigurationTests.test_retired_adapter_points_absent) ... ok
 test_all_blocks_no_new_missing_reads (test_control.ControlTests.test_all_blocks_no_new_missing_reads) ... ok
 test_damper_delays_independent_and_clear (test_control.ControlTests.test_damper_delays_independent_and_clear) ... ok
+test_disabled_and_driver_fault_are_not_closed (test_control.ControlTests.test_disabled_and_driver_fault_are_not_closed) ... ok
 test_f8_failure_threshold_ignores_count_vp (test_control.ControlTests.test_f8_failure_threshold_ignores_count_vp) ... ok
 test_independent_sensor_failure_and_recovery (test_control.ControlTests.test_independent_sensor_failure_and_recovery) ... ok
 test_internal_sensor_fallback_only_for_relevant_mode (test_control.ControlTests.test_internal_sensor_fallback_only_for_relevant_mode) ... ok
-test_no_sample_is_not_closed_and_stale_expires (test_control.ControlTests.test_no_sample_is_not_closed_and_stale_expires) ... ok
 test_picv_sat_failure_manual_and_emergency_priorities (test_control.ControlTests.test_picv_sat_failure_manual_and_emergency_priorities) ... ok
 test_position_comparison_not_used_in_flow_mode (test_control.ControlTests.test_position_comparison_not_used_in_flow_mode) ... ok
 test_remote_priority_wins_over_picv_and_fan (test_control.ControlTests.test_remote_priority_wins_over_picv_and_fan) ... ok
@@ -27,8 +37,19 @@ test_limit_run_delay_stop_clear_and_temperature_hysteresis (test_followup.Follow
 test_shutdown_applies_in_all_modes_and_p1_wins (test_followup.FollowupTests.test_shutdown_applies_in_all_modes_and_p1_wins) ... ok
 test_shutdown_release_retains_higher_priority_command_and_damper_sequence (test_followup.FollowupTests.test_shutdown_release_retains_higher_priority_command_and_damper_sequence) ... ok
 test_smoke_option_confirmation_and_auto_clear (test_followup.FollowupTests.test_smoke_option_confirmation_and_auto_clear) ... ok
+test_all_blocks_use_only_existing_api_and_basic_statements (test_ldpl_audit.LdplAuditTests.test_all_blocks_use_only_existing_api_and_basic_statements) ... ok
+test_no_adapter_or_sample_counter_dependency (test_ldpl_audit.LdplAuditTests.test_no_adapter_or_sample_counter_dependency) ... ok
+test_only_picv_feedback_changed (test_ldpl_audit.LdplAuditTests.test_only_picv_feedback_changed) ... ok
+test_disabled_does_not_require_physical_point_reads (test_ldpl_audit.PicvInputTests.test_disabled_does_not_require_physical_point_reads) ... ok
+test_driver_zero_is_not_independent_freshness_evidence (test_ldpl_audit.PicvInputTests.test_driver_zero_is_not_independent_freshness_evidence) ... ok
+test_every_valve_and_quantity_alarm_blocks_closed (test_ldpl_audit.PicvInputTests.test_every_valve_and_quantity_alarm_blocks_closed) ... ok
+test_fault_holds_normal_stop_but_remote_shutdown_still_stops (test_ldpl_audit.PicvInputTests.test_fault_holds_normal_stop_but_remote_shutdown_still_stops) ... ok
+test_flow_check_remains_optional_and_individual (test_ldpl_audit.PicvInputTests.test_flow_check_remains_optional_and_individual) ... ok
+test_invalid_position_range_blocks_closed (test_ldpl_audit.PicvInputTests.test_invalid_position_range_blocks_closed) ... ok
+test_raw_points_drive_existing_display_points (test_ldpl_audit.PicvInputTests.test_raw_points_drive_existing_display_points) ... ok
+test_same_values_do_not_create_false_timeout (test_ldpl_audit.PicvInputTests.test_same_values_do_not_create_false_timeout) ... ok
 
 ----------------------------------------------------------------------
-Ran 27 tests in 0.487s
+Ran 44 tests in 0.770s
 
 OK

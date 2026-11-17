@@ -209,7 +209,6 @@
       <modbusPointInfo pointId="00000002" modbusAddress="104" byteCount="4" />
       <modbusPointInfo pointId="00000003" modbusAddress="106" byteCount="4" />
       <modbusPointInfo pointId="00000004" modbusAddress="108" byteCount="4" />
-      <modbusPointInfo pointId="000000A3" modbusAddress="110" byteCount="4" />
       <modbusPointInfo pointId="00000013" modbusAddress="16000" byteCount="4" />
       <modbusPointInfo pointId="00000014" modbusAddress="16002" byteCount="4" />
       <modbusPointInfo pointId="00000015" modbusAddress="16004" byteCount="4" />
@@ -364,10 +363,6 @@
       <modbusPointInfo pointId="0000009C" modbusAddress="28014" byteCount="4" />
       <modbusPointInfo pointId="0000009D" modbusAddress="28016" byteCount="4" />
       <modbusPointInfo pointId="000000A0" modbusAddress="28018" byteCount="4" />
-      <modbusPointInfo pointId="00000137" modbusAddress="28020" byteCount="4" />
-      <modbusPointInfo pointId="0000015C" modbusAddress="28022" byteCount="4" />
-      <modbusPointInfo pointId="0000015D" modbusAddress="28024" byteCount="4" />
-      <modbusPointInfo pointId="0000015E" modbusAddress="28026" byteCount="4" />
     </modbusAddressMap>
   </modbusAddressMaps>
   <modbusServiceProperty slaveUnitAddress="1" isTCPServiceEnable="false" tcpServicePortNumber="502" />

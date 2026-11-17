@@ -81,7 +81,11 @@ def validate():
         assert len(loop_ids.values()) == len(set(loop_ids.values())), (path, loop_ids)
         timers[path.stem], loops[path.stem] = timer_ids, loop_ids
     missing = sorted(refs-set(names))
+    mapping = list(csv.DictReader((ROOT/'PICV_POINT_MAPPING.csv').open(encoding='utf-8-sig')))
+    declared_unbound = sorted(r['point_name'] for r in mapping)
+    assert len(declared_unbound) == len(set(declared_unbound)) == 12
     assert missing == ['FWU_LEAK_DETECT'], missing
+    assert all(name in by_name and by_name[name].get('category') == 'Modbus' for name in declared_unbound)
     registered = [n.get('name') for n in ET.parse(ROOT/'DDC.xml').findall('logicInfo')]
     assert len(registered) == 13 and len(set(registered)) == 13
     assert set(registered) == {p.stem for p in logic_paths}
@@ -95,11 +99,14 @@ def validate():
         'variable_naming': 'PASS', 'logic_registration': 'PASS',
         'logic_count': len(logic_paths), 'xml_count': len(xml_paths),
         'renamed_points_including_unbound': len(rows),
-        'new_undefined_references': [], 'inherited_undefined_references': missing,
+        'new_unbound_physical_references': [], 'picv_profile_defined': declared_unbound, 'inherited_undefined_references': ['FWU_LEAK_DETECT'],
+        'unexpected_undefined_references': [],
         'timers': timers, 'loops': loops,
         'limitations': ['DDC firmware, PI dynamics and hardware not tested',
-                       'Physical maps retain old ports/registers/scales; point names updated only',
+                       'Fan CH1, ATS CH2, PICV CH3 profile defined; hardware commissioning not performed',
                        'FWU_LEAK_DETECT remains unbound',
+                       'PICV XML uses Belimo EPIV V4.3.0 profile and station plan 1..4; verify actual firmware/settings',
+                       'PICV first-response/freshness guarantee not verified by LDPL code',
                        'External HMI/BMS projects not updated; rename map supplied']
     }
 

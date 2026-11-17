@@ -2,7 +2,7 @@
 <ddc xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <portInfo portNumber="1" useType="Modbus" baudRate="Rate9600" dataBit="Bit8" stopBit="Bit1" parity="None" pollingDelay="300" timeout="500" />
   <portInfo portNumber="2" useType="Modbus" baudRate="Rate9600" dataBit="Bit8" stopBit="Bit1" parity="None" pollingDelay="300" timeout="500" />
-  <portInfo portNumber="3" useType="Modbus" baudRate="Rate9600" dataBit="Bit8" stopBit="Bit1" parity="None" pollingDelay="300" timeout="500" />
+  <portInfo portNumber="3" useType="Modbus" baudRate="Rate38400" dataBit="Bit8" stopBit="Bit2" parity="None" pollingDelay="300" timeout="500" />
   <portInfo portNumber="4" useType="ModbusSlave" baudRate="Rate19200" dataBit="Bit8" stopBit="Bit1" parity="None" pollingDelay="0" timeout="500" />
   <port232Info useType="NotUsed" baudRate="Rate115200" protocol="NotUsed" dataBits="Bit8" startBit="Bit1" stopBit="Bit2" parity="None" processName="" flag="DISABLE" />
   <commModuleInfo commModuleType="IO" portNumber="-1" />
