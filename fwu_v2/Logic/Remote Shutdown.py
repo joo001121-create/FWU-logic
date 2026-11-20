@@ -4,7 +4,7 @@ FIRE_CONFIRM_SECONDS = 3
 engine = ddc_logic()
 
 if engine.READPOINT("FWU_FIRE_ALARM") == 1 :
-    if engine.SECTIMER(FIRE_CONFIRM_TIMER, 1) > FIRE_CONFIRM_SECONDS :
+    if engine.SECTIMER(FIRE_CONFIRM_TIMER, 1) > FIRE_CONFIRM_SECONDS :      #FIRE_CONFIRM_SECONDS=3
         engine.WRITEPOINT("VP_FWU_Fire_Alarm", 1)
 else :
     engine.SECTIMER(FIRE_CONFIRM_TIMER, 0)
@@ -14,9 +14,9 @@ else :
 # 일반 운전 ON/OFF와 별개의 강제 정지이며 로컬·수동 운전에도 적용한다.
 # 하드웨어 화재 차단 회로는 이 설정으로 무효화되지 않는다.
 b_shutdown = 0
-if engine.READPOINT("VP_FWU_Remote_Shutdown_Command") == 1 :
+if engine.READPOINT("VP_FWU_Remote_Shutdown_Command") == 1 :        #사용자 입력
     b_shutdown = 1
-if engine.READPOINT("VP_FWU_Fire_Alarm") == 1 and engine.READPOINT("VP_FWU_Smoke_Action_Set") == 1 :
+if engine.READPOINT("VP_FWU_Fire_Alarm") == 1 and engine.READPOINT("VP_FWU_Smoke_Action_Set") == 1 :        #VP_FWU_Smoke_Action_Set: 사용자 입력
     b_shutdown = 1
 
 if b_shutdown == 1 :

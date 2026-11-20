@@ -232,7 +232,7 @@ if engine.READPOINT("VP_FWU_Command") == 1 and engine.READPOINT("VP_FWU_SF_Speed
         # 신규 팬의 정압-풍량 곡선과 허용 최대속도를 기준으로, 팬 고장 시에도
         # 요구 정압에서 목표 풍량을 확보할 수 있는 고장 허용 대수를 확인할 것.
         # 확인 결과에 맞춰 아래 종합 고장 대수 기준과 Failover 정지 연계를 재검토한다.
-        if sf_fail_count * 2 >= FAN_COUNT :
+        if sf_fail_count * 2 >= FAN_COUNT :         #SXM 팬, FWU 모델 기준 절반 이상 고장 시 알람 적용. 팬 및 모델 변경 시 절반이 아닌 다른 기준값 필요할 수 있음
             engine.WRITEPOINT("VP_FWU_SF_Failure_Alarm", 1)
         else :
             engine.WRITEPOINT("VP_FWU_SF_Failure_Alarm", 0)
