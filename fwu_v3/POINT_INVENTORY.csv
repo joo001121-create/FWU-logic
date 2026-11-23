@@ -535,3 +535,6 @@ VP_FWU_Upper_Comm_Enable,05001000,VP0500001000,DV,ControlPoint/VirtualPoint.xml
 VP_FWU_Upper_Comm_Enable_Prev,05001001,VP0500001001,DV,ControlPoint/VirtualPoint.xml
 VP_FWU_Upper_Comm_Timeout,02001000,VP0200001000,AV,ControlPoint/VirtualPoint.xml
 VP_RAD_Check_Alarm,0500016B,VP0500000087,DV,ControlPoint/VirtualPoint.xml
+VP_FWU_PICV_Fail_Mode,05001036,VP0500001036,DV,ControlPoint/VirtualPoint.xml
+VP_FWU_PICV_Safe_Position,02001039,VP0200001039,AV,ControlPoint/VirtualPoint.xml
+VP_FWU_PICV_PI_Started,05001037,VP0500001037,DV,ControlPoint/VirtualPoint.xml

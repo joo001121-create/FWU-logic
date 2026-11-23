@@ -9,6 +9,7 @@
 | Coding Rule (예제 외 9개 파일) | code review/code rule.pptx 기준. 매크로 상수(TMR_READ/CLEAR, ON/OFF, TRUE/FALSE, DEC/INC), 모든 if에 else, if not 없앰, 변수 PascalCase+m/b 접두어, READPOINT 설정값은 대문자 상수, 타이머 번호는 이름 상수(번호는 v2 그대로), 머리말 구성은 예제와 동일, JSY S/E 태그 |
 | 예제 5개 | refac 예제(Damper Signal Alarm, PICV Feedback, Zone CZT/HZT/RDP Alarm)는 원본 그대로이며 수정 금지. PICV Feedback 원본은 탭/스페이스 혼용(TabError)으로 Python에서 읽히지 않음 |
 | 관제점 | code review/Naming_Rule_점검.xlsx 수정안 적용: `VP_FWU_Command-HMI` → `VP_FWU_Command_HMI`, ATS 장치·관제점 13개 `FWU-ATS` → `FWU_ATS`, 팬 장치명 `FWU SF-n` → `FWU_SF-n`, 팬 한글 Modbus 관제점 104개 → 영문(예: `공간온도` → `Ambient_Temp`). ID·주소는 그대로. 목록은 `POINT_RENAME_MAP_V3.csv`(118개), `DEVICE_RENAME_MAP_V3.csv`(9개). `MinSP`·`PIDOut`은 하나의 용어로 인정해 유지. HMI/BMS 쪽 이름 연결은 별도로 갱신해야 함 |
+| 관제점 추가 | `VP_FWU_PICV_Fail_Mode`(DV, 0 마지막 위치 유지 / 1 안전 위치, 기본 1), `VP_FWU_PICV_Safe_Position`(AV, 안전 위치 %, 기본 100). 내부 기억용 `VP_FWU_PICV_PI_Started`(DV, 재부팅 시 지워짐). PICV Control에서 SAT 고장 시 밸브 위치 선택에 사용하며, 마지막 위치 모드라도 운전 시작 후 PI가 돌기 전이면 안전 위치로 보냄 (QTS RFP 2.3.E.7). 기본값은 기존 동작과 같음. 추가 이력은 `code review/v3_관제점_추가_목록.xlsx` |
 | tests | 파일 이름 변경 반영, `validate_project.py` 변수 이름 검사를 새 규칙으로 갱신. 예제 PICV Feedback의 TabError 때문에 현재 검사·테스트가 실행되지 않음(탭만 공백으로 바꾼 복사본에서는 검사 통과, 테스트 43/44 통과). `test_only_picv_feedback_changed`는 v2 납품 해시 확인용이라 v3에서는 실패함 |
 
 `STATIC_CHECKS.json`, `TEST_RESULTS.txt`, `SOURCE_LOGIC_SHA256.json`, `CHANGED_FILES.csv`와 아래 v2 설명은 v2 당시 기록이다.
