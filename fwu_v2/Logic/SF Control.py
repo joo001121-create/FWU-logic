@@ -12,36 +12,38 @@ DELTA_T_LOOP = 3
 CZT_LOOP = 4
 engine = ddc_logic()
 
-sf_select = engine.READPOINT("VP_FWU_SF_Control_Select")
+## 설정값 상수: HMI에서 입력한 값을 실행할 때마다 읽어온다.
+SF_CONTROL_SELECT = engine.READPOINT("VP_FWU_SF_Control_Select")    ## 팬 제어 기준. 0 고정속도, 1 RAT, 2 RDP, 3 ΔT, 4 CZT
+SF_MAX_RPM = engine.READPOINT("VP_FWU_SF_Max_RPM")                  ## 속도 100%일 때 팬 목표 RPM
+RAT_PGAIN = engine.READPOINT("VP_FWU_SF_RAT_PGain")                 ## RAT 기준 팬 제어 P 게인
+RAT_IGAIN = engine.READPOINT("VP_FWU_SF_RAT_IGain")                 ## RAT 기준 팬 제어 I 게인
+RDP_PGAIN = engine.READPOINT("VP_FWU_SF_RDP_PGain")                 ## RDP 기준 팬 제어 P 게인
+RDP_IGAIN = engine.READPOINT("VP_FWU_SF_RDP_IGain")                 ## RDP 기준 팬 제어 I 게인
+DELTAT_PGAIN = engine.READPOINT("VP_FWU_SF_DeltaT_PGain")           ## ΔT 기준 팬 제어 P 게인
+DELTAT_IGAIN = engine.READPOINT("VP_FWU_SF_DeltaT_IGain")           ## ΔT 기준 팬 제어 I 게인
+CZT_PGAIN = engine.READPOINT("VP_FWU_SF_CZT_PGain")                 ## CZT 기준 팬 제어 P 게인
+CZT_IGAIN = engine.READPOINT("VP_FWU_SF_CZT_IGain")                 ## CZT 기준 팬 제어 I 게인
+
 b_fixed = 0
-if 0 <= sf_select < 1 :
+if 0 <= SF_CONTROL_SELECT < 1 :
     b_fixed = 1
-if 2 <= sf_select < 3 and engine.READPOINT("VP_FWU_RDP_PV_Valid") != 1 :
+if 2 <= SF_CONTROL_SELECT < 3 and engine.READPOINT("VP_FWU_RDP_PV_Valid") != 1 :
     b_fixed = 1
-if 4 <= sf_select < 5 and engine.READPOINT("VP_FWU_CZT_PV_Valid") != 1 :
+if 4 <= SF_CONTROL_SELECT < 5 and engine.READPOINT("VP_FWU_CZT_PV_Valid") != 1 :
     b_fixed = 1
 
-if 1 <= sf_select < 2 and engine.READPOINT("VP_FWU_RAT_Failure_Alarm") == 1:
+if 1 <= SF_CONTROL_SELECT < 2 and engine.READPOINT("VP_FWU_RAT_Failure_Alarm") == 1:
     b_fixed = 1
-if 3 <= sf_select < 4 and (engine.READPOINT("VP_FWU_RAT_Failure_Alarm") == 1 or engine.READPOINT("VP_FWU_SAT_Failure_Alarm") == 1):
+if 3 <= SF_CONTROL_SELECT < 4 and (engine.READPOINT("VP_FWU_RAT_Failure_Alarm") == 1 or engine.READPOINT("VP_FWU_SAT_Failure_Alarm") == 1):
     b_fixed = 1
 b_bms_fail = 0
 if engine.READPOINT("VP_FWU_Upper_Comm_Enable") == 1 and engine.READPOINT("VP_FWU_BMS_PLC_Comm_Fault") == 1 :
-    if 2 <= sf_select < 3 or 4 <= sf_select < 5 :
+    if 2 <= SF_CONTROL_SELECT < 3 or 4 <= SF_CONTROL_SELECT < 5 :
         b_bms_fail = 1
-    if 0 <= sf_select < 1 and engine.READPOINT("REMOTE_SELECTION") == 1 :
+    if 0 <= SF_CONTROL_SELECT < 1 and engine.READPOINT("REMOTE_SELECTION") == 1 :
         b_bms_fail = 1
 if b_bms_fail == 1 :
     b_fixed = 0
-
-sa_rdp_p = engine.READPOINT("VP_FWU_SF_RDP_PGain")
-sa_rdp_i = engine.READPOINT("VP_FWU_SF_RDP_IGain")
-rat_p = engine.READPOINT("VP_FWU_SF_RAT_PGain")
-rat_i = engine.READPOINT("VP_FWU_SF_RAT_IGain")
-delta_t_p = engine.READPOINT("VP_FWU_SF_DeltaT_PGain")
-delta_t_i = engine.READPOINT("VP_FWU_SF_DeltaT_IGain")
-sa_czt_p = engine.READPOINT("VP_FWU_SF_CZT_PGain")
-sa_czt_i = engine.READPOINT("VP_FWU_SF_CZT_IGain")
 
 if engine.READPOINT("FWU_EMERGENCY") == 0 :
     engine.RELEASE_PRI("FWU_SF-1_4_SPEED_CONTROL", 1)       #FWU_SF-1_8_SPEED_CONTROL로 합쳐도 됨 (기존 배선이 1~4, 5~8로 나뉘어 있음)
@@ -67,23 +69,23 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
                     engine.LOOP2_INIT(RDP_LOOP)
                     engine.LOOP2_INIT(DELTA_T_LOOP)
                     engine.LOOP2_INIT(CZT_LOOP)
-                if b_fixed == 0 and 1 <= sf_select < 2 :
-                    engine.LOOP2(1,"FWU_RAT","VP_FWU_SF_Speed_Value","VP_FWU_RAT_SP",rat_p,rat_i,0,0,60,engine.READPOINT("VP_FWU_SF_Speed_Min"),engine.READPOINT("VP_FWU_SF_Speed_Max"),RAT_LOOP,0)
+                if b_fixed == 0 and 1 <= SF_CONTROL_SELECT < 2 :
+                    engine.LOOP2(1,"FWU_RAT","VP_FWU_SF_Speed_Value","VP_FWU_RAT_SP",RAT_PGAIN,RAT_IGAIN,0,0,60,engine.READPOINT("VP_FWU_SF_Speed_Min"),engine.READPOINT("VP_FWU_SF_Speed_Max"),RAT_LOOP,0)
                     engine.LOOP2_INIT(RDP_LOOP)
                     engine.LOOP2_INIT(DELTA_T_LOOP)
                     engine.LOOP2_INIT(CZT_LOOP)
-                if b_fixed == 0 and b_bms_fail == 0 and 2 <= sf_select < 3 :
-                    engine.LOOP2(0,"VP_FWU_RDP_PV","VP_FWU_SF_Speed_Value","VP_FWU_RDP_SP",sa_rdp_p,sa_rdp_i,0,0,60,engine.READPOINT("VP_FWU_SF_Speed_Min"),engine.READPOINT("VP_FWU_SF_Speed_Max"),RDP_LOOP,0)
+                if b_fixed == 0 and b_bms_fail == 0 and 2 <= SF_CONTROL_SELECT < 3 :
+                    engine.LOOP2(0,"VP_FWU_RDP_PV","VP_FWU_SF_Speed_Value","VP_FWU_RDP_SP",RDP_PGAIN,RDP_IGAIN,0,0,60,engine.READPOINT("VP_FWU_SF_Speed_Min"),engine.READPOINT("VP_FWU_SF_Speed_Max"),RDP_LOOP,0)
                     engine.LOOP2_INIT(RAT_LOOP)
                     engine.LOOP2_INIT(DELTA_T_LOOP)
                     engine.LOOP2_INIT(CZT_LOOP)
-                if b_fixed == 0 and 3 <= sf_select < 4 :
-                    engine.LOOP2(1,"VP_FWU_DeltaT_PV","VP_FWU_SF_Speed_Value","VP_FWU_DeltaT_SP",delta_t_p,delta_t_i,0,0,60,engine.READPOINT("VP_FWU_SF_Speed_Min"),engine.READPOINT("VP_FWU_SF_Speed_Max"),DELTA_T_LOOP,0)
+                if b_fixed == 0 and 3 <= SF_CONTROL_SELECT < 4 :
+                    engine.LOOP2(1,"VP_FWU_DeltaT_PV","VP_FWU_SF_Speed_Value","VP_FWU_DeltaT_SP",DELTAT_PGAIN,DELTAT_IGAIN,0,0,60,engine.READPOINT("VP_FWU_SF_Speed_Min"),engine.READPOINT("VP_FWU_SF_Speed_Max"),DELTA_T_LOOP,0)
                     engine.LOOP2_INIT(RAT_LOOP)
                     engine.LOOP2_INIT(RDP_LOOP)
                     engine.LOOP2_INIT(CZT_LOOP)
-                if b_fixed == 0 and b_bms_fail == 0 and 4 <= sf_select < 5 :
-                    engine.LOOP2(1,"VP_FWU_CZT_PV","VP_FWU_SF_Speed_Value","VP_FWU_CZT_SP",sa_czt_p,sa_czt_i,0,0,60,engine.READPOINT("VP_FWU_SF_Speed_Min"),engine.READPOINT("VP_FWU_SF_Speed_Max"),CZT_LOOP,0)
+                if b_fixed == 0 and b_bms_fail == 0 and 4 <= SF_CONTROL_SELECT < 5 :
+                    engine.LOOP2(1,"VP_FWU_CZT_PV","VP_FWU_SF_Speed_Value","VP_FWU_CZT_SP",CZT_PGAIN,CZT_IGAIN,0,0,60,engine.READPOINT("VP_FWU_SF_Speed_Min"),engine.READPOINT("VP_FWU_SF_Speed_Max"),CZT_LOOP,0)
                     engine.LOOP2_INIT(RAT_LOOP)
                     engine.LOOP2_INIT(RDP_LOOP)
                     engine.LOOP2_INIT(DELTA_T_LOOP)
@@ -165,9 +167,8 @@ else :
 
 if engine.SECTIMER(SPEED_OUTPUT_TIMER, 1) > 5 :
     sf_speed = engine.READPOINT("VP_FWU_SF_Speed_Value")
-    sf_max_rpm = engine.READPOINT("VP_FWU_SF_Max_RPM")
-    sf_rpm_set = engine.MIN(sf_speed * sf_max_rpm / 100, sf_max_rpm)
-    sf_ao_set = sf_speed * sf_max_rpm / engine.MAX(engine.READPOINT("VP_FWU_SF_Rated_Max_RPM"), 1)
+    sf_rpm_set = engine.MIN(sf_speed * SF_MAX_RPM / 100, SF_MAX_RPM)
+    sf_ao_set = sf_speed * SF_MAX_RPM / engine.MAX(engine.READPOINT("VP_FWU_SF_Rated_Max_RPM"), 1)
 
     if engine.READPOINT("VP_FWU_SF_Comm_Fault") == 1 :
         engine.WRITEPOINT("FWU_SF-1_4_SPEED_CONTROL", sf_ao_set)

@@ -21,6 +21,9 @@ HUMIDITY_HYSTERESIS = 5
 # F4/F6는 개별 팬 판정과 입출력을 함께 변경. Count VP로 모델을 전환하지 않는다.
 engine = ddc_logic()
 
+## 설정값 상수: HMI에서 입력한 값을 실행할 때마다 읽어온다.
+FAIL_RPM = engine.READPOINT("VP_FWU_SF_Failure_RPM_Set")    ## 팬 RPM이 이 값보다 낮으면 고장 후보로 봄
+
 # 고장 확정 전이라도 무효 측정값으로 고온·저온/고습·저습을 판정하지 않는다.
 # HMI에서는 이 구간을 정상 측정으로 표시하지 말 것.
 b_rat_valid = engine.READPOINT("FWU_RAT") >= TEMPERATURE_VALID_MIN
@@ -143,46 +146,45 @@ if engine.READPOINT("VP_FWU_SF_Status") == 0 :
 
 if engine.READPOINT("VP_FWU_Command") == 1 and engine.READPOINT("VP_FWU_SF_Speed_Value") >= engine.READPOINT("VP_FWU_SF_Speed_Min") :
     if engine.SECTIMER(FAN_FAIL_TIMER, 1) > FAN_FAIL_CONFIRM_SECONDS :
-        fail_rpm = engine.READPOINT("VP_FWU_SF_Failure_RPM_Set")
         b_sf_dp_low = engine.READPOINT("FWU_SAFLOW_DP") <= engine.READPOINT("VP_FWU_SF_Run_DP_Set")
 
         if engine.READPOINT("VP_FWU_SF-1_Comm_Fault") == 0 :
-            b_sf_1_fail = engine.READPOINT("FWU_SF-1.Current_RPM") < fail_rpm
+            b_sf_1_fail = engine.READPOINT("FWU_SF-1.Current_RPM") < FAIL_RPM
         else :
             b_sf_1_fail = b_sf_dp_low
 
         if engine.READPOINT("VP_FWU_SF-2_Comm_Fault") == 0 :
-            b_sf_2_fail = engine.READPOINT("FWU_SF-2.Current_RPM") < fail_rpm
+            b_sf_2_fail = engine.READPOINT("FWU_SF-2.Current_RPM") < FAIL_RPM
         else :
             b_sf_2_fail = b_sf_dp_low
 
         if engine.READPOINT("VP_FWU_SF-3_Comm_Fault") == 0 :
-            b_sf_3_fail = engine.READPOINT("FWU_SF-3.Current_RPM") < fail_rpm
+            b_sf_3_fail = engine.READPOINT("FWU_SF-3.Current_RPM") < FAIL_RPM
         else :
             b_sf_3_fail = b_sf_dp_low
 
         if engine.READPOINT("VP_FWU_SF-4_Comm_Fault") == 0 :
-            b_sf_4_fail = engine.READPOINT("FWU_SF-4.Current_RPM") < fail_rpm
+            b_sf_4_fail = engine.READPOINT("FWU_SF-4.Current_RPM") < FAIL_RPM
         else :
             b_sf_4_fail = b_sf_dp_low
 
         if engine.READPOINT("VP_FWU_SF-5_Comm_Fault") == 0 :
-            b_sf_5_fail = engine.READPOINT("FWU_SF-5.Current_RPM") < fail_rpm
+            b_sf_5_fail = engine.READPOINT("FWU_SF-5.Current_RPM") < FAIL_RPM
         else :
             b_sf_5_fail = b_sf_dp_low
 
         if engine.READPOINT("VP_FWU_SF-6_Comm_Fault") == 0 :
-            b_sf_6_fail = engine.READPOINT("FWU_SF-6.Current_RPM") < fail_rpm
+            b_sf_6_fail = engine.READPOINT("FWU_SF-6.Current_RPM") < FAIL_RPM
         else :
             b_sf_6_fail = b_sf_dp_low
 
         if engine.READPOINT("VP_FWU_SF-7_Comm_Fault") == 0 :
-            b_sf_7_fail = engine.READPOINT("FWU_SF-7.Current_RPM") < fail_rpm
+            b_sf_7_fail = engine.READPOINT("FWU_SF-7.Current_RPM") < FAIL_RPM
         else :
             b_sf_7_fail = b_sf_dp_low
 
         if engine.READPOINT("VP_FWU_SF-8_Comm_Fault") == 0 :
-            b_sf_8_fail = engine.READPOINT("FWU_SF-8.Current_RPM") < fail_rpm
+            b_sf_8_fail = engine.READPOINT("FWU_SF-8.Current_RPM") < FAIL_RPM
         else :
             b_sf_8_fail = b_sf_dp_low
 

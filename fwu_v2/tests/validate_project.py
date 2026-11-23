@@ -48,8 +48,15 @@ def validate():
                         name = target.id
                         assert re.fullmatch(r'[a-z][a-z0-9_]*|[A-Z][A-Z0-9_]*', name), (path, name)
                         if name.isupper():
-                            assert isinstance(node.value, ast.Constant), (path, name)
-                            constants[name] = node.value.value
+                            # Coding Rule: READPOINT로 읽는 설정값도 대문자 상수로 쓴다 (refac 예제 NO_FLOW 방식).
+                            # 이 경우 값이 실행 중에 정해지므로 타이머/루프 번호 상수 목록에는 넣지 않는다.
+                            v = node.value
+                            is_setting = (isinstance(v, ast.Call) and isinstance(v.func, ast.Attribute)
+                                          and v.func.attr == 'READPOINT' and len(v.args) == 1
+                                          and isinstance(v.args[0], ast.Constant) and isinstance(v.args[0].value, str))
+                            assert isinstance(v, ast.Constant) or is_setting, (path, name)
+                            if isinstance(v, ast.Constant):
+                                constants[name] = v.value
                         if isinstance(node.value, (ast.Compare, ast.BoolOp)):
                             assert name.startswith('b_'), (path, name)
         timer_ids, loop_ids = {}, {}

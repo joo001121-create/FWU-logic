@@ -3,6 +3,11 @@ SF_STATUS_TIMER = 5
 UPPER_HEARTBEAT_TIMER = 6
 UPPER_RESET_TIMER = 7
 engine = ddc_logic()
+
+## 설정값 상수: HMI에서 입력한 값을 실행할 때마다 읽어온다.
+FAIL_RPM = engine.READPOINT("VP_FWU_SF_Failure_RPM_Set")    ## 팬 RPM이 이 값 이상이면 도는 것으로 봄
+RUN_DP = engine.READPOINT("VP_FWU_SF_Run_DP_Set")           ## 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄
+
 # 상위가 없는 모델은 감시를 끄고 Local 고정속도/RAT/ΔT를 사용한다.
 # 감시를 끄면 외부 온도·차압은 제어 입력으로 쓰지 않는다.
 b_upper_enabled = engine.READPOINT("VP_FWU_Upper_Comm_Enable") == 1
@@ -366,65 +371,63 @@ b_sf_6_comm_fault = engine.READPOINT("VP_FWU_SF-6_Comm_Fault")
 b_sf_7_comm_fault = engine.READPOINT("VP_FWU_SF-7_Comm_Fault")
 b_sf_8_comm_fault = engine.READPOINT("VP_FWU_SF-8_Comm_Fault")
 
-fail_rpm = engine.READPOINT("VP_FWU_SF_Failure_RPM_Set")
 saflow_dp = engine.READPOINT("FWU_SAFLOW_DP")
-run_dp = engine.READPOINT("VP_FWU_SF_Run_DP_Set")
 b_sf_run = 0
 
 if b_sf_1_comm_fault == 1 :
-    if saflow_dp > run_dp :
+    if saflow_dp > RUN_DP :
         b_sf_run = 1
 else :
-    if engine.READPOINT("FWU_SF-1.Current_RPM") >= fail_rpm :
+    if engine.READPOINT("FWU_SF-1.Current_RPM") >= FAIL_RPM :
         b_sf_run = 1
 
 if b_sf_2_comm_fault == 1 :
-    if saflow_dp > run_dp :
+    if saflow_dp > RUN_DP :
         b_sf_run = 1
 else :
-    if engine.READPOINT("FWU_SF-2.Current_RPM") >= fail_rpm :
+    if engine.READPOINT("FWU_SF-2.Current_RPM") >= FAIL_RPM :
         b_sf_run = 1
 
 if b_sf_3_comm_fault == 1 :
-    if saflow_dp > run_dp :
+    if saflow_dp > RUN_DP :
         b_sf_run = 1
 else :
-    if engine.READPOINT("FWU_SF-3.Current_RPM") >= fail_rpm :
+    if engine.READPOINT("FWU_SF-3.Current_RPM") >= FAIL_RPM :
         b_sf_run = 1
 
 if b_sf_4_comm_fault == 1 :
-    if saflow_dp > run_dp :
+    if saflow_dp > RUN_DP :
         b_sf_run = 1
 else :
-    if engine.READPOINT("FWU_SF-4.Current_RPM") >= fail_rpm :
+    if engine.READPOINT("FWU_SF-4.Current_RPM") >= FAIL_RPM :
         b_sf_run = 1
 
 if b_sf_5_comm_fault == 1 :
-    if saflow_dp > run_dp :
+    if saflow_dp > RUN_DP :
         b_sf_run = 1
 else :
-    if engine.READPOINT("FWU_SF-5.Current_RPM") >= fail_rpm :
+    if engine.READPOINT("FWU_SF-5.Current_RPM") >= FAIL_RPM :
         b_sf_run = 1
 
 if b_sf_6_comm_fault == 1 :
-    if saflow_dp > run_dp :
+    if saflow_dp > RUN_DP :
         b_sf_run = 1
 else :
-    if engine.READPOINT("FWU_SF-6.Current_RPM") >= fail_rpm :
+    if engine.READPOINT("FWU_SF-6.Current_RPM") >= FAIL_RPM :
         b_sf_run = 1
 
 if b_sf_7_comm_fault == 1 :
-    if saflow_dp > run_dp :
+    if saflow_dp > RUN_DP :
         b_sf_run = 1
 else :
-    if engine.READPOINT("FWU_SF-7.Current_RPM") >= fail_rpm :
+    if engine.READPOINT("FWU_SF-7.Current_RPM") >= FAIL_RPM :
         b_sf_run = 1
 
 if b_sf_8_comm_fault == 1 :
-    if saflow_dp > run_dp :
+    if saflow_dp > RUN_DP :
         b_sf_run = 1
 else :
-    if engine.READPOINT("FWU_SF-8.Current_RPM") >= fail_rpm :
+    if engine.READPOINT("FWU_SF-8.Current_RPM") >= FAIL_RPM :
         b_sf_run = 1
 
 if b_sf_run != engine.READPOINT("VP_FWU_SF_Status") :

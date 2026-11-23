@@ -8,8 +8,9 @@ PICV_LOOP = 1
 # AO 단선·전원 상실 시 위치는 제조사 확인 후 대응 기능 적용 여부 결정. (단선 시 0%로 돌아가는 밸브는 사용X 해야함)
 engine = ddc_logic()
 
-picv_p = engine.READPOINT("VP_FWU_PICV_PGain")
-picv_i = engine.READPOINT("VP_FWU_PICV_IGain")
+## 설정값 상수: HMI에서 입력한 값을 실행할 때마다 읽어온다.
+PICV_PGAIN = engine.READPOINT("VP_FWU_PICV_PGain")    ## SAT 기준 냉수밸브 PI 제어의 P 게인
+PICV_IGAIN = engine.READPOINT("VP_FWU_PICV_IGain")    ## 같은 제어의 I 게인
 
 if engine.READPOINT("FWU_EMERGENCY") == 0 :
     engine.RELEASE_PRI("FWU_PICV_CONTROL", 1)
@@ -18,7 +19,7 @@ if engine.READPOINT("FWU_EMERGENCY") == 0 :
             if engine.READPOINT("VP_FWU_SAT_Failure_Alarm") == 1 :
                 engine.WRITEPOINT("FWU_PICV_CONTROL", 100)
             else :
-                engine.LOOP2(1, "FWU_SAT", "FWU_PICV_CONTROL", "VP_FWU_PICV_SAT_SP", picv_p, picv_i, 0, 1, 100, engine.READPOINT("VP_FWU_PICV_MinSP"), 100, PICV_LOOP, 0)
+                engine.LOOP2(1, "FWU_SAT", "FWU_PICV_CONTROL", "VP_FWU_PICV_SAT_SP", PICV_PGAIN, PICV_IGAIN, 0, 1, 100, engine.READPOINT("VP_FWU_PICV_MinSP"), 100, PICV_LOOP, 0)
         if engine.READPOINT("VP_FWU_Command") == 0 :
             engine.LOOP2_INIT(PICV_LOOP)
             engine.WRITEPOINT("FWU_PICV_CONTROL", 0)
