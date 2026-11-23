@@ -1,0 +1,12 @@
+[
+  {
+    "file": "ProtocolSerivce/Modbus/ModbusServiceInfo.xml",
+    "removed_point_ids": [
+      "000000A3",
+      "00000137",
+      "0000015C",
+      "0000015D",
+      "0000015E"
+    ]
+  }
+]

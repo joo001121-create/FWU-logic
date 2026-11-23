@@ -1,0 +1,161 @@
+{
+  "status": "DRAFT_NOT_COMMISSIONED",
+  "python_parse": "PASS",
+  "xml_parse": "PASS",
+  "point_name_id_uniqueness": "PASS",
+  "rename_map_consistency": "PASS",
+  "variable_naming": "PASS",
+  "logic_registration": "PASS",
+  "logic_count": 13,
+  "xml_count": 15,
+  "renamed_points_including_unbound": 453,
+  "new_unbound_physical_references": [],
+  "picv_profile_defined": [
+    "FWU_PICV-1.Flow",
+    "FWU_PICV-1.Position",
+    "FWU_PICV-1.Temperature",
+    "FWU_PICV-2.Flow",
+    "FWU_PICV-2.Position",
+    "FWU_PICV-2.Temperature",
+    "FWU_PICV-3.Flow",
+    "FWU_PICV-3.Position",
+    "FWU_PICV-3.Temperature",
+    "FWU_PICV-4.Flow",
+    "FWU_PICV-4.Position",
+    "FWU_PICV-4.Temperature"
+  ],
+  "inherited_undefined_references": [
+    "FWU_LEAK_DETECT"
+  ],
+  "unexpected_undefined_references": [],
+  "timers": {
+    "Alarm-1": {
+      "LIMIT_TIMER": 0,
+      "FAN_FAIL_TIMER": 1,
+      "SAT_FAIL_TIMER": 2,
+      "SAH_FAIL_TIMER": 3,
+      "RAT_FAIL_TIMER": 4,
+      "RAH_FAIL_TIMER": 5,
+      "SAF_FAIL_TIMER": 6,
+      "SAD_CLOSE_TIMER": 8,
+      "SAD_OPEN_TIMER": 7
+    },
+    "Alarm-2": {
+      "LEAK_TIMER": 8,
+      "FILTER_TIMER": 9
+    },
+    "Alarm-3": {
+      "SF_1_COMM_TIMER": 0,
+      "SF_2_COMM_TIMER": 1,
+      "SF_3_COMM_TIMER": 2,
+      "SF_4_COMM_TIMER": 3,
+      "SF_5_COMM_TIMER": 4,
+      "SF_6_COMM_TIMER": 5,
+      "SF_7_COMM_TIMER": 6,
+      "SF_8_COMM_TIMER": 7,
+      "ATS_COMM_TIMER": 8
+    },
+    "Damper Signal Alarm": {
+      "SAD_1_UNKNOWN_TIMER": 0,
+      "SAD_1_CONFLICT_TIMER": 4,
+      "SAD_2_UNKNOWN_TIMER": 1,
+      "SAD_2_CONFLICT_TIMER": 5,
+      "SAD_3_UNKNOWN_TIMER": 2,
+      "SAD_3_CONFLICT_TIMER": 6,
+      "SAD_4_UNKNOWN_TIMER": 3,
+      "SAD_4_CONFLICT_TIMER": 7
+    },
+    "Failover": {
+      "FAILOVER_CONFIRM_TIMER": 1,
+      "FAILOVER_RESET_TIMER": 2
+    },
+    "Initialization": {
+      "UPPER_HEARTBEAT_TIMER": 6,
+      "UPPER_RESET_TIMER": 7,
+      "SF_STATUS_TIMER": 5
+    },
+    "PICV Control": {},
+    "PICV Feedback": {
+      "PICV_1_DEVIATION_TIMER": 4,
+      "PICV_2_DEVIATION_TIMER": 5,
+      "PICV_3_DEVIATION_TIMER": 6,
+      "PICV_4_DEVIATION_TIMER": 7
+    },
+    "Remote Shutdown": {
+      "FIRE_CONFIRM_TIMER": 0
+    },
+    "SF Control": {
+      "SPEED_OUTPUT_TIMER": 1
+    },
+    "Zone CZT Alarm": {
+      "CZT_1_FAIL_TIMER": 0,
+      "CZT_2_FAIL_TIMER": 1,
+      "CZT_3_FAIL_TIMER": 2,
+      "CZT_4_FAIL_TIMER": 3,
+      "CZT_5_FAIL_TIMER": 4,
+      "CZT_6_FAIL_TIMER": 5,
+      "CZT_7_FAIL_TIMER": 6,
+      "CZT_8_FAIL_TIMER": 7,
+      "CZT_9_FAIL_TIMER": 8,
+      "CZT_10_FAIL_TIMER": 9
+    },
+    "Zone HZT Alarm": {
+      "HZT_1_FAIL_TIMER": 0,
+      "HZT_2_FAIL_TIMER": 1,
+      "HZT_3_FAIL_TIMER": 2,
+      "HZT_4_FAIL_TIMER": 3,
+      "HZT_5_FAIL_TIMER": 4,
+      "HZT_6_FAIL_TIMER": 5,
+      "HZT_7_FAIL_TIMER": 6,
+      "HZT_8_FAIL_TIMER": 7,
+      "HZT_9_FAIL_TIMER": 8,
+      "HZT_10_FAIL_TIMER": 9
+    },
+    "Zone RDP Alarm": {
+      "RDP_1_FAIL_TIMER": 0,
+      "RDP_2_FAIL_TIMER": 1,
+      "RDP_3_FAIL_TIMER": 2,
+      "RDP_4_FAIL_TIMER": 3,
+      "RDP_5_FAIL_TIMER": 4,
+      "RDP_6_FAIL_TIMER": 5,
+      "RDP_7_FAIL_TIMER": 6,
+      "RDP_8_FAIL_TIMER": 7,
+      "RDP_9_FAIL_TIMER": 8,
+      "RDP_10_FAIL_TIMER": 9
+    }
+  },
+  "loops": {
+    "Alarm-1": {},
+    "Alarm-2": {},
+    "Alarm-3": {},
+    "Damper Signal Alarm": {},
+    "Failover": {},
+    "Initialization": {},
+    "PICV Control": {
+      "PICV_LOOP": 1
+    },
+    "PICV Feedback": {},
+    "Remote Shutdown": {},
+    "SF Control": {
+      "RAT_LOOP": 1,
+      "RDP_LOOP": 2,
+      "DELTA_T_LOOP": 3,
+      "CZT_LOOP": 4
+    },
+    "Zone CZT Alarm": {},
+    "Zone HZT Alarm": {},
+    "Zone RDP Alarm": {}
+  },
+  "limitations": [
+    "DDC firmware, PI dynamics and hardware not tested",
+    "Fan CH1, ATS CH2, PICV CH3 profile defined; hardware commissioning not performed",
+    "FWU_LEAK_DETECT remains unbound",
+    "PICV XML uses Belimo EPIV V4.3.0 profile and station plan 1..4; verify actual firmware/settings",
+    "PICV first-response/freshness guarantee not verified by LDPL code",
+    "External HMI/BMS projects not updated; rename map supplied"
+  ],
+  "inherited_unverified_export_references": 38,
+  "rtu_crc_and_station_checks": "PASS",
+  "configuration_tests": "6 PASS",
+  "total_simulated_tests": 44
+}
