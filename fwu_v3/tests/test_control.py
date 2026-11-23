@@ -132,6 +132,6 @@ class ControlTests(unittest.TestCase):
     def test_f8_failure_threshold_ignores_count_vp(self):
         self.running();self.set('VP_FWU_SF_Speed_Value',65);self.set('VP_FWU_SF_Count',4)
         for i in range(1,9):self.set(f'FWU_SF-{i}.Current_RPM',1000 if i>3 else 0)
-        self.e.run('Alarm-1');self.e.tick(61);self.e.run('Alarm-1');self.assertEqual(self.get('VP_FWU_SF_Failure_Alarm'),0)
-        self.set('FWU_SF-4.Current_RPM',0);self.e.run('Alarm-1');self.assertEqual(self.get('VP_FWU_SF_Failure_Alarm'),1)
+        self.e.run('Sensor Limit Alarm');self.e.run('Fan Damper Alarm');self.e.tick(61);self.e.run('Sensor Limit Alarm');self.e.run('Fan Damper Alarm');self.assertEqual(self.get('VP_FWU_SF_Failure_Alarm'),0)
+        self.set('FWU_SF-4.Current_RPM',0);self.e.run('Sensor Limit Alarm');self.e.run('Fan Damper Alarm');self.assertEqual(self.get('VP_FWU_SF_Failure_Alarm'),1)
 if __name__=='__main__':unittest.main()

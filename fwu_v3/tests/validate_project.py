@@ -41,15 +41,21 @@ def validate():
     for path in logic_paths:
         tree = ast.parse(path.read_text(encoding='utf-8'))
         constants = {}
+        # Coding Rule(code rule.pptx 3번 슬라이드, 2026-11-23 적용):
+        # - 상수: 모두 대문자 + 밑줄. 숫자 상수 또는 READPOINT로 읽는 설정값(refac 예제 NO_FLOW 방식)
+        # - 변수: PascalCase. 들여쓰기 0에서 대입하는 전역변수는 m, Boolean은 b 접두어 (예: mbRATValid)
+        # - engine = ddc_logic()은 LDPL 표준 표기라 예외
+        global_names, local_names = set(), set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         name = target.id
-                        assert re.fullmatch(r'[a-z][a-z0-9_]*|[A-Z][A-Z0-9_]*', name), (path, name)
-                        if name.isupper():
-                            # Coding Rule: READPOINT로 읽는 설정값도 대문자 상수로 쓴다 (refac 예제 NO_FLOW 방식).
-                            # 이 경우 값이 실행 중에 정해지므로 타이머/루프 번호 상수 목록에는 넣지 않는다.
+                        (global_names if node.col_offset == 0 else local_names).add(name)
+                        if name == 'engine':
+                            continue
+                        assert re.fullmatch(r'[A-Z][A-Z0-9_]*|m?b?[A-Z][A-Za-z0-9]*', name), (path, name)
+                        if re.fullmatch(r'[A-Z][A-Z0-9_]*', name):
                             v = node.value
                             is_setting = (isinstance(v, ast.Call) and isinstance(v.func, ast.Attribute)
                                           and v.func.attr == 'READPOINT' and len(v.args) == 1
@@ -57,8 +63,16 @@ def validate():
                             assert isinstance(v, ast.Constant) or is_setting, (path, name)
                             if isinstance(v, ast.Constant):
                                 constants[name] = v.value
-                        if isinstance(node.value, (ast.Compare, ast.BoolOp)):
-                            assert name.startswith('b_'), (path, name)
+                            continue
+                        is_bool = isinstance(node.value, (ast.Compare, ast.BoolOp)) or (
+                            isinstance(node.value, ast.Name) and node.value.id in ('TRUE', 'FALSE'))
+                        if is_bool:
+                            assert re.match(r'm?b[A-Z]', name), (path, name)
+        for name in global_names - {'engine'}:
+            if not re.fullmatch(r'[A-Z][A-Z0-9_]*', name):
+                assert name.startswith('m'), (path, name, 'global needs m prefix')
+        for name in local_names - global_names:
+            assert not re.match(r'm[bA-Z]', name), (path, name, 'local must not use m prefix')
         timer_ids, loop_ids = {}, {}
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
@@ -76,6 +90,7 @@ def validate():
                         assert ref.value not in rename and ' ' not in ref.value
                         refs.add(ref.value)
             if method in ('SECTIMER', 'LOOP2', 'LOOP2_INIT'):
+                # 타이머·LOOP2 번호는 숫자 대신 이름 있는 상수로 쓴다 (code rule.pptx 4번 슬라이드 예시)
                 arg = node.args[11 if method == 'LOOP2' else 0]
                 assert isinstance(arg, ast.Name) and arg.id in constants, (path, method)
                 value = constants[arg.id]
@@ -94,10 +109,11 @@ def validate():
     assert missing == ['FWU_LEAK_DETECT'], missing
     assert all(name in by_name and by_name[name].get('category') == 'Modbus' for name in declared_unbound)
     registered = [n.get('name') for n in ET.parse(ROOT/'DDC.xml').findall('logicInfo')]
-    assert len(registered) == 13 and len(set(registered)) == 13
+    assert len(registered) == 14 and len(set(registered)) == 14
     assert set(registered) == {p.stem for p in logic_paths}
-    expected_main = ['Initialization', 'PICV Control', 'SF Control', 'Alarm-1', 'Alarm-2', 'Alarm-3', 'Remote Shutdown', 'Failover']
-    assert registered[-8:] == expected_main, registered
+    expected_main = ['Initialization', 'PICV Control', 'SF Control', 'Sensor Limit Alarm', 'Fan Damper Alarm',
+                     'Leak Filter Alarm', 'Comm Fault Alarm', 'Remote Shutdown', 'Failover']
+    assert registered[-9:] == expected_main, registered
     assert registered.index('PICV Feedback') < registered.index('SF Control')
     assert by_name['VP_FWU_Smoke_Action_Set']['relinguishDefault'] == '0'
     return {

@@ -20,9 +20,10 @@
   <logicInfo id="10000010" addr="VP1000000000" name="Initialization" />
   <logicInfo id="10000081" addr="VP1000000000" name="PICV Control" />
   <logicInfo id="1000008C" addr="VP1000000000" name="SF Control" />
-  <logicInfo id="100000C7" addr="VP1000000000" name="Alarm-1" />
-  <logicInfo id="1000014B" addr="VP1000000000" name="Alarm-2" />
-  <logicInfo id="10000190" addr="VP1000000000" name="Alarm-3" />
+  <logicInfo id="100000C7" addr="VP1000000000" name="Sensor Limit Alarm" />
+  <logicInfo id="10001005" addr="VP1000000000" name="Fan Damper Alarm" />
+  <logicInfo id="1000014B" addr="VP1000000000" name="Leak Filter Alarm" />
+  <logicInfo id="10000190" addr="VP1000000000" name="Comm Fault Alarm" />
   <logicInfo id="10000191" addr="VP1000000001" name="Remote Shutdown" />
   <logicInfo id="10000192" addr="VP1000000000" name="Failover" />
   <bacnetConfiguration>

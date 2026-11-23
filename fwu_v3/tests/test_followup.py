@@ -13,21 +13,21 @@ class FollowupTests(unittest.TestCase):
             e.set('FWU_' + kind, 25 if kind.endswith('T') else 50)
             e.set('VP_FWU_' + kind + '_Low_Alarm_SP', 10 if kind.endswith('T') else 20)
             e.set('VP_FWU_' + kind + '_High_Alarm_SP', 30 if kind.endswith('T') else 80)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
 
     def test_invalid_reading_clears_limits_before_failure_confirmation(self):
         self.prepare_limits()
         e = self.e
         e.tick(301)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         for kind in ('SAT', 'RAT', 'SAH', 'RAH'):
             e.set('FWU_' + kind, -20 if kind.endswith('T') else 0)
             for limit in ('High', 'Low'):
                 e.WRITEPOINT('VP_FWU_' + kind + '_' + limit + '_Alarm', 1)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         for elapsed, expected_fault in [(0, 0), (20, 0), (1, 1)]:
             e.tick(elapsed)
-            e.run('Alarm-1')
+            e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
             for kind in ('SAT', 'RAT', 'SAH', 'RAH'):
                 for limit in ('High', 'Low'):
                     self.assertEqual(e.READPOINT(f'VP_FWU_{kind}_{limit}_Alarm'), 0)
@@ -35,7 +35,7 @@ class FollowupTests(unittest.TestCase):
         # At the validity boundary, valid low measurements still raise low alarms.
         for kind in ('SAT', 'RAT', 'SAH', 'RAH'):
             e.set('FWU_' + kind, 0 if kind.endswith('T') else 5)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         for kind in ('SAT', 'RAT', 'SAH', 'RAH'):
             self.assertEqual(e.READPOINT(f'VP_FWU_{kind}_Failure_Alarm'), 0)
             self.assertEqual(e.READPOINT(f'VP_FWU_{kind}_Low_Alarm'), 1)
@@ -46,7 +46,7 @@ class FollowupTests(unittest.TestCase):
         e.tick(301)
         e.set('FWU_SAT', -20)
         e.set('FWU_RAT', 40)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAT_Low_Alarm'), 0)
         self.assertEqual(e.READPOINT('VP_FWU_RAT_High_Alarm'), 1)
 
@@ -55,25 +55,25 @@ class FollowupTests(unittest.TestCase):
         e = self.e
         e.set('FWU_SAT', 9)
         e.tick(300)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAT_Low_Alarm'), 0)
         e.tick(1)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAT_Low_Alarm'), 1)
         e.set('FWU_SAT', 10.5)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAT_Low_Alarm'), 1)
         e.set('FWU_SAT', 10.6)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAT_Low_Alarm'), 0)
         e.set('FWU_SAT', 31)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAT_High_Alarm'), 1)
         e.set('VP_FWU_SF_Status', 0)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAT_High_Alarm'), 0)
         e.set('VP_FWU_SF_Status', 1)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAT_High_Alarm'), 0)
 
     def test_humidity_hysteresis_and_invalid_clear_during_startup(self):
@@ -81,17 +81,17 @@ class FollowupTests(unittest.TestCase):
         e = self.e
         e.WRITEPOINT('VP_FWU_SAH_Low_Alarm', 1)
         e.set('FWU_SAH', 0)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAH_Low_Alarm'), 0)
         e.tick(301)
         e.set('FWU_SAH', 19)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAH_Low_Alarm'), 1)
         e.set('FWU_SAH', 25)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAH_Low_Alarm'), 1)
         e.set('FWU_SAH', 26)
-        e.run('Alarm-1')
+        e.run('Sensor Limit Alarm');e.run('Fan Damper Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SAH_Low_Alarm'), 0)
 
     def test_leak_filter_delays_auto_clear_and_no_stop(self):
@@ -99,17 +99,17 @@ class FollowupTests(unittest.TestCase):
         e.set('VP_FWU_Command', 1)
         e.set('FWU_LEAK_DETECT', 1)
         e.set('FWU_FILTER_ALARM', 1)
-        e.run('Alarm-2')
+        e.run('Leak Filter Alarm')
         for delta, leak, filt in [(5, 0, 0), (1, 1, 0), (24, 1, 0), (1, 1, 1)]:
-            e.tick(delta); e.run('Alarm-2')
+            e.tick(delta); e.run('Leak Filter Alarm')
             self.assertEqual(e.READPOINT('VP_FWU_Leak_Alarm'), leak)
             self.assertEqual(e.READPOINT('VP_FWU_Filter_Alarm'), filt)
             self.assertEqual(e.READPOINT('VP_FWU_Command'), 1)
         e.set('FWU_LEAK_DETECT', 0); e.set('FWU_FILTER_ALARM', 0)
-        e.run('Alarm-2')
+        e.run('Leak Filter Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_Leak_Alarm'), 0)
         self.assertEqual(e.READPOINT('VP_FWU_Filter_Alarm'), 0)
-        e.set('FWU_LEAK_DETECT', 1); e.run('Alarm-2')
+        e.set('FWU_LEAK_DETECT', 1); e.run('Leak Filter Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_Leak_Alarm'), 0)
 
     def test_fan_ats_comm_delay_recovery_and_ao_return(self):
@@ -121,16 +121,16 @@ class FollowupTests(unittest.TestCase):
         e.set('VP_FWU_Speed_SP', 65)
         e.point_alarms['FWU_SF-1.Current_RPM'] = 8
         e.point_alarms['FWU-ATS.Current_Power'] = 8
-        e.run('Alarm-3'); e.run('SF Control')
-        e.tick(10); e.run('Alarm-3')
+        e.run('Comm Fault Alarm'); e.run('SF Control')
+        e.tick(10); e.run('Comm Fault Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SF_Comm_Fault'), 0)
         self.assertEqual(e.READPOINT('VP_FWU_ATS_Comm_Fault'), 0)
-        e.tick(1); e.run('Alarm-3'); e.run('SF Control')
+        e.tick(1); e.run('Comm Fault Alarm'); e.run('SF Control')
         self.assertEqual(e.READPOINT('VP_FWU_SF_Comm_Fault'), 1)
         self.assertEqual(e.READPOINT('VP_FWU_ATS_Comm_Fault'), 1)
         self.assertGreater(e.READPOINT('FWU_SF-1_4_SPEED_CONTROL'), 0)
         self.assertEqual(e.READPOINT('FWU_SF-1.Target_RPM_Set'), 0)
-        e.point_alarms.clear(); e.run('Alarm-3')
+        e.point_alarms.clear(); e.run('Comm Fault Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SF_Comm_Fault'), 0)
         self.assertEqual(e.READPOINT('VP_FWU_ATS_Comm_Fault'), 0)
         e.tick(6); e.run('SF Control')
