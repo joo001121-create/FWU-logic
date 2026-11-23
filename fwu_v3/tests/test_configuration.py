@@ -13,7 +13,7 @@ class ConfigurationTests(unittest.TestCase):
                     self.assertNotIn(suffix,name)
 
     def test_port_assignments(self):
-        expected={1:[f'FWU SF-{i}' for i in range(1,9)],2:['FWU-ATS'],3:[f'FWU_PICV-{i}' for i in range(1,5)]}
+        expected={1:[f'FWU_SF-{i}' for i in range(1,9)],2:['FWU_ATS'],3:[f'FWU_PICV-{i}' for i in range(1,5)]}
         for port, units in expected.items():
             root=E.parse(ROOT/f'ControlPoint/Modbus{port}.xml').getroot()
             self.assertEqual(root.get('portNumber'),str(port))

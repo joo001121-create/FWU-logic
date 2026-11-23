@@ -104,7 +104,7 @@ else:
     engine.WRITEPOINT("VP_FWU_SF_Comm_Fault", FALSE)
 
 ## ATS 통신 이상
-if engine.READPOINT_ALARM("FWU-ATS.Current_Power") == COMM_FAULT_CODE:
+if engine.READPOINT_ALARM("FWU_ATS.Current_Power") == COMM_FAULT_CODE:
     if engine.SECTIMER(ATS_COMM_TIMER, TMR_READ) > ATS_COMM_CONFIRM_SECONDS:
         engine.WRITEPOINT("VP_FWU_ATS_Comm_Fault", TRUE)
     else:

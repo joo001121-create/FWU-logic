@@ -31,7 +31,7 @@ if mbFailTotal == TRUE:
     if engine.SECTIMER(FAILOVER_CONFIRM_TIMER, TMR_READ) > FAILOVER_CONFIRM_SECONDS and engine.READPOINT("VP_FWU_Failover_Alarm") == FALSE:
         engine.WRITEPOINT("VP_FWU_Failover_Alarm", TRUE)
         engine.WRITEPOINT_PRI("VP_FWU_Command", OFF, 11)
-        engine.WRITEPOINT_PRI("VP_FWU_Command-HMI", OFF, 11)
+        engine.WRITEPOINT_PRI("VP_FWU_Command_HMI", OFF, 11)
     else:
         pass  ## do_nothing
 else:

@@ -8,7 +8,7 @@
 | DDC.xml | 기존 블록 ID는 유지(100000C7·1000014B·10000190은 Modbus 서비스 맵에 공개됨). `Fan Damper Alarm`에 새 ID 10001005 부여 |
 | Coding Rule (예제 외 9개 파일) | code review/code rule.pptx 기준. 매크로 상수(TMR_READ/CLEAR, ON/OFF, TRUE/FALSE, DEC/INC), 모든 if에 else, if not 없앰, 변수 PascalCase+m/b 접두어, READPOINT 설정값은 대문자 상수, 타이머 번호는 이름 상수(번호는 v2 그대로), 머리말 구성은 예제와 동일, JSY S/E 태그 |
 | 예제 5개 | refac 예제(Damper Signal Alarm, PICV Feedback, Zone CZT/HZT/RDP Alarm)는 원본 그대로이며 수정 금지. PICV Feedback 원본은 탭/스페이스 혼용(TabError)으로 Python에서 읽히지 않음 |
-| 관제점 | 이름 변경 없음 (code review/Naming_Rule_점검.xlsx의 관제점 수정안은 결정 후 적용) |
+| 관제점 | code review/Naming_Rule_점검.xlsx 수정안 적용: `VP_FWU_Command-HMI` → `VP_FWU_Command_HMI`, ATS 장치·관제점 13개 `FWU-ATS` → `FWU_ATS`, 팬 장치명 `FWU SF-n` → `FWU_SF-n`, 팬 한글 Modbus 관제점 104개 → 영문(예: `공간온도` → `Ambient_Temp`). ID·주소는 그대로. 목록은 `POINT_RENAME_MAP_V3.csv`(118개), `DEVICE_RENAME_MAP_V3.csv`(9개). `MinSP`·`PIDOut`은 하나의 용어로 인정해 유지. HMI/BMS 쪽 이름 연결은 별도로 갱신해야 함 |
 | tests | 파일 이름 변경 반영, `validate_project.py` 변수 이름 검사를 새 규칙으로 갱신. 예제 PICV Feedback의 TabError 때문에 현재 검사·테스트가 실행되지 않음(탭만 공백으로 바꾼 복사본에서는 검사 통과, 테스트 43/44 통과). `test_only_picv_feedback_changed`는 v2 납품 해시 확인용이라 v3에서는 실패함 |
 
 `STATIC_CHECKS.json`, `TEST_RESULTS.txt`, `SOURCE_LOGIC_SHA256.json`, `CHANGED_FILES.csv`와 아래 v2 설명은 v2 당시 기록이다.

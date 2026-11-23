@@ -15,13 +15,19 @@ def validate():
     rename = {r['old_name']: r['new_name'] for r in rows}
     assert len(rename) == len(rows)
     assert len(set(rename.values())) == len(rows)
+    # v3 관제점·장치명 변경 (2026-11-23, Naming_Rule_점검.xlsx 수정안 적용)
+    v3_rows = list(csv.DictReader((ROOT/'POINT_RENAME_MAP_V3.csv').open(encoding='utf-8-sig')))
+    dev_rows = list(csv.DictReader((ROOT/'DEVICE_RENAME_MAP_V3.csv').open(encoding='utf-8-sig')))
+    v3_old = {r['old_name'] for r in v3_rows} | {r['old_name'] for r in dev_rows}
+    assert len(v3_old) == len(v3_rows) + len(dev_rows)
+    rename_old = set(rename) | v3_old
     points = []
     xml_paths = list(ROOT.rglob('*.xml'))
     for path in xml_paths:
         tree = ET.parse(path)
         for node in tree.iter():
             for value in node.attrib.values():
-                assert value not in rename, (path, value)
+                assert value not in rename_old, (path, value)
             if path.parent.name == 'ControlPoint' and node.get('pointType') and node.get('name'):
                 points.append(node.attrib)
     names = [p['name'] for p in points]
@@ -36,6 +42,12 @@ def validate():
         p = by_name[row['new_name']]
         assert p.get('id', '') == row['point_id']
         assert p.get('address', '') == row['address']
+    for row in v3_rows:
+        p = by_name[row['new_name']]
+        assert p.get('id', '') == row['point_id'] and p.get('address', '') == row['address'], row
+    units = {n.get('name') for f in (ROOT/'ControlPoint').glob('*.xml') for n in ET.parse(f).iter('modbusSlaveUnit')}
+    for row in dev_rows:
+        assert row['new_name'] in units, row
     refs, timers, loops = set(), {}, {}
     logic_paths = sorted((ROOT/'Logic').glob('*.py'))
     for path in logic_paths:
@@ -81,13 +93,13 @@ def validate():
             if method in POINT_APIS:
                 arg = node.args[POINT_APIS[method]]
                 assert isinstance(arg, ast.Constant) and isinstance(arg.value, str), (path, method)
-                assert arg.value not in rename and ' ' not in arg.value, (path, arg.value)
+                assert arg.value not in rename_old and ' ' not in arg.value, (path, arg.value)
                 refs.add(arg.value)
                 if method == 'LOOP2':
                     for idx in (1, 3):
                         ref = node.args[idx]
                         assert isinstance(ref, ast.Constant) and isinstance(ref.value, str)
-                        assert ref.value not in rename and ' ' not in ref.value
+                        assert ref.value not in rename_old and ' ' not in ref.value
                         refs.add(ref.value)
             if method in ('SECTIMER', 'LOOP2', 'LOOP2_INIT'):
                 # 타이머·LOOP2 번호는 숫자 대신 이름 있는 상수로 쓴다 (code rule.pptx 4번 슬라이드 예시)

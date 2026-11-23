@@ -1,7 +1,7 @@
 ﻿old_name,new_name,definition_file,point_id,address
 FWU SF-1.Control State,FWU_SF-1.Control_State,ControlPoint/Modbus1.xml,00000017,R10008248104
 FWU SF-1.Current RPM,FWU_SF-1.Current_RPM,ControlPoint/Modbus1.xml,00000013,R10008248100
-FWU SF-1.DC Link 전압,FWU_SF-1.DC_Link_전압,ControlPoint/Modbus1.xml,00000019,R10008248106
+FWU SF-1.DC Link 전압,FWU_SF-1.DC_Link_Voltage,ControlPoint/Modbus1.xml,00000019,R10008248106
 FWU SF-1.Error Code,FWU_SF-1.Error_Code,ControlPoint/Modbus1.xml,00000018,R10008248105
 FWU SF-1.Input Current,FWU_SF-1.Input_Current,ControlPoint/Modbus1.xml,0000001F,R1000824810C
 FWU SF-1.Input Voltage,FWU_SF-1.Input_Voltage,ControlPoint/Modbus1.xml,00000020,R1000824810D
@@ -9,22 +9,22 @@ FWU SF-1.Max RPM,FWU_SF-1.Max_RPM,ControlPoint/Modbus1.xml,00000022,R1000824810F
 FWU SF-1.Phase Current,FWU_SF-1.Phase_Current,ControlPoint/Modbus1.xml,0000001D,R1000824810A
 FWU SF-1.Power Usage,FWU_SF-1.Power_Usage,ControlPoint/Modbus1.xml,00000014,R10008248101
 FWU SF-1.Run Command,FWU_SF-1.Run_Command,ControlPoint/Modbus1.xml,04000012,R10408238007
-FWU SF-1.Stop조건,FWU_SF-1.Stop조건,ControlPoint/Modbus1.xml,00000021,R1000824810E
+FWU SF-1.Stop조건,FWU_SF-1.Stop_Condition,ControlPoint/Modbus1.xml,00000021,R1000824810E
 FWU SF-1.Target RPM Set,FWU_SF-1.Target_RPM_Set,ControlPoint/Modbus1.xml,01000011,R10108238001
-FWU SF-1.공간온도,FWU_SF-1.공간온도,ControlPoint/Modbus1.xml,00000016,R10008248103
-FWU SF-1.방열판온도,FWU_SF-1.방열판온도,ControlPoint/Modbus1.xml,0000001E,R1000824810B
-FWU SF-1.에러-공간온도,FWU_SF-1.에러-공간온도,ControlPoint/Modbus1.xml,03000076,R10358248112
-FWU SF-1.에러-인버터방열판온도,FWU_SF-1.에러-인버터방열판온도,ControlPoint/Modbus1.xml,03000074,R10308248112
-FWU SF-1.에러-컨버터방열판온도,FWU_SF-1.에러-컨버터방열판온도,ControlPoint/Modbus1.xml,03000075,R10338248112
-FWU SF-1.연동방식,FWU_SF-1.연동방식,ControlPoint/Modbus1.xml,0000001A,R10008248107
-FWU SF-1.용량,FWU_SF-1.용량,ControlPoint/Modbus1.xml,0000001C,R10008248109
-FWU SF-1.입려과전류 알람,FWU_SF-1.입려과전류_알람,ControlPoint/Modbus1.xml,00000023,R10008248110
-FWU SF-1.제품ID,FWU_SF-1.제품ID,ControlPoint/Modbus1.xml,0000001B,R10008248108
-FWU SF-1.제한비트,FWU_SF-1.제한비트,ControlPoint/Modbus1.xml,00000024,R10008248111
-FWU SF-1.컨버터 방열판온도,FWU_SF-1.컨버터_방열판온도,ControlPoint/Modbus1.xml,00000015,R10008248102
+FWU SF-1.공간온도,FWU_SF-1.Ambient_Temp,ControlPoint/Modbus1.xml,00000016,R10008248103
+FWU SF-1.방열판온도,FWU_SF-1.Heatsink_Temp,ControlPoint/Modbus1.xml,0000001E,R1000824810B
+FWU SF-1.에러-공간온도,FWU_SF-1.Error_Ambient_Temp,ControlPoint/Modbus1.xml,03000076,R10358248112
+FWU SF-1.에러-인버터방열판온도,FWU_SF-1.Error_Inverter_Heatsink_Temp,ControlPoint/Modbus1.xml,03000074,R10308248112
+FWU SF-1.에러-컨버터방열판온도,FWU_SF-1.Error_Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,03000075,R10338248112
+FWU SF-1.연동방식,FWU_SF-1.Link_Mode,ControlPoint/Modbus1.xml,0000001A,R10008248107
+FWU SF-1.용량,FWU_SF-1.Capacity,ControlPoint/Modbus1.xml,0000001C,R10008248109
+FWU SF-1.입려과전류 알람,FWU_SF-1.Input_Overcurrent_Alarm,ControlPoint/Modbus1.xml,00000023,R10008248110
+FWU SF-1.제품ID,FWU_SF-1.Product_ID,ControlPoint/Modbus1.xml,0000001B,R10008248108
+FWU SF-1.제한비트,FWU_SF-1.Limit_Bit,ControlPoint/Modbus1.xml,00000024,R10008248111
+FWU SF-1.컨버터 방열판온도,FWU_SF-1.Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,00000015,R10008248102
 FWU SF-2.Control State,FWU_SF-2.Control_State,ControlPoint/Modbus1.xml,0000002B,R10008348104
 FWU SF-2.Current RPM,FWU_SF-2.Current_RPM,ControlPoint/Modbus1.xml,00000027,R10008348100
-FWU SF-2.DC Link 전압,FWU_SF-2.DC_Link_전압,ControlPoint/Modbus1.xml,0000002D,R10008348106
+FWU SF-2.DC Link 전압,FWU_SF-2.DC_Link_Voltage,ControlPoint/Modbus1.xml,0000002D,R10008348106
 FWU SF-2.Error Code,FWU_SF-2.Error_Code,ControlPoint/Modbus1.xml,0000002C,R10008348105
 FWU SF-2.Input Current,FWU_SF-2.Input_Current,ControlPoint/Modbus1.xml,00000033,R1000834810C
 FWU SF-2.Input Voltage,FWU_SF-2.Input_Voltage,ControlPoint/Modbus1.xml,00000034,R1000834810D
@@ -32,22 +32,22 @@ FWU SF-2.Max RPM,FWU_SF-2.Max_RPM,ControlPoint/Modbus1.xml,00000036,R1000834810F
 FWU SF-2.Phase Current,FWU_SF-2.Phase_Current,ControlPoint/Modbus1.xml,00000031,R1000834810A
 FWU SF-2.Power Usage,FWU_SF-2.Power_Usage,ControlPoint/Modbus1.xml,00000028,R10008348101
 FWU SF-2.Run Command,FWU_SF-2.Run_Command,ControlPoint/Modbus1.xml,04000026,R10408338007
-FWU SF-2.Stop조건,FWU_SF-2.Stop조건,ControlPoint/Modbus1.xml,00000035,R1000834810E
+FWU SF-2.Stop조건,FWU_SF-2.Stop_Condition,ControlPoint/Modbus1.xml,00000035,R1000834810E
 FWU SF-2.Target RPM Set,FWU_SF-2.Target_RPM_Set,ControlPoint/Modbus1.xml,01000025,R10108338001
-FWU SF-2.공간온도,FWU_SF-2.공간온도,ControlPoint/Modbus1.xml,0000002A,R10008348103
-FWU SF-2.방열판온도,FWU_SF-2.방열판온도,ControlPoint/Modbus1.xml,00000032,R1000834810B
-FWU SF-2.에러-공간온도,FWU_SF-2.에러-공간온도,ControlPoint/Modbus1.xml,0300008F,R10358348112
-FWU SF-2.에러-인버터방열판온도,FWU_SF-2.에러-인버터방열판온도,ControlPoint/Modbus1.xml,0300008D,R10308348112
-FWU SF-2.에러-컨버터방열판온도,FWU_SF-2.에러-컨버터방열판온도,ControlPoint/Modbus1.xml,0300008E,R10338348112
-FWU SF-2.연동방식,FWU_SF-2.연동방식,ControlPoint/Modbus1.xml,0000002E,R10008348107
-FWU SF-2.용량,FWU_SF-2.용량,ControlPoint/Modbus1.xml,00000030,R10008348109
-FWU SF-2.입려과전류 알람,FWU_SF-2.입려과전류_알람,ControlPoint/Modbus1.xml,00000037,R10008348110
-FWU SF-2.제품ID,FWU_SF-2.제품ID,ControlPoint/Modbus1.xml,0000002F,R10008348108
-FWU SF-2.제한비트,FWU_SF-2.제한비트,ControlPoint/Modbus1.xml,00000038,R10008348111
-FWU SF-2.컨버터 방열판온도,FWU_SF-2.컨버터_방열판온도,ControlPoint/Modbus1.xml,00000029,R10008348102
+FWU SF-2.공간온도,FWU_SF-2.Ambient_Temp,ControlPoint/Modbus1.xml,0000002A,R10008348103
+FWU SF-2.방열판온도,FWU_SF-2.Heatsink_Temp,ControlPoint/Modbus1.xml,00000032,R1000834810B
+FWU SF-2.에러-공간온도,FWU_SF-2.Error_Ambient_Temp,ControlPoint/Modbus1.xml,0300008F,R10358348112
+FWU SF-2.에러-인버터방열판온도,FWU_SF-2.Error_Inverter_Heatsink_Temp,ControlPoint/Modbus1.xml,0300008D,R10308348112
+FWU SF-2.에러-컨버터방열판온도,FWU_SF-2.Error_Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,0300008E,R10338348112
+FWU SF-2.연동방식,FWU_SF-2.Link_Mode,ControlPoint/Modbus1.xml,0000002E,R10008348107
+FWU SF-2.용량,FWU_SF-2.Capacity,ControlPoint/Modbus1.xml,00000030,R10008348109
+FWU SF-2.입려과전류 알람,FWU_SF-2.Input_Overcurrent_Alarm,ControlPoint/Modbus1.xml,00000037,R10008348110
+FWU SF-2.제품ID,FWU_SF-2.Product_ID,ControlPoint/Modbus1.xml,0000002F,R10008348108
+FWU SF-2.제한비트,FWU_SF-2.Limit_Bit,ControlPoint/Modbus1.xml,00000038,R10008348111
+FWU SF-2.컨버터 방열판온도,FWU_SF-2.Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,00000029,R10008348102
 FWU SF-3.Control State,FWU_SF-3.Control_State,ControlPoint/Modbus1.xml,0000003F,R10008448104
 FWU SF-3.Current RPM,FWU_SF-3.Current_RPM,ControlPoint/Modbus1.xml,0000003B,R10008448100
-FWU SF-3.DC Link 전압,FWU_SF-3.DC_Link_전압,ControlPoint/Modbus1.xml,00000041,R10008448106
+FWU SF-3.DC Link 전압,FWU_SF-3.DC_Link_Voltage,ControlPoint/Modbus1.xml,00000041,R10008448106
 FWU SF-3.Error Code,FWU_SF-3.Error_Code,ControlPoint/Modbus1.xml,00000040,R10008448105
 FWU SF-3.Input Current,FWU_SF-3.Input_Current,ControlPoint/Modbus1.xml,00000047,R1000844810C
 FWU SF-3.Input Voltage,FWU_SF-3.Input_Voltage,ControlPoint/Modbus1.xml,00000048,R1000844810D
@@ -55,22 +55,22 @@ FWU SF-3.Max RPM,FWU_SF-3.Max_RPM,ControlPoint/Modbus1.xml,0000004A,R1000844810F
 FWU SF-3.Phase Current,FWU_SF-3.Phase_Current,ControlPoint/Modbus1.xml,00000045,R1000844810A
 FWU SF-3.Power Usage,FWU_SF-3.Power_Usage,ControlPoint/Modbus1.xml,0000003C,R10008448101
 FWU SF-3.Run Command,FWU_SF-3.Run_Command,ControlPoint/Modbus1.xml,0400003A,R10408438007
-FWU SF-3.Stop조건,FWU_SF-3.Stop조건,ControlPoint/Modbus1.xml,00000049,R1000844810E
+FWU SF-3.Stop조건,FWU_SF-3.Stop_Condition,ControlPoint/Modbus1.xml,00000049,R1000844810E
 FWU SF-3.Target RPM Set,FWU_SF-3.Target_RPM_Set,ControlPoint/Modbus1.xml,01000039,R10108438001
-FWU SF-3.공간온도,FWU_SF-3.공간온도,ControlPoint/Modbus1.xml,0000003E,R10008448103
-FWU SF-3.방열판온도,FWU_SF-3.방열판온도,ControlPoint/Modbus1.xml,00000046,R1000844810B
-FWU SF-3.에러-공간온도,FWU_SF-3.에러-공간온도,ControlPoint/Modbus1.xml,03000092,R10358448112
-FWU SF-3.에러-인버터방열판온도,FWU_SF-3.에러-인버터방열판온도,ControlPoint/Modbus1.xml,03000090,R10308448112
-FWU SF-3.에러-컨버터방열판온도,FWU_SF-3.에러-컨버터방열판온도,ControlPoint/Modbus1.xml,03000091,R10338448112
-FWU SF-3.연동방식,FWU_SF-3.연동방식,ControlPoint/Modbus1.xml,00000042,R10008448107
-FWU SF-3.용량,FWU_SF-3.용량,ControlPoint/Modbus1.xml,00000044,R10008448109
-FWU SF-3.입려과전류 알람,FWU_SF-3.입려과전류_알람,ControlPoint/Modbus1.xml,0000004B,R10008448110
-FWU SF-3.제품ID,FWU_SF-3.제품ID,ControlPoint/Modbus1.xml,00000043,R10008448108
-FWU SF-3.제한비트,FWU_SF-3.제한비트,ControlPoint/Modbus1.xml,0000004C,R10008448111
-FWU SF-3.컨버터 방열판온도,FWU_SF-3.컨버터_방열판온도,ControlPoint/Modbus1.xml,0000003D,R10008448102
+FWU SF-3.공간온도,FWU_SF-3.Ambient_Temp,ControlPoint/Modbus1.xml,0000003E,R10008448103
+FWU SF-3.방열판온도,FWU_SF-3.Heatsink_Temp,ControlPoint/Modbus1.xml,00000046,R1000844810B
+FWU SF-3.에러-공간온도,FWU_SF-3.Error_Ambient_Temp,ControlPoint/Modbus1.xml,03000092,R10358448112
+FWU SF-3.에러-인버터방열판온도,FWU_SF-3.Error_Inverter_Heatsink_Temp,ControlPoint/Modbus1.xml,03000090,R10308448112
+FWU SF-3.에러-컨버터방열판온도,FWU_SF-3.Error_Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,03000091,R10338448112
+FWU SF-3.연동방식,FWU_SF-3.Link_Mode,ControlPoint/Modbus1.xml,00000042,R10008448107
+FWU SF-3.용량,FWU_SF-3.Capacity,ControlPoint/Modbus1.xml,00000044,R10008448109
+FWU SF-3.입려과전류 알람,FWU_SF-3.Input_Overcurrent_Alarm,ControlPoint/Modbus1.xml,0000004B,R10008448110
+FWU SF-3.제품ID,FWU_SF-3.Product_ID,ControlPoint/Modbus1.xml,00000043,R10008448108
+FWU SF-3.제한비트,FWU_SF-3.Limit_Bit,ControlPoint/Modbus1.xml,0000004C,R10008448111
+FWU SF-3.컨버터 방열판온도,FWU_SF-3.Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,0000003D,R10008448102
 FWU SF-4.Control State,FWU_SF-4.Control_State,ControlPoint/Modbus1.xml,00000053,R10008548104
 FWU SF-4.Current RPM,FWU_SF-4.Current_RPM,ControlPoint/Modbus1.xml,0000004F,R10008548100
-FWU SF-4.DC Link 전압,FWU_SF-4.DC_Link_전압,ControlPoint/Modbus1.xml,00000055,R10008548106
+FWU SF-4.DC Link 전압,FWU_SF-4.DC_Link_Voltage,ControlPoint/Modbus1.xml,00000055,R10008548106
 FWU SF-4.Error Code,FWU_SF-4.Error_Code,ControlPoint/Modbus1.xml,00000054,R10008548105
 FWU SF-4.Input Current,FWU_SF-4.Input_Current,ControlPoint/Modbus1.xml,0000005B,R1000854810C
 FWU SF-4.Input Voltage,FWU_SF-4.Input_Voltage,ControlPoint/Modbus1.xml,0000005C,R1000854810D
@@ -78,22 +78,22 @@ FWU SF-4.Max RPM,FWU_SF-4.Max_RPM,ControlPoint/Modbus1.xml,0000005E,R1000854810F
 FWU SF-4.Phase Current,FWU_SF-4.Phase_Current,ControlPoint/Modbus1.xml,00000059,R1000854810A
 FWU SF-4.Power Usage,FWU_SF-4.Power_Usage,ControlPoint/Modbus1.xml,00000050,R10008548101
 FWU SF-4.Run Command,FWU_SF-4.Run_Command,ControlPoint/Modbus1.xml,0400004E,R10408538007
-FWU SF-4.Stop조건,FWU_SF-4.Stop조건,ControlPoint/Modbus1.xml,0000005D,R1000854810E
+FWU SF-4.Stop조건,FWU_SF-4.Stop_Condition,ControlPoint/Modbus1.xml,0000005D,R1000854810E
 FWU SF-4.Target RPM Set,FWU_SF-4.Target_RPM_Set,ControlPoint/Modbus1.xml,0100004D,R10108538001
-FWU SF-4.공간온도,FWU_SF-4.공간온도,ControlPoint/Modbus1.xml,00000052,R10008548103
-FWU SF-4.방열판온도,FWU_SF-4.방열판온도,ControlPoint/Modbus1.xml,0000005A,R1000854810B
-FWU SF-4.에러-공간온도,FWU_SF-4.에러-공간온도,ControlPoint/Modbus1.xml,03000095,R10358548112
-FWU SF-4.에러-인버터방열판온도,FWU_SF-4.에러-인버터방열판온도,ControlPoint/Modbus1.xml,03000093,R10308548112
-FWU SF-4.에러-컨버터방열판온도,FWU_SF-4.에러-컨버터방열판온도,ControlPoint/Modbus1.xml,03000094,R10338548112
-FWU SF-4.연동방식,FWU_SF-4.연동방식,ControlPoint/Modbus1.xml,00000056,R10008548107
-FWU SF-4.용량,FWU_SF-4.용량,ControlPoint/Modbus1.xml,00000058,R10008548109
-FWU SF-4.입려과전류 알람,FWU_SF-4.입려과전류_알람,ControlPoint/Modbus1.xml,0000005F,R10008548110
-FWU SF-4.제품ID,FWU_SF-4.제품ID,ControlPoint/Modbus1.xml,00000057,R10008548108
-FWU SF-4.제한비트,FWU_SF-4.제한비트,ControlPoint/Modbus1.xml,00000060,R10008548111
-FWU SF-4.컨버터 방열판온도,FWU_SF-4.컨버터_방열판온도,ControlPoint/Modbus1.xml,00000051,R10008548102
+FWU SF-4.공간온도,FWU_SF-4.Ambient_Temp,ControlPoint/Modbus1.xml,00000052,R10008548103
+FWU SF-4.방열판온도,FWU_SF-4.Heatsink_Temp,ControlPoint/Modbus1.xml,0000005A,R1000854810B
+FWU SF-4.에러-공간온도,FWU_SF-4.Error_Ambient_Temp,ControlPoint/Modbus1.xml,03000095,R10358548112
+FWU SF-4.에러-인버터방열판온도,FWU_SF-4.Error_Inverter_Heatsink_Temp,ControlPoint/Modbus1.xml,03000093,R10308548112
+FWU SF-4.에러-컨버터방열판온도,FWU_SF-4.Error_Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,03000094,R10338548112
+FWU SF-4.연동방식,FWU_SF-4.Link_Mode,ControlPoint/Modbus1.xml,00000056,R10008548107
+FWU SF-4.용량,FWU_SF-4.Capacity,ControlPoint/Modbus1.xml,00000058,R10008548109
+FWU SF-4.입려과전류 알람,FWU_SF-4.Input_Overcurrent_Alarm,ControlPoint/Modbus1.xml,0000005F,R10008548110
+FWU SF-4.제품ID,FWU_SF-4.Product_ID,ControlPoint/Modbus1.xml,00000057,R10008548108
+FWU SF-4.제한비트,FWU_SF-4.Limit_Bit,ControlPoint/Modbus1.xml,00000060,R10008548111
+FWU SF-4.컨버터 방열판온도,FWU_SF-4.Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,00000051,R10008548102
 FWU SF-5.Control State,FWU_SF-5.Control_State,ControlPoint/Modbus1.xml,000000D9,R10008648104
 FWU SF-5.Current RPM,FWU_SF-5.Current_RPM,ControlPoint/Modbus1.xml,000000D5,R10008648100
-FWU SF-5.DC Link 전압,FWU_SF-5.DC_Link_전압,ControlPoint/Modbus1.xml,000000DB,R10008648106
+FWU SF-5.DC Link 전압,FWU_SF-5.DC_Link_Voltage,ControlPoint/Modbus1.xml,000000DB,R10008648106
 FWU SF-5.Error Code,FWU_SF-5.Error_Code,ControlPoint/Modbus1.xml,000000DA,R10008648105
 FWU SF-5.Input Current,FWU_SF-5.Input_Current,ControlPoint/Modbus1.xml,000000E1,R1000864810C
 FWU SF-5.Input Voltage,FWU_SF-5.Input_Voltage,ControlPoint/Modbus1.xml,000000E2,R1000864810D
@@ -101,22 +101,22 @@ FWU SF-5.Max RPM,FWU_SF-5.Max_RPM,ControlPoint/Modbus1.xml,000000E4,R1000864810F
 FWU SF-5.Phase Current,FWU_SF-5.Phase_Current,ControlPoint/Modbus1.xml,000000DF,R1000864810A
 FWU SF-5.Power Usage,FWU_SF-5.Power_Usage,ControlPoint/Modbus1.xml,000000D6,R10008648101
 FWU SF-5.Run Command,FWU_SF-5.Run_Command,ControlPoint/Modbus1.xml,040000D4,R10408638007
-FWU SF-5.Stop조건,FWU_SF-5.Stop조건,ControlPoint/Modbus1.xml,000000E3,R1000864810E
+FWU SF-5.Stop조건,FWU_SF-5.Stop_Condition,ControlPoint/Modbus1.xml,000000E3,R1000864810E
 FWU SF-5.Target RPM Set,FWU_SF-5.Target_RPM_Set,ControlPoint/Modbus1.xml,010000D3,R10108638001
-FWU SF-5.공간온도,FWU_SF-5.공간온도,ControlPoint/Modbus1.xml,000000D8,R10008648103
-FWU SF-5.방열판온도,FWU_SF-5.방열판온도,ControlPoint/Modbus1.xml,000000E0,R1000864810B
-FWU SF-5.에러-공간온도,FWU_SF-5.에러-공간온도,ControlPoint/Modbus1.xml,030000E9,R10358648112
-FWU SF-5.에러-인버터방열판온도,FWU_SF-5.에러-인버터방열판온도,ControlPoint/Modbus1.xml,030000E7,R10308648112
-FWU SF-5.에러-컨버터방열판온도,FWU_SF-5.에러-컨버터방열판온도,ControlPoint/Modbus1.xml,030000E8,R10338648112
-FWU SF-5.연동방식,FWU_SF-5.연동방식,ControlPoint/Modbus1.xml,000000DC,R10008648107
-FWU SF-5.용량,FWU_SF-5.용량,ControlPoint/Modbus1.xml,000000DE,R10008648109
-FWU SF-5.입려과전류 알람,FWU_SF-5.입려과전류_알람,ControlPoint/Modbus1.xml,000000E5,R10008648110
-FWU SF-5.제품ID,FWU_SF-5.제품ID,ControlPoint/Modbus1.xml,000000DD,R10008648108
-FWU SF-5.제한비트,FWU_SF-5.제한비트,ControlPoint/Modbus1.xml,000000E6,R10008648111
-FWU SF-5.컨버터 방열판온도,FWU_SF-5.컨버터_방열판온도,ControlPoint/Modbus1.xml,000000D7,R10008648102
+FWU SF-5.공간온도,FWU_SF-5.Ambient_Temp,ControlPoint/Modbus1.xml,000000D8,R10008648103
+FWU SF-5.방열판온도,FWU_SF-5.Heatsink_Temp,ControlPoint/Modbus1.xml,000000E0,R1000864810B
+FWU SF-5.에러-공간온도,FWU_SF-5.Error_Ambient_Temp,ControlPoint/Modbus1.xml,030000E9,R10358648112
+FWU SF-5.에러-인버터방열판온도,FWU_SF-5.Error_Inverter_Heatsink_Temp,ControlPoint/Modbus1.xml,030000E7,R10308648112
+FWU SF-5.에러-컨버터방열판온도,FWU_SF-5.Error_Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,030000E8,R10338648112
+FWU SF-5.연동방식,FWU_SF-5.Link_Mode,ControlPoint/Modbus1.xml,000000DC,R10008648107
+FWU SF-5.용량,FWU_SF-5.Capacity,ControlPoint/Modbus1.xml,000000DE,R10008648109
+FWU SF-5.입려과전류 알람,FWU_SF-5.Input_Overcurrent_Alarm,ControlPoint/Modbus1.xml,000000E5,R10008648110
+FWU SF-5.제품ID,FWU_SF-5.Product_ID,ControlPoint/Modbus1.xml,000000DD,R10008648108
+FWU SF-5.제한비트,FWU_SF-5.Limit_Bit,ControlPoint/Modbus1.xml,000000E6,R10008648111
+FWU SF-5.컨버터 방열판온도,FWU_SF-5.Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,000000D7,R10008648102
 FWU SF-6.Control State,FWU_SF-6.Control_State,ControlPoint/Modbus1.xml,000000F0,R10008748104
 FWU SF-6.Current RPM,FWU_SF-6.Current_RPM,ControlPoint/Modbus1.xml,000000EC,R10008748100
-FWU SF-6.DC Link 전압,FWU_SF-6.DC_Link_전압,ControlPoint/Modbus1.xml,000000F2,R10008748106
+FWU SF-6.DC Link 전압,FWU_SF-6.DC_Link_Voltage,ControlPoint/Modbus1.xml,000000F2,R10008748106
 FWU SF-6.Error Code,FWU_SF-6.Error_Code,ControlPoint/Modbus1.xml,000000F1,R10008748105
 FWU SF-6.Input Current,FWU_SF-6.Input_Current,ControlPoint/Modbus1.xml,000000F8,R1000874810C
 FWU SF-6.Input Voltage,FWU_SF-6.Input_Voltage,ControlPoint/Modbus1.xml,000000F9,R1000874810D
@@ -124,22 +124,22 @@ FWU SF-6.Max RPM,FWU_SF-6.Max_RPM,ControlPoint/Modbus1.xml,000000FB,R1000874810F
 FWU SF-6.Phase Current,FWU_SF-6.Phase_Current,ControlPoint/Modbus1.xml,000000F6,R1000874810A
 FWU SF-6.Power Usage,FWU_SF-6.Power_Usage,ControlPoint/Modbus1.xml,000000ED,R10008748101
 FWU SF-6.Run Command,FWU_SF-6.Run_Command,ControlPoint/Modbus1.xml,040000EB,R10408738007
-FWU SF-6.Stop조건,FWU_SF-6.Stop조건,ControlPoint/Modbus1.xml,000000FA,R1000874810E
+FWU SF-6.Stop조건,FWU_SF-6.Stop_Condition,ControlPoint/Modbus1.xml,000000FA,R1000874810E
 FWU SF-6.Target RPM Set,FWU_SF-6.Target_RPM_Set,ControlPoint/Modbus1.xml,010000EA,R10108738001
-FWU SF-6.공간온도,FWU_SF-6.공간온도,ControlPoint/Modbus1.xml,000000EF,R10008748103
-FWU SF-6.방열판온도,FWU_SF-6.방열판온도,ControlPoint/Modbus1.xml,000000F7,R1000874810B
-FWU SF-6.에러-공간온도,FWU_SF-6.에러-공간온도,ControlPoint/Modbus1.xml,03000100,R10358748112
-FWU SF-6.에러-인버터방열판온도,FWU_SF-6.에러-인버터방열판온도,ControlPoint/Modbus1.xml,030000FE,R10308748112
-FWU SF-6.에러-컨버터방열판온도,FWU_SF-6.에러-컨버터방열판온도,ControlPoint/Modbus1.xml,030000FF,R10338748112
-FWU SF-6.연동방식,FWU_SF-6.연동방식,ControlPoint/Modbus1.xml,000000F3,R10008748107
-FWU SF-6.용량,FWU_SF-6.용량,ControlPoint/Modbus1.xml,000000F5,R10008748109
-FWU SF-6.입려과전류 알람,FWU_SF-6.입려과전류_알람,ControlPoint/Modbus1.xml,000000FC,R10008748110
-FWU SF-6.제품ID,FWU_SF-6.제품ID,ControlPoint/Modbus1.xml,000000F4,R10008748108
-FWU SF-6.제한비트,FWU_SF-6.제한비트,ControlPoint/Modbus1.xml,000000FD,R10008748111
-FWU SF-6.컨버터 방열판온도,FWU_SF-6.컨버터_방열판온도,ControlPoint/Modbus1.xml,000000EE,R10008748102
+FWU SF-6.공간온도,FWU_SF-6.Ambient_Temp,ControlPoint/Modbus1.xml,000000EF,R10008748103
+FWU SF-6.방열판온도,FWU_SF-6.Heatsink_Temp,ControlPoint/Modbus1.xml,000000F7,R1000874810B
+FWU SF-6.에러-공간온도,FWU_SF-6.Error_Ambient_Temp,ControlPoint/Modbus1.xml,03000100,R10358748112
+FWU SF-6.에러-인버터방열판온도,FWU_SF-6.Error_Inverter_Heatsink_Temp,ControlPoint/Modbus1.xml,030000FE,R10308748112
+FWU SF-6.에러-컨버터방열판온도,FWU_SF-6.Error_Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,030000FF,R10338748112
+FWU SF-6.연동방식,FWU_SF-6.Link_Mode,ControlPoint/Modbus1.xml,000000F3,R10008748107
+FWU SF-6.용량,FWU_SF-6.Capacity,ControlPoint/Modbus1.xml,000000F5,R10008748109
+FWU SF-6.입려과전류 알람,FWU_SF-6.Input_Overcurrent_Alarm,ControlPoint/Modbus1.xml,000000FC,R10008748110
+FWU SF-6.제품ID,FWU_SF-6.Product_ID,ControlPoint/Modbus1.xml,000000F4,R10008748108
+FWU SF-6.제한비트,FWU_SF-6.Limit_Bit,ControlPoint/Modbus1.xml,000000FD,R10008748111
+FWU SF-6.컨버터 방열판온도,FWU_SF-6.Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,000000EE,R10008748102
 FWU SF-7.Control State,FWU_SF-7.Control_State,ControlPoint/Modbus1.xml,00000107,R10008848104
 FWU SF-7.Current RPM,FWU_SF-7.Current_RPM,ControlPoint/Modbus1.xml,00000103,R10008848100
-FWU SF-7.DC Link 전압,FWU_SF-7.DC_Link_전압,ControlPoint/Modbus1.xml,00000109,R10008848106
+FWU SF-7.DC Link 전압,FWU_SF-7.DC_Link_Voltage,ControlPoint/Modbus1.xml,00000109,R10008848106
 FWU SF-7.Error Code,FWU_SF-7.Error_Code,ControlPoint/Modbus1.xml,00000108,R10008848105
 FWU SF-7.Input Current,FWU_SF-7.Input_Current,ControlPoint/Modbus1.xml,0000010F,R1000884810C
 FWU SF-7.Input Voltage,FWU_SF-7.Input_Voltage,ControlPoint/Modbus1.xml,00000110,R1000884810D
@@ -147,22 +147,22 @@ FWU SF-7.Max RPM,FWU_SF-7.Max_RPM,ControlPoint/Modbus1.xml,00000112,R1000884810F
 FWU SF-7.Phase Current,FWU_SF-7.Phase_Current,ControlPoint/Modbus1.xml,0000010D,R1000884810A
 FWU SF-7.Power Usage,FWU_SF-7.Power_Usage,ControlPoint/Modbus1.xml,00000104,R10008848101
 FWU SF-7.Run Command,FWU_SF-7.Run_Command,ControlPoint/Modbus1.xml,04000102,R10408838007
-FWU SF-7.Stop조건,FWU_SF-7.Stop조건,ControlPoint/Modbus1.xml,00000111,R1000884810E
+FWU SF-7.Stop조건,FWU_SF-7.Stop_Condition,ControlPoint/Modbus1.xml,00000111,R1000884810E
 FWU SF-7.Target RPM Set,FWU_SF-7.Target_RPM_Set,ControlPoint/Modbus1.xml,01000101,R10108838001
-FWU SF-7.공간온도,FWU_SF-7.공간온도,ControlPoint/Modbus1.xml,00000106,R10008848103
-FWU SF-7.방열판온도,FWU_SF-7.방열판온도,ControlPoint/Modbus1.xml,0000010E,R1000884810B
-FWU SF-7.에러-공간온도,FWU_SF-7.에러-공간온도,ControlPoint/Modbus1.xml,03000117,R10358848112
-FWU SF-7.에러-인버터방열판온도,FWU_SF-7.에러-인버터방열판온도,ControlPoint/Modbus1.xml,03000115,R10308848112
-FWU SF-7.에러-컨버터방열판온도,FWU_SF-7.에러-컨버터방열판온도,ControlPoint/Modbus1.xml,03000116,R10338848112
-FWU SF-7.연동방식,FWU_SF-7.연동방식,ControlPoint/Modbus1.xml,0000010A,R10008848107
-FWU SF-7.용량,FWU_SF-7.용량,ControlPoint/Modbus1.xml,0000010C,R10008848109
-FWU SF-7.입려과전류 알람,FWU_SF-7.입려과전류_알람,ControlPoint/Modbus1.xml,00000113,R10008848110
-FWU SF-7.제품ID,FWU_SF-7.제품ID,ControlPoint/Modbus1.xml,0000010B,R10008848108
-FWU SF-7.제한비트,FWU_SF-7.제한비트,ControlPoint/Modbus1.xml,00000114,R10008848111
-FWU SF-7.컨버터 방열판온도,FWU_SF-7.컨버터_방열판온도,ControlPoint/Modbus1.xml,00000105,R10008848102
+FWU SF-7.공간온도,FWU_SF-7.Ambient_Temp,ControlPoint/Modbus1.xml,00000106,R10008848103
+FWU SF-7.방열판온도,FWU_SF-7.Heatsink_Temp,ControlPoint/Modbus1.xml,0000010E,R1000884810B
+FWU SF-7.에러-공간온도,FWU_SF-7.Error_Ambient_Temp,ControlPoint/Modbus1.xml,03000117,R10358848112
+FWU SF-7.에러-인버터방열판온도,FWU_SF-7.Error_Inverter_Heatsink_Temp,ControlPoint/Modbus1.xml,03000115,R10308848112
+FWU SF-7.에러-컨버터방열판온도,FWU_SF-7.Error_Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,03000116,R10338848112
+FWU SF-7.연동방식,FWU_SF-7.Link_Mode,ControlPoint/Modbus1.xml,0000010A,R10008848107
+FWU SF-7.용량,FWU_SF-7.Capacity,ControlPoint/Modbus1.xml,0000010C,R10008848109
+FWU SF-7.입려과전류 알람,FWU_SF-7.Input_Overcurrent_Alarm,ControlPoint/Modbus1.xml,00000113,R10008848110
+FWU SF-7.제품ID,FWU_SF-7.Product_ID,ControlPoint/Modbus1.xml,0000010B,R10008848108
+FWU SF-7.제한비트,FWU_SF-7.Limit_Bit,ControlPoint/Modbus1.xml,00000114,R10008848111
+FWU SF-7.컨버터 방열판온도,FWU_SF-7.Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,00000105,R10008848102
 FWU SF-8.Control State,FWU_SF-8.Control_State,ControlPoint/Modbus1.xml,0000011E,R10008948104
 FWU SF-8.Current RPM,FWU_SF-8.Current_RPM,ControlPoint/Modbus1.xml,0000011A,R10008948100
-FWU SF-8.DC Link 전압,FWU_SF-8.DC_Link_전압,ControlPoint/Modbus1.xml,00000120,R10008948106
+FWU SF-8.DC Link 전압,FWU_SF-8.DC_Link_Voltage,ControlPoint/Modbus1.xml,00000120,R10008948106
 FWU SF-8.Error Code,FWU_SF-8.Error_Code,ControlPoint/Modbus1.xml,0000011F,R10008948105
 FWU SF-8.Input Current,FWU_SF-8.Input_Current,ControlPoint/Modbus1.xml,00000126,R1000894810C
 FWU SF-8.Input Voltage,FWU_SF-8.Input_Voltage,ControlPoint/Modbus1.xml,00000127,R1000894810D
@@ -170,31 +170,31 @@ FWU SF-8.Max RPM,FWU_SF-8.Max_RPM,ControlPoint/Modbus1.xml,00000129,R1000894810F
 FWU SF-8.Phase Current,FWU_SF-8.Phase_Current,ControlPoint/Modbus1.xml,00000124,R1000894810A
 FWU SF-8.Power Usage,FWU_SF-8.Power_Usage,ControlPoint/Modbus1.xml,0000011B,R10008948101
 FWU SF-8.Run Command,FWU_SF-8.Run_Command,ControlPoint/Modbus1.xml,04000119,R10408938007
-FWU SF-8.Stop조건,FWU_SF-8.Stop조건,ControlPoint/Modbus1.xml,00000128,R1000894810E
+FWU SF-8.Stop조건,FWU_SF-8.Stop_Condition,ControlPoint/Modbus1.xml,00000128,R1000894810E
 FWU SF-8.Target RPM Set,FWU_SF-8.Target_RPM_Set,ControlPoint/Modbus1.xml,01000118,R10108938001
-FWU SF-8.공간온도,FWU_SF-8.공간온도,ControlPoint/Modbus1.xml,0000011D,R10008948103
-FWU SF-8.방열판온도,FWU_SF-8.방열판온도,ControlPoint/Modbus1.xml,00000125,R1000894810B
-FWU SF-8.에러-공간온도,FWU_SF-8.에러-공간온도,ControlPoint/Modbus1.xml,0300012E,R10358948112
-FWU SF-8.에러-인버터방열판온도,FWU_SF-8.에러-인버터방열판온도,ControlPoint/Modbus1.xml,0300012C,R10308948112
-FWU SF-8.에러-컨버터방열판온도,FWU_SF-8.에러-컨버터방열판온도,ControlPoint/Modbus1.xml,0300012D,R10338948112
-FWU SF-8.연동방식,FWU_SF-8.연동방식,ControlPoint/Modbus1.xml,00000121,R10008948107
-FWU SF-8.용량,FWU_SF-8.용량,ControlPoint/Modbus1.xml,00000123,R10008948109
-FWU SF-8.입려과전류 알람,FWU_SF-8.입려과전류_알람,ControlPoint/Modbus1.xml,0000012A,R10008948110
-FWU SF-8.제품ID,FWU_SF-8.제품ID,ControlPoint/Modbus1.xml,00000122,R10008948108
-FWU SF-8.제한비트,FWU_SF-8.제한비트,ControlPoint/Modbus1.xml,0000012B,R10008948111
-FWU SF-8.컨버터 방열판온도,FWU_SF-8.컨버터_방열판온도,ControlPoint/Modbus1.xml,0000011C,R10008948102
-FWU-ATS.A Power,FWU-ATS.A_Power,ControlPoint/Modbus2.xml,00000073,R200001303EA
-FWU-ATS.Auto transfer mode,FWU-ATS.Auto_transfer_mode,ControlPoint/Modbus2.xml,0100009F,R20100130BF1
-FWU-ATS.B Power,FWU-ATS.B_Power,ControlPoint/Modbus2.xml,00000096,R200001303EC
-FWU-ATS.Current Power,FWU-ATS.Current_Power,ControlPoint/Modbus2.xml,00000072,R200001303E8
-FWU-ATS.S1 Vab,FWU-ATS.S1_Vab,ControlPoint/Modbus2.xml,00000097,R200001307CF
-FWU-ATS.S1 Vbc,FWU-ATS.S1_Vbc,ControlPoint/Modbus2.xml,00000099,R200001307D1
-FWU-ATS.S1 Vca,FWU-ATS.S1_Vca,ControlPoint/Modbus2.xml,0000009A,R200001307D3
-FWU-ATS.S2 Vab,FWU-ATS.S2_Vab,ControlPoint/Modbus2.xml,0000009B,R20000130833
-FWU-ATS.S2 Vbc,FWU-ATS.S2_Vbc,ControlPoint/Modbus2.xml,0000009C,R20000130835
-FWU-ATS.S2 Vca,FWU-ATS.S2_Vca,ControlPoint/Modbus2.xml,0000009D,R20000130837
-FWU-ATS.Source Priority,FWU-ATS.Source_Priority,ControlPoint/Modbus2.xml,0100009E,R20100130BEF
-FWU-ATS.Transfer by comm request,FWU-ATS.Transfer_by_comm_request,ControlPoint/Modbus2.xml,010000A1,R20100132327
+FWU SF-8.공간온도,FWU_SF-8.Ambient_Temp,ControlPoint/Modbus1.xml,0000011D,R10008948103
+FWU SF-8.방열판온도,FWU_SF-8.Heatsink_Temp,ControlPoint/Modbus1.xml,00000125,R1000894810B
+FWU SF-8.에러-공간온도,FWU_SF-8.Error_Ambient_Temp,ControlPoint/Modbus1.xml,0300012E,R10358948112
+FWU SF-8.에러-인버터방열판온도,FWU_SF-8.Error_Inverter_Heatsink_Temp,ControlPoint/Modbus1.xml,0300012C,R10308948112
+FWU SF-8.에러-컨버터방열판온도,FWU_SF-8.Error_Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,0300012D,R10338948112
+FWU SF-8.연동방식,FWU_SF-8.Link_Mode,ControlPoint/Modbus1.xml,00000121,R10008948107
+FWU SF-8.용량,FWU_SF-8.Capacity,ControlPoint/Modbus1.xml,00000123,R10008948109
+FWU SF-8.입려과전류 알람,FWU_SF-8.Input_Overcurrent_Alarm,ControlPoint/Modbus1.xml,0000012A,R10008948110
+FWU SF-8.제품ID,FWU_SF-8.Product_ID,ControlPoint/Modbus1.xml,00000122,R10008948108
+FWU SF-8.제한비트,FWU_SF-8.Limit_Bit,ControlPoint/Modbus1.xml,0000012B,R10008948111
+FWU SF-8.컨버터 방열판온도,FWU_SF-8.Converter_Heatsink_Temp,ControlPoint/Modbus1.xml,0000011C,R10008948102
+FWU-ATS.A Power,FWU_ATS.A_Power,ControlPoint/Modbus2.xml,00000073,R200001303EA
+FWU-ATS.Auto transfer mode,FWU_ATS.Auto_transfer_mode,ControlPoint/Modbus2.xml,0100009F,R20100130BF1
+FWU-ATS.B Power,FWU_ATS.B_Power,ControlPoint/Modbus2.xml,00000096,R200001303EC
+FWU-ATS.Current Power,FWU_ATS.Current_Power,ControlPoint/Modbus2.xml,00000072,R200001303E8
+FWU-ATS.S1 Vab,FWU_ATS.S1_Vab,ControlPoint/Modbus2.xml,00000097,R200001307CF
+FWU-ATS.S1 Vbc,FWU_ATS.S1_Vbc,ControlPoint/Modbus2.xml,00000099,R200001307D1
+FWU-ATS.S1 Vca,FWU_ATS.S1_Vca,ControlPoint/Modbus2.xml,0000009A,R200001307D3
+FWU-ATS.S2 Vab,FWU_ATS.S2_Vab,ControlPoint/Modbus2.xml,0000009B,R20000130833
+FWU-ATS.S2 Vbc,FWU_ATS.S2_Vbc,ControlPoint/Modbus2.xml,0000009C,R20000130835
+FWU-ATS.S2 Vca,FWU_ATS.S2_Vca,ControlPoint/Modbus2.xml,0000009D,R20000130837
+FWU-ATS.Source Priority,FWU_ATS.Source_Priority,ControlPoint/Modbus2.xml,0100009E,R20100130BEF
+FWU-ATS.Transfer by comm request,FWU_ATS.Transfer_by_comm_request,ControlPoint/Modbus2.xml,010000A1,R20100132327
 FWU_FILTER ALARM,FWU_FILTER_ALARM,ControlPoint/IO.xml,03000007,IO0300104007
 FWU_FIRE ALARM,FWU_FIRE_ALARM,ControlPoint/IO.xml,03000006,IO0300104006
 FWU_LEAK DETECT,FWU_LEAK_DETECT,UNBOUND_DI,,

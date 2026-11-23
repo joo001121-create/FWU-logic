@@ -205,7 +205,7 @@ if engine.READPOINT("FWU_EMERGENCY") == FALSE:
 else:
     ## 비상정지: 운전 명령을 끄고 팬 출력을 P1으로 0으로 누른다. 댐퍼는 팬이 멈춘 뒤 닫는다
     engine.WRITEPOINT_PRI("VP_FWU_Command", OFF, 11)
-    engine.WRITEPOINT_PRI("VP_FWU_Command-HMI", OFF, 11)
+    engine.WRITEPOINT_PRI("VP_FWU_Command_HMI", OFF, 11)
     engine.LOOP2_INIT(RAT_LOOP)
     engine.LOOP2_INIT(RDP_LOOP)
     engine.LOOP2_INIT(DELTA_T_LOOP)

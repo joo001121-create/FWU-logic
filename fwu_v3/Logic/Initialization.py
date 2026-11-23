@@ -100,7 +100,7 @@ else:
 ## 상위 통신이 정상일 때만 외부 센서(CZT/HZT/RDP)값을 쓴다
 mbUpperOk = mbUpperEnabled and engine.READPOINT("VP_FWU_BMS_PLC_Comm_Fault") == FALSE
 
-## CZT(존 온도) 집계
+## CZT(냉복도 온도) 집계
 ## 사용 개수(CZT_Count) 안의 센서 중, 상위 통신이 정상이고 고장 알람이 없는 것만 평균·최대·최소에 넣는다
 ## 사용 개수는 0~10 정수. 상위에서 대표값 하나만 받으면 사용 개수를 1로 설정한다
 if engine.READPOINT("VP_FWU_CZT_Count") >= 1 and mbUpperOk == TRUE and engine.READPOINT("VP_FWU_CZT-1_Failure_Alarm") == FALSE:
@@ -214,7 +214,7 @@ if engine.READPOINT("VP_FWU_CZT_PV_Valid") == TRUE:
 else:
     engine.WRITEPOINT("VP_FWU_CZT_PV", 0)
 
-## HZT(Hot zone 온도) 집계
+## HZT(열복도 온도) 집계
 ## 사용 개수(HZT_Count) 안의 센서 중, 상위 통신이 정상이고 고장 알람이 없는 것만 평균·최대·최소에 넣는다
 if engine.READPOINT("VP_FWU_HZT_Count") >= 1 and mbUpperOk == TRUE and engine.READPOINT("VP_FWU_HZT-1_Failure_Alarm") == FALSE:
     SensorValue = engine.READPOINT("VP_FWU_HZT-1")
@@ -327,7 +327,7 @@ if engine.READPOINT("VP_FWU_HZT_PV_Valid") == TRUE:
 else:
     engine.WRITEPOINT("VP_FWU_HZT_PV", 0)
 
-## RDP(실 차압) 집계
+## RDP(룸 차압) 집계
 ## 사용 개수(RDP_Count) 안의 센서 중, 상위 통신이 정상이고 고장 알람이 없는 것만 평균·최대·최소에 넣는다
 if engine.READPOINT("VP_FWU_RDP_Count") >= 1 and mbUpperOk == TRUE and engine.READPOINT("VP_FWU_RDP-1_Failure_Alarm") == FALSE:
     SensorValue = engine.READPOINT("VP_FWU_RDP-1")
@@ -440,7 +440,7 @@ if engine.READPOINT("VP_FWU_RDP_PV_Valid") == TRUE:
 else:
     engine.WRITEPOINT("VP_FWU_RDP_PV", 0)
 
-## CZH(존 습도) 집계: 표시용이라 상위 통신·고장 조건 없이 사용 개수만 본다
+## CZH(냉복도 습도) 집계: 표시용이라 상위 통신·고장 조건 없이 사용 개수만 본다
 if engine.READPOINT("VP_FWU_CZH_Count") >= 1:
     SensorValue = engine.READPOINT("VP_FWU_CZH-1")
     mCZHCount = mCZHCount + 1
@@ -660,12 +660,12 @@ else:
 ## 운전 명령 맞추기: 원격(BMS) 선택이면 BMS 명령을 HMI 쪽에, 로컬이면 HMI 명령을 BMS 쪽에 따라 쓴다
 if engine.READPOINT("REMOTE_SELECTION") == TRUE:
     engine.RELEASE_PRI("VP_FWU_Command", 5)
-    engine.WRITEPOINT("VP_FWU_Command-HMI", engine.READPOINT("VP_FWU_Command"))
-    engine.WRITEPOINT_PRI("VP_FWU_Command-HMI", engine.READPOINT("VP_FWU_Command"), 11)
+    engine.WRITEPOINT("VP_FWU_Command_HMI", engine.READPOINT("VP_FWU_Command"))
+    engine.WRITEPOINT_PRI("VP_FWU_Command_HMI", engine.READPOINT("VP_FWU_Command"), 11)
 else:
-    engine.RELEASE_PRI("VP_FWU_Command-HMI", 5)
-    engine.WRITEPOINT("VP_FWU_Command", engine.READPOINT("VP_FWU_Command-HMI"))
-    engine.WRITEPOINT_PRI("VP_FWU_Command", engine.READPOINT("VP_FWU_Command-HMI"), 11)
+    engine.RELEASE_PRI("VP_FWU_Command_HMI", 5)
+    engine.WRITEPOINT("VP_FWU_Command", engine.READPOINT("VP_FWU_Command_HMI"))
+    engine.WRITEPOINT_PRI("VP_FWU_Command", engine.READPOINT("VP_FWU_Command_HMI"), 11)
 
 ## 팬 최대 RPM = 설계 RPM × 비율(%). 단 정격 최대 RPM은 넘지 않게 한다 (SF Control이 이 값을 쓴다)
 engine.WRITEPOINT("VP_FWU_SF_Max_RPM", engine.MIN(engine.READPOINT("VP_FWU_SF_Design_RPM") * engine.READPOINT("VP_FWU_SF_Max_RPM_Ratio") / 100, engine.READPOINT("VP_FWU_SF_Rated_Max_RPM")))

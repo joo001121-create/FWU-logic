@@ -120,7 +120,7 @@ class FollowupTests(unittest.TestCase):
         e.set('VP_FWU_SF_Control_Select', 0)
         e.set('VP_FWU_Speed_SP', 65)
         e.point_alarms['FWU_SF-1.Current_RPM'] = 8
-        e.point_alarms['FWU-ATS.Current_Power'] = 8
+        e.point_alarms['FWU_ATS.Current_Power'] = 8
         e.run('Comm Fault Alarm'); e.run('SF Control')
         e.tick(10); e.run('Comm Fault Alarm')
         self.assertEqual(e.READPOINT('VP_FWU_SF_Comm_Fault'), 0)

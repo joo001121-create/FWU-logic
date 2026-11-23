@@ -1,0 +1,10 @@
+﻿old_name,new_name,definition_file
+FWU SF-1,FWU_SF-1,ControlPoint/Modbus1.xml
+FWU SF-2,FWU_SF-2,ControlPoint/Modbus1.xml
+FWU SF-3,FWU_SF-3,ControlPoint/Modbus1.xml
+FWU SF-4,FWU_SF-4,ControlPoint/Modbus1.xml
+FWU SF-5,FWU_SF-5,ControlPoint/Modbus1.xml
+FWU SF-6,FWU_SF-6,ControlPoint/Modbus1.xml
+FWU SF-7,FWU_SF-7,ControlPoint/Modbus1.xml
+FWU SF-8,FWU_SF-8,ControlPoint/Modbus1.xml
+FWU-ATS,FWU_ATS,ControlPoint/Modbus2.xml

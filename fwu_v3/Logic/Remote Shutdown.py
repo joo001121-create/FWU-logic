@@ -42,7 +42,7 @@ else:
 ## 강제 정지: 운전 명령과 출력을 0으로 누른다 (P2·P11)
 if mbShutdown == TRUE:
     engine.WRITEPOINT_PRI("VP_FWU_Command", OFF, 11)
-    engine.WRITEPOINT_PRI("VP_FWU_Command-HMI", OFF, 11)
+    engine.WRITEPOINT_PRI("VP_FWU_Command_HMI", OFF, 11)
     engine.WRITEPOINT_PRI("FWU_PICV_CONTROL", 0, 2)
     engine.WRITEPOINT_PRI("FWU_PICV_CONTROL", 0, 11)
     engine.WRITEPOINT_PRI("VP_FWU_SF_Speed_Value", 0, 11)
