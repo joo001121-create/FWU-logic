@@ -98,7 +98,7 @@ else:
     engine.SECTIMER(UPPER_RESET_TIMER, TMR_CLEAR)
 
 ## 상위 통신이 정상일 때만 외부 센서(CZT/HZT/RDP)값을 쓴다
-mbUpperOk = mbUpperEnabled and engine.READPOINT("VP_FWU_BMS_PLC_Comm_Fault") == FALSE
+mbUpperOk = mbUpperEnabled == TRUE and engine.READPOINT("VP_FWU_BMS_PLC_Comm_Fault") == FALSE
 
 ## CZT(냉복도 온도) 집계
 ## 사용 개수(CZT_Count) 안의 센서 중, 상위 통신이 정상이고 고장 알람이 없는 것만 평균·최대·최소에 넣는다
