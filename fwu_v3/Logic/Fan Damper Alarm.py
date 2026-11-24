@@ -151,10 +151,10 @@ else:
 if engine.READPOINT("FWU_SAD-1_4_COMMAND") == ON and engine.READPOINT("VP_FWU_SF_Status") == OFF:
     engine.SECTIMER(SAD_CLOSE_TIMER, TMR_CLEAR)
     if engine.SECTIMER(SAD_OPEN_TIMER, TMR_READ) > DAMPER_TRAVEL_SECONDS:
-        if engine.READPOINT("FWU_SAD-1_OPEN_STATUS") != TRUE or engine.READPOINT("FWU_SAD-2_OPEN_STATUS") != TRUE or engine.READPOINT("FWU_SAD-3_OPEN_STATUS") != TRUE or engine.READPOINT("FWU_SAD-4_OPEN_STATUS") != TRUE:
-            engine.WRITEPOINT("VP_FWU_SAD_Not_Open_Alarm", TRUE)
-        else:
+        if engine.READPOINT("FWU_SAD-1_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-2_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-3_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-4_OPEN_STATUS") == TRUE:   ## 네 댐퍼가 모두 열렸으면 정상
             engine.WRITEPOINT("VP_FWU_SAD_Not_Open_Alarm", FALSE)
+        else:
+            engine.WRITEPOINT("VP_FWU_SAD_Not_Open_Alarm", TRUE)
     else:
         engine.WRITEPOINT("VP_FWU_SAD_Not_Open_Alarm", FALSE)
 else:
@@ -165,10 +165,10 @@ else:
 if engine.READPOINT("FWU_SAD-1_4_COMMAND") == OFF:
     engine.SECTIMER(SAD_OPEN_TIMER, TMR_CLEAR)
     if engine.SECTIMER(SAD_CLOSE_TIMER, TMR_READ) > DAMPER_TRAVEL_SECONDS:
-        if engine.READPOINT("FWU_SAD-1_CLOSE_STATUS") != TRUE or engine.READPOINT("FWU_SAD-2_CLOSE_STATUS") != TRUE or engine.READPOINT("FWU_SAD-3_CLOSE_STATUS") != TRUE or engine.READPOINT("FWU_SAD-4_CLOSE_STATUS") != TRUE:
-            engine.WRITEPOINT("VP_FWU_SAD_Not_Close_Alarm", TRUE)
-        else:
+        if engine.READPOINT("FWU_SAD-1_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-2_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-3_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-4_CLOSE_STATUS") == TRUE:   ## 네 댐퍼가 모두 닫혔으면 정상
             engine.WRITEPOINT("VP_FWU_SAD_Not_Close_Alarm", FALSE)
+        else:
+            engine.WRITEPOINT("VP_FWU_SAD_Not_Close_Alarm", TRUE)
     else:
         engine.WRITEPOINT("VP_FWU_SAD_Not_Close_Alarm", FALSE)
 else:

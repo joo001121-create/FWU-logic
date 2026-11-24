@@ -58,22 +58,22 @@ mbSFRun = FALSE       ## 팬이 한 대라도 돌고 있다고 판단되면 TRUE
 ## 상위 통신(heartbeat) 감시
 ## 상위가 heartbeat 값을 계속 바꿔 주는지 본다. Upper_Comm_Timeout 동안 그대로면 통신 이상으로 잡아 둔다
 if mbUpperEnabled == TRUE:
-    ## 감시를 막 켰으면 지금 값을 기준으로 새로 잰다
-    if engine.READPOINT("VP_FWU_Upper_Comm_Enable_Prev") != TRUE:
+    ## 감시를 막 켰으면(이전 실행에서는 꺼져 있었으면) 지금 값을 기준으로 새로 잰다
+    if engine.READPOINT("VP_FWU_Upper_Comm_Enable_Prev") == TRUE:
+        pass  ## do_nothing (이전 실행에서도 켜져 있었음. 하던 대로 잰다)
+    else:
         engine.SECTIMER(UPPER_HEARTBEAT_TIMER, TMR_CLEAR)
         engine.WRITEPOINT("VP_FWU_BMS_PLC_Heartbeat_Prev", mHeartbeat)
-    else:
-        pass  ## do_nothing
-    if mHeartbeat != engine.READPOINT("VP_FWU_BMS_PLC_Heartbeat_Prev"):
-        ## 값이 바뀌었으면 살아 있는 것. 기준값을 새로 남기고 시간을 다시 잰다
-        engine.WRITEPOINT("VP_FWU_BMS_PLC_Heartbeat_Prev", mHeartbeat)
-        engine.SECTIMER(UPPER_HEARTBEAT_TIMER, TMR_CLEAR)
-        mbHBOk = TRUE
-    else:
+    if mHeartbeat == engine.READPOINT("VP_FWU_BMS_PLC_Heartbeat_Prev"):   ## 값이 그대로면 Timeout을 넘었는지 본다
         if engine.SECTIMER(UPPER_HEARTBEAT_TIMER, TMR_READ) > engine.READPOINT("VP_FWU_Upper_Comm_Timeout"):
             engine.WRITEPOINT("VP_FWU_BMS_PLC_Comm_Fault", TRUE)
         else:
             mbHBOk = TRUE
+    else:
+        ## 값이 바뀌었으면 살아 있는 것. 기준값을 새로 남기고 시간을 다시 잰다
+        engine.WRITEPOINT("VP_FWU_BMS_PLC_Heartbeat_Prev", mHeartbeat)
+        engine.SECTIMER(UPPER_HEARTBEAT_TIMER, TMR_CLEAR)
+        mbHBOk = TRUE
 else:
     ## 감시를 안 쓰면 타이머와 통신 이상을 풀어 둔다
     engine.SECTIMER(UPPER_HEARTBEAT_TIMER, TMR_CLEAR)
@@ -639,14 +639,14 @@ else:
         pass  ## do_nothing
 
 ## 판단이 바뀐 채로 5초가 지나야 VP_FWU_SF_Status에 반영한다 (순간적인 흔들림 무시)
-if mbSFRun != engine.READPOINT("VP_FWU_SF_Status"):
+if mbSFRun == engine.READPOINT("VP_FWU_SF_Status"):
+    engine.SECTIMER(SF_STATUS_TIMER, TMR_CLEAR)   ## 판단이 지금 상태와 같으면 시간을 다시 잰다
+else:
     if engine.SECTIMER(SF_STATUS_TIMER, TMR_READ) > 5:   ## 5초
         engine.WRITEPOINT("VP_FWU_SF_Status", mbSFRun)
         engine.SECTIMER(SF_STATUS_TIMER, TMR_CLEAR)
     else:
         pass  ## do_nothing
-else:
-    engine.SECTIMER(SF_STATUS_TIMER, TMR_CLEAR)
 
 ## 급기 풍량 계산: 팬이 돌고 차압이 5Pa 이상일 때만 계산한다
 ## 차압은 위에서 읽어 둔 mSAFlowDP를 쓴다 (FWU_SAFLOW_DP를 다시 읽는 것과 같은 값)

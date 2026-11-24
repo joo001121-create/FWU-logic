@@ -187,10 +187,10 @@
 | 151 | 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) = ON(1) **그리고** 팬 운전 상태 (`VP_FWU_SF_Status`) = OFF(0) 이면 : |
 | 152 | &emsp;→&nbsp;타이머 `SAD_CLOSE_TIMER`(8번: 댐퍼 닫힘 명령 뒤 지난 시간)를 0초로 초기화 |
 | 153 | &emsp;→&nbsp;타이머 `SAD_OPEN_TIMER`(7번: 댐퍼 열림 명령 뒤 지난 시간) 경과시간 > `DAMPER_TRAVEL_SECONDS`(120) 이면 : |
-| 154 | &emsp;&emsp;→&nbsp;댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) ≠ TRUE(1) **또는** 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) ≠ TRUE(1) **또는** 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) ≠ TRUE(1) **또는** 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) ≠ TRUE(1) 이면 : |
-| 155 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
+| 154 | &emsp;&emsp;→&nbsp;댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) = TRUE(1) 이면 :<br>*[주석] 네 댐퍼가 모두 열렸으면 정상* |
+| 155 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
 | 156 | &emsp;&emsp;→&nbsp;154행 조건이 성립하지 않으면 : |
-| 157 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 157 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
 | 158 | &emsp;→&nbsp;153행 조건이 성립하지 않으면 : |
 | 159 | &emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
 | 160 | 151행 조건이 성립하지 않으면 : |
@@ -207,10 +207,10 @@
 | 165 | 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) = OFF(0) 이면 : |
 | 166 | &emsp;→&nbsp;타이머 `SAD_OPEN_TIMER`(7번: 댐퍼 열림 명령 뒤 지난 시간)를 0초로 초기화 |
 | 167 | &emsp;→&nbsp;타이머 `SAD_CLOSE_TIMER`(8번: 댐퍼 닫힘 명령 뒤 지난 시간) 경과시간 > `DAMPER_TRAVEL_SECONDS`(120) 이면 : |
-| 168 | &emsp;&emsp;→&nbsp;댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) ≠ TRUE(1) **또는** 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) ≠ TRUE(1) **또는** 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) ≠ TRUE(1) **또는** 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) ≠ TRUE(1) 이면 : |
-| 169 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
+| 168 | &emsp;&emsp;→&nbsp;댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) = TRUE(1) 이면 :<br>*[주석] 네 댐퍼가 모두 닫혔으면 정상* |
+| 169 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
 | 170 | &emsp;&emsp;→&nbsp;168행 조건이 성립하지 않으면 : |
-| 171 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 171 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
 | 172 | &emsp;→&nbsp;167행 조건이 성립하지 않으면 : |
 | 173 | &emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
 | 174 | 165행 조건이 성립하지 않으면 : |

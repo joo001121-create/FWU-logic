@@ -85,7 +85,7 @@
 | 50 | `mbSF8CommFault` ← 팬 8번 통신 이상 (`VP_FWU_SF-8_Comm_Fault`) 값 읽기 |
 | 52 | `mSAFlowDP` ← 급기 풍량 차압(FMS) (`FWU_SAFLOW_DP`) 값 읽기<br>*[주석] 급기 차압(Pa)* |
 | 53 | 전역변수 `mbSFRun` 선언, 처음 값 = FALSE(0)<br>*[주석] 팬이 한 대라도 돌고 있다고 판단되면 TRUE* |
-| 55 | *[주석] 상위가 없는 모델은 감시를 끄고 Local 고정속도/RAT/ΔT를 사용한다.* |
+| 55 | *[주석] 상위가 없는 모델은 감시를 끄고 고정속도/RAT/ΔT를 사용한다.* |
 | 56 | *[주석] 감시를 끄면 외부 온도·차압은 제어 입력으로 쓰지 않는다.* |
 
 <a id="section-2"></a>
@@ -99,22 +99,22 @@
 | 58 | *[주석] 상위 통신(heartbeat) 감시* |
 | 59 | *[주석] 상위가 heartbeat 값을 계속 바꿔 주는지 본다. Upper_Comm_Timeout 동안 그대로면 통신 이상으로 잡아 둔다* |
 | 60 | `mbUpperEnabled` = TRUE(1) 이면 : |
-| 61 | &emsp;→&nbsp;*[주석] 감시를 막 켰으면 지금 값을 기준으로 새로 잰다* |
-| 62 | &emsp;→&nbsp;직전 감시 사용 상태(기억용) (`VP_FWU_Upper_Comm_Enable_Prev`) ≠ TRUE(1) 이면 : |
-| 63 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0초로 초기화 |
-| 64 | &emsp;&emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`)에 `mHeartbeat` 기록 — 기본 우선순위(P5) |
-| 65 | &emsp;→&nbsp;62행 조건이 성립하지 않으면 : |
-| 66 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 67 | &emsp;→&nbsp;`mHeartbeat` ≠ 직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`) 이면 : |
-| 68 | &emsp;&emsp;→&nbsp;*[주석] 값이 바뀌었으면 살아 있는 것. 기준값을 새로 남기고 시간을 다시 잰다* |
-| 69 | &emsp;&emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`)에 `mHeartbeat` 기록 — 기본 우선순위(P5) |
-| 70 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0초로 초기화 |
-| 71 | &emsp;&emsp;→&nbsp;`mbHBOk` ← TRUE(1) |
+| 61 | &emsp;→&nbsp;*[주석] 감시를 막 켰으면(이전 실행에서는 꺼져 있었으면) 지금 값을 기준으로 새로 잰다* |
+| 62 | &emsp;→&nbsp;직전 감시 사용 상태(기억용) (`VP_FWU_Upper_Comm_Enable_Prev`) = TRUE(1) 이면 : |
+| 63 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) — 이전 실행에서도 켜져 있었음. 하던 대로 잰다 |
+| 64 | &emsp;→&nbsp;62행 조건이 성립하지 않으면 : |
+| 65 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0초로 초기화 |
+| 66 | &emsp;&emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`)에 `mHeartbeat` 기록 — 기본 우선순위(P5) |
+| 67 | &emsp;→&nbsp;`mHeartbeat` = 직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`) 이면 :<br>*[주석] 값이 그대로면 Timeout을 넘었는지 본다* |
+| 68 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간) 경과시간 > 상위 통신 끊김 판정 시간 설정(초) (`VP_FWU_Upper_Comm_Timeout`) 이면 : |
+| 69 | &emsp;&emsp;&emsp;→&nbsp;상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
+| 70 | &emsp;&emsp;→&nbsp;68행 조건이 성립하지 않으면 : |
+| 71 | &emsp;&emsp;&emsp;→&nbsp;`mbHBOk` ← TRUE(1) |
 | 72 | &emsp;→&nbsp;67행 조건이 성립하지 않으면 : |
-| 73 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간) 경과시간 > 상위 통신 끊김 판정 시간 설정(초) (`VP_FWU_Upper_Comm_Timeout`) 이면 : |
-| 74 | &emsp;&emsp;&emsp;→&nbsp;상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 75 | &emsp;&emsp;→&nbsp;73행 조건이 성립하지 않으면 : |
-| 76 | &emsp;&emsp;&emsp;→&nbsp;`mbHBOk` ← TRUE(1) |
+| 73 | &emsp;&emsp;→&nbsp;*[주석] 값이 바뀌었으면 살아 있는 것. 기준값을 새로 남기고 시간을 다시 잰다* |
+| 74 | &emsp;&emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`)에 `mHeartbeat` 기록 — 기본 우선순위(P5) |
+| 75 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0초로 초기화 |
+| 76 | &emsp;&emsp;→&nbsp;`mbHBOk` ← TRUE(1) |
 | 77 | 60행 조건이 성립하지 않으면 : |
 | 78 | &emsp;→&nbsp;*[주석] 감시를 안 쓰면 타이머와 통신 이상을 풀어 둔다* |
 | 79 | &emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0초로 초기화 |
@@ -739,14 +739,14 @@
 | 행 | 해석 |
 |---:|---|
 | 641 | *[주석] 판단이 바뀐 채로 5초가 지나야 VP_FWU_SF_Status에 반영한다 (순간적인 흔들림 무시)* |
-| 642 | `mbSFRun` ≠ 팬 운전 상태 (`VP_FWU_SF_Status`) 이면 : |
-| 643 | &emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간) 경과시간 > 5 이면 :<br>*[주석] 5초* |
-| 644 | &emsp;&emsp;→&nbsp;팬 운전 상태 (`VP_FWU_SF_Status`)에 `mbSFRun` 기록 — 기본 우선순위(P5) |
-| 645 | &emsp;&emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)를 0초로 초기화 |
-| 646 | &emsp;→&nbsp;643행 조건이 성립하지 않으면 : |
-| 647 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 648 | 642행 조건이 성립하지 않으면 : |
-| 649 | &emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)를 0초로 초기화 |
+| 642 | `mbSFRun` = 팬 운전 상태 (`VP_FWU_SF_Status`) 이면 : |
+| 643 | &emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)를 0초로 초기화<br>*[주석] 판단이 지금 상태와 같으면 시간을 다시 잰다* |
+| 644 | 642행 조건이 성립하지 않으면 : |
+| 645 | &emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간) 경과시간 > 5 이면 :<br>*[주석] 5초* |
+| 646 | &emsp;&emsp;→&nbsp;팬 운전 상태 (`VP_FWU_SF_Status`)에 `mbSFRun` 기록 — 기본 우선순위(P5) |
+| 647 | &emsp;&emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)를 0초로 초기화 |
+| 648 | &emsp;→&nbsp;645행 조건이 성립하지 않으면 : |
+| 649 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
 
 <a id="section-19"></a>
 

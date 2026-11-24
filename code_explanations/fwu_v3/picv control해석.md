@@ -47,7 +47,7 @@
 | 30 | *[주석] 밸브 구동부 설정(하드웨어 사양)으로 충족한다. 그때는 DDC 명령이 밸브에 닿지 않아 코드로는 대응할 수 없다.* |
 | 31 | *[주석] Command=1이고 팬 정지 상태이면 기존 명령 유지. 비상 P1·원격 P2는 별도 우선.* |
 | 32 | *[주석] 수동 Command=0은 자동 닫힘 아님. 무풍 중 냉수 공급에 대한 HMI 안내 검토.* |
-| 33 | *[주석] AO 단선·전원 상실 시 위치는 제조사 확인 후 대응 기능 적용 여부 결정. (단선 시 0%로 돌아가는 밸브는 사용X 해야함)* |
+| 33 | *[주석] AO 단선·전원 상실 시 위치는 제조사 확인 후 대응 기능 적용 여부 결정.* |
 
 <a id="section-2"></a>
 
@@ -61,7 +61,7 @@
 | 39 | &emsp;→&nbsp;운전 모드(1 자동, 0 수동) (`VP_FWU_Operation_Mode`) = TRUE(1) 이면 :<br>*[주석] Operation_Mode 1 = 자동, 0 = 수동* |
 | 40 | &emsp;&emsp;→&nbsp;*[주석] 운전 명령이 있고 팬이 돌 때만 SAT 기준으로 제어한다* |
 | 41 | &emsp;&emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`) = ON(1) **그리고** 팬 운전 상태 (`VP_FWU_SF_Status`) = ON(1) 이면 : |
-| 42 | &emsp;&emsp;&emsp;→&nbsp;급기 온도(SAT) 센서 고장 알람 (`VP_FWU_SAT_Failure_Alarm`) = TRUE(1) 이면 : |
+| 42 | &emsp;&emsp;&emsp;→&nbsp;급기 온도(SAT) 센서 고장 알람 (`VP_FWU_SAT_Failure_Alarm`) = TRUE(1) 이면 :<br>*[주석] SAT 센서 고장 여부 확인* |
 | 43 | &emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] JSY 2026-11-23 수정 구간 시작. 주제 = SAT 센서 고장 시 밸브 마지막/안전 위치 선택 (보호 기능)* |
 | 44 | &emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] SAT를 믿을 수 없어 PI 제어를 멈춘다. 이때 밸브 위치는 HMI 설정(Fail_Mode)으로 고른다* |
 | 45 | &emsp;&emsp;&emsp;&emsp;→&nbsp;`PICV_FAIL_MODE`(설정값) = TRUE(1) 이면 :<br>*[주석] 1 = 안전 위치* |
@@ -73,7 +73,7 @@
 | 51 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;49행 조건이 성립하지 않으면 : |
 | 52 | &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 `PICV_SAFE_POSITION`(설정값) 기록 — 기본 우선순위(P5) |
 | 53 | &emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] JSY 2026-11-23 수정 구간 끝. 주제 = SAT 센서 고장 시 밸브 마지막/안전 위치 선택 (보호 기능)* |
-| 54 | &emsp;&emsp;&emsp;→&nbsp;42행 조건이 성립하지 않으면 : |
+| 54 | &emsp;&emsp;&emsp;→&nbsp;42행 조건이 성립하지 않으면 :<br>*[주석] SAT 센서 정상일 때 PI 제어 수행* |
 | 55 | &emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] LOOP2(방향, 현재값, 출력, 목표값, P, I, D, 샘플링(초), 시작 출력, 최소, 최대, 루프 번호, 데드밴드)* |
 | 56 | &emsp;&emsp;&emsp;&emsp;→&nbsp;PI 제어(LOOP2) — 방향 DEC: 현재값이 목표보다 높으면 출력을 올리는 방향. 현재값 = 급기 온도(SAT) 센서값 (`FWU_SAT`), 출력 = PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`), 목표값 = 급기 온도 목표값(PICV 제어) (`VP_FWU_PICV_SAT_SP`), P = `PICV_PGAIN`(설정값), I = `PICV_IGAIN`(설정값), D = 0, 샘플링 = 1, 시작 출력 = 100, 출력 범위 = PICV 최소 개도(출력 하한) 설정 (`VP_FWU_PICV_MinSP`) ~ 100, 루프 번호 = `PICV_LOOP`(1), 데드밴드 = 0 |
 | 57 | &emsp;&emsp;&emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`)에 TRUE(1) 기록 — 기본 우선순위(P5)<br>*[주석] 이번 운전에서 PI가 돌았다는 표시 (마지막 위치 유지 판단에 씀)* |
@@ -84,11 +84,11 @@
 | 63 | &emsp;&emsp;&emsp;→&nbsp;PI 루프 `PICV_LOOP`(1) 누적값 초기화 |
 | 64 | &emsp;&emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`)에 FALSE(0) 기록 — 기본 우선순위(P5)<br>*[주석] 운전이 끝났으니 PI 실행 기록도 지운다* |
 | 65 | &emsp;&emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 0 기록 — 기본 우선순위(P5) |
-| 66 | &emsp;&emsp;→&nbsp;62행 조건이 성립하지 않으면 : |
+| 66 | &emsp;&emsp;→&nbsp;62행 조건이 성립하지 않으면 :<br>*[주석] 운전 명령이 켜져 있으면 아무 것도 안 함* |
 | 67 | &emsp;&emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
 | 68 | &emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 현재 값을 그대로 기록 — 우선순위 P11 |
 | 69 | &emsp;→&nbsp;39행 조건이 성립하지 않으면 : |
-| 70 | &emsp;&emsp;→&nbsp;*[주석] 수동 모드: 로직이 쓴 P5를 내려놓아 사람이 넣은 값이 적용되게 한다* |
+| 70 | &emsp;&emsp;→&nbsp;*[주석] 수동 모드: 로직이 쓴 P5를 지워 사람이 넣은 값이 적용되게 한다* |
 | 71 | &emsp;&emsp;→&nbsp;PI 루프 `PICV_LOOP`(1) 누적값 초기화 |
 | 72 | &emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
 | 73 | &emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)의 P5 쓰기 해제 |

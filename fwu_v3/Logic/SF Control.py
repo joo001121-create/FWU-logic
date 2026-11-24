@@ -44,12 +44,12 @@ if 0 <= SF_CONTROL_SELECT < 1:
 else:
     pass  ## do_nothing
 
-if 2 <= SF_CONTROL_SELECT < 3 and engine.READPOINT("VP_FWU_RDP_PV_Valid") != TRUE:
+if 2 <= SF_CONTROL_SELECT < 3 and engine.READPOINT("VP_FWU_RDP_PV_Valid") == FALSE:
     mbFixed = TRUE
 else:
     pass  ## do_nothing
 
-if 4 <= SF_CONTROL_SELECT < 5 and engine.READPOINT("VP_FWU_CZT_PV_Valid") != TRUE:
+if 4 <= SF_CONTROL_SELECT < 5 and engine.READPOINT("VP_FWU_CZT_PV_Valid") == FALSE:
     mbFixed = TRUE
 else:
     pass  ## do_nothing

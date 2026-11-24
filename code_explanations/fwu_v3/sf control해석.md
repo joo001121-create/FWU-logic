@@ -72,11 +72,11 @@
 | 43 | &emsp;→&nbsp;`mbFixed` ← TRUE(1) |
 | 44 | 42행 조건이 성립하지 않으면 : |
 | 45 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 47 | 2 ≤ `SF_CONTROL_SELECT`(설정값) < 3 **그리고** 룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`) ≠ TRUE(1) 이면 : |
+| 47 | 2 ≤ `SF_CONTROL_SELECT`(설정값) < 3 **그리고** 룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`) = FALSE(0) 이면 : |
 | 48 | &emsp;→&nbsp;`mbFixed` ← TRUE(1) |
 | 49 | 47행 조건이 성립하지 않으면 : |
 | 50 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 52 | 4 ≤ `SF_CONTROL_SELECT`(설정값) < 5 **그리고** 냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`) ≠ TRUE(1) 이면 : |
+| 52 | 4 ≤ `SF_CONTROL_SELECT`(설정값) < 5 **그리고** 냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`) = FALSE(0) 이면 : |
 | 53 | &emsp;→&nbsp;`mbFixed` ← TRUE(1) |
 | 54 | 52행 조건이 성립하지 않으면 : |
 | 55 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
