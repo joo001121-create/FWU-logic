@@ -1,7 +1,7 @@
 # Damper Signal Alarm 줄별 해석
 
 > **대상 코드** : `fwu_v3/Logic/Damper Signal Alarm.py` (100 줄, refac 예제 원본)  
-> **기준** : `sy 브랜치 2026-11-23 (naming rule·관제점 이름 변경 반영)`  
+> **기준** : `sy 브랜치 2026-11-24 (댐퍼 설치 여부 설정 반영)`  
 > **행** = 코드 줄 번호 (빈 줄은 생략)  
 > **표기** : `→` 들여쓰기 단계 · *[주석]* 코드 안 주석 · `이름` 코드 안 상수·변수 · **※** 읽을 때 주의할 점
 
@@ -15,7 +15,13 @@
 - [63~80행 · 댐퍼3의 unknown 및 conflict alarm 처리](#section-4)
 - [82~100행 · 댐퍼4의 unknown 및 conflict alarm 처리](#section-5)
 
-**※ 공통 표기**: 매크로 상수 TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0. `SECTIMER(타이머, TMR_CLEAR)`는 타이머를 0초로 초기화, `SECTIMER(타이머, TMR_READ)`는 경과시간 확인이다. P번호가 없는 쓰기(`WRITEPOINT`)는 기본 우선순위 P5를 쓴다. 조건이 거짓이라고 관제점이 저절로 0이 되지는 않는다. 해당 분기에 쓰기가 없으면 이전 값이 남는다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일의 전역변수, `b`가 붙은 이름은 참/거짓 값이다.
+**※ 읽는 법**
+
+- **[조건]** 줄은 조건이 맞을 때만 바로 아래 한 칸 더 들여쓴(→가 하나 더 붙은) 줄들을 실행한다. **[아니면]** 줄은 그 조건이 맞지 않을 때 실행하는 부분이다.
+- 값은 [ ] 안에 적었다. TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0 이다. 0/1 값 옆 (= …)은 그 관제점에서 0/1이 뜻하는 상태다.
+- **우선순위 칸**: 관제점 하나에 번호가 붙은 여러 칸이 있고, **숫자가 작은 칸의 값이 이긴다**. 1 = 비상정지, 2 = 원격·화재 정지, 5 = 일반 로직(번호 없이 쓰는 `WRITEPOINT`), 11 = 값 보관·정지 요청. 칸을 지우면(해제) 그다음 칸의 값이 적용된다.
+- 조건이 맞지 않는다고 관제점이 저절로 0이 되지는 않는다. 그 분기에 쓰는 줄이 없으면 **이전 값이 그대로 남는다**.
+- 타이머는 0으로 되돌린 순간부터 흐른 시간(초)을 잰다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일 전체에서 쓰는 변수, 이름에 `b`가 붙은 변수는 TRUE/FALSE 값이다.
 
 <a id="section-1"></a>
 
@@ -24,23 +30,23 @@
 | 행 | 해석 |
 |---:|---|
 | 1 | *[주석] 로직엔진 loading* |
-| 2 | DDC 로직 엔진 객체 생성 (이후 engine.xxx로 관제점을 읽고 씀) |
+| 2 | DDC 로직 엔진을 불러온다. 이 아래에서 `engine.READPOINT`(관제점 읽기), `engine.WRITEPOINT`(관제점 쓰기) 같은 기능을 이 이름으로 쓴다 |
 | 4 | *[주석] Macro상수 정의:* |
-| 5 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC = 1 (긍정의 의미 또는 1인 인자) |
-| 6 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC = 0 (부정의 의미 또는 0인 인자) |
+| 5 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC를 모두 숫자 1으로 정한다. 코드에서 숫자 1 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 읽기·켜짐·참·DEC 방향처럼 '긍정' 또는 1을 뜻하는 인자) |
+| 6 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC를 모두 숫자 0으로 정한다. 코드에서 숫자 0 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 초기화·꺼짐·거짓·INC 방향처럼 '부정' 또는 0을 뜻하는 인자) |
 | 8 | *[주석] 타이머 정의: 댐퍼의 unknown delay 대응용* |
-| 9 | 타이머 번호 상수 `SAD_1_UNKNOWN_TIMER` = 0번 |
-| 10 | 타이머 번호 상수 `SAD_2_UNKNOWN_TIMER` = 1번 |
-| 11 | 타이머 번호 상수 `SAD_3_UNKNOWN_TIMER` = 2번 |
-| 12 | 타이머 번호 상수 `SAD_4_UNKNOWN_TIMER` = 3번 |
+| 9 | 타이머 번호에 이름 붙이기: `SAD_1_UNKNOWN_TIMER` = 타이머 0번. 이 타이머로 '댐퍼 1번 위치 미확인 상태가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 10 | 타이머 번호에 이름 붙이기: `SAD_2_UNKNOWN_TIMER` = 타이머 1번. 이 타이머로 '댐퍼 2번 위치 미확인 상태가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 11 | 타이머 번호에 이름 붙이기: `SAD_3_UNKNOWN_TIMER` = 타이머 2번. 이 타이머로 '댐퍼 3번 위치 미확인 상태가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 12 | 타이머 번호에 이름 붙이기: `SAD_4_UNKNOWN_TIMER` = 타이머 3번. 이 타이머로 '댐퍼 4번 위치 미확인 상태가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
 | 14 | *[주석] 타이머 정의: 댐퍼 상태의 conflict(open과 closed가 동시에 만족) 대응용* |
-| 15 | 타이머 번호 상수 `SAD_1_CONFLICT_TIMER` = 4번 |
-| 16 | 타이머 번호 상수 `SAD_2_CONFLICT_TIMER` = 5번 |
-| 17 | 타이머 번호 상수 `SAD_3_CONFLICT_TIMER` = 6번 |
-| 18 | 타이머 번호 상수 `SAD_4_CONFLICT_TIMER` = 7번 |
+| 15 | 타이머 번호에 이름 붙이기: `SAD_1_CONFLICT_TIMER` = 타이머 4번. 이 타이머로 '댐퍼 1번 접점 모순 상태가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 16 | 타이머 번호에 이름 붙이기: `SAD_2_CONFLICT_TIMER` = 타이머 5번. 이 타이머로 '댐퍼 2번 접점 모순 상태가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 17 | 타이머 번호에 이름 붙이기: `SAD_3_CONFLICT_TIMER` = 타이머 6번. 이 타이머로 '댐퍼 3번 접점 모순 상태가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 18 | 타이머 번호에 이름 붙이기: `SAD_4_CONFLICT_TIMER` = 타이머 7번. 이 타이머로 '댐퍼 4번 접점 모순 상태가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
 | 21 | *[주석] 전역변수 선언* |
-| 22 | 전역변수 `mbSFstat` ← 팬 운전 상태 (`VP_FWU_SF_Status`) = 1 이면 TRUE, 아니면 FALSE<br>*[주석] 모든 SF의 상태가 정상이면 TRUE, 아니면 FALSE (?)* |
-| 23 | 전역변수 `mbSADcmd` ← 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) = 1 이면 TRUE, 아니면 FALSE<br>*[주석] SAD CMD가 정상이면 TRUE, 아니면 FALSE (?)* |
+| 22 | `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE))에 판단 결과를 넣는다: 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [1]임 (= 팬이 한 대라도 돌고 있음)<br>→ 맞으면 TRUE(1), 아니면 FALSE(0)<br>*[주석] 모든 SF의 상태가 정상이면 TRUE, 아니면 FALSE (?)* |
+| 23 | `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE))에 판단 결과를 넣는다: 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값이 [1]임 (= 댐퍼 열림 명령)<br>→ 맞으면 TRUE(1), 아니면 FALSE(0)<br>*[주석] SAD CMD가 정상이면 TRUE, 아니면 FALSE (?)* |
 
 <a id="section-2"></a>
 
@@ -49,22 +55,22 @@
 | 행 | 해석 |
 |---:|---|
 | 25 | *[주석] 댐퍼1의 unknown 및 conflict alarm 처리* |
-| 26 | `mbSFstat` = TRUE **그리고** `mbSADcmd` = TRUE **그리고** 댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) = FALSE(0) **그리고** 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) = FALSE(0) 이면 : |
-| 27 | &emsp;→&nbsp;타이머 `SAD_1_UNKNOWN_TIMER`(0번: 댐퍼 1번 위치 미확인 확인) 경과시간 > 댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`) 이면 : |
-| 28 | &emsp;&emsp;→&nbsp;댐퍼 1번 위치 미확인 알람 (`VP_FWU_SAD-1_Position_Unknown_Alarm`)에 SET(1) 기록 — 기본 우선순위(P5) |
-| 29 | &emsp;→&nbsp;27행 조건이 성립하지 않으면 : |
-| 30 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 31 | 26행 조건이 성립하지 않으면 : |
-| 32 | &emsp;→&nbsp;타이머 `SAD_1_UNKNOWN_TIMER`(0번: 댐퍼 1번 위치 미확인 확인)를 0초로 초기화 |
-| 33 | &emsp;→&nbsp;댐퍼 1번 위치 미확인 알람 (`VP_FWU_SAD-1_Position_Unknown_Alarm`)에 CLEAR(0) 기록 — 기본 우선순위(P5) |
-| 35 | 댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) = TRUE(1) 이면 : |
-| 36 | &emsp;→&nbsp;타이머 `SAD_1_CONFLICT_TIMER`(4번: 댐퍼 1번 접점 모순 확인) 경과시간 > 댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`) 이면 : |
-| 37 | &emsp;&emsp;→&nbsp;댐퍼 1번 접점 모순 알람 (`VP_FWU_SAD-1_Signal_Conflict_Alarm`)에 SET(1) 기록 — 기본 우선순위(P5) |
-| 38 | &emsp;→&nbsp;36행 조건이 성립하지 않으면 : |
-| 39 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 40 | 35행 조건이 성립하지 않으면 : |
-| 41 | &emsp;→&nbsp;타이머 `SAD_1_CONFLICT_TIMER`(4번: 댐퍼 1번 접점 모순 확인)를 0초로 초기화 |
-| 42 | &emsp;→&nbsp;댐퍼 1번 접점 모순 알람 (`VP_FWU_SAD-1_Signal_Conflict_Alarm`)에 CLEAR(0) 기록 — 기본 우선순위(P5) |
+| 26 | **[조건]** 다음이 **모두** 맞음<br>① `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE)) 값이 [TRUE(1)]임<br>② `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE)) 값이 [TRUE(1)]임<br>③ 댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) 값이 [FALSE(0)]임 (= 열림 신호 없음)<br>④ 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) 값이 [FALSE(0)]임 (= 닫힘 신호 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 27 | &emsp;→&nbsp;**[조건]** 타이머 0번 `SAD_1_UNKNOWN_TIMER`(댐퍼 1번 위치 미확인 상태가 이어진 시간)으로 잰 시간(초)이 [댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 28 | &emsp;&emsp;→&nbsp;댐퍼 1번 위치 미확인 알람 (`VP_FWU_SAD-1_Position_Unknown_Alarm`)을 켠다 — 값 [SET(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 29 | &emsp;→&nbsp;**[아니면]** 27행 조건의 반대 상황, 즉 타이머 0번 `SAD_1_UNKNOWN_TIMER`(댐퍼 1번 위치 미확인 상태가 이어진 시간)으로 잰 시간(초)이 아직 [댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 30 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 31 | **[아니면]** 26행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE)) 값이 [TRUE(1)]임<br>② `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE)) 값이 [TRUE(1)]임<br>③ 댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) 값이 [FALSE(0)]임 (= 열림 신호 없음)<br>④ 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) 값이 [FALSE(0)]임 (= 닫힘 신호 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 32 | &emsp;→&nbsp;타이머 0번 `SAD_1_UNKNOWN_TIMER`(댐퍼 1번 위치 미확인 상태가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 33 | &emsp;→&nbsp;댐퍼 1번 위치 미확인 알람 (`VP_FWU_SAD-1_Position_Unknown_Alarm`)을 끈다 — 값 [CLEAR(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 35 | **[조건]** 다음이 **모두** 맞음<br>① 댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 36 | &emsp;→&nbsp;**[조건]** 타이머 4번 `SAD_1_CONFLICT_TIMER`(댐퍼 1번 접점 모순 상태가 이어진 시간)으로 잰 시간(초)이 [댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 37 | &emsp;&emsp;→&nbsp;댐퍼 1번 접점 모순 알람 (`VP_FWU_SAD-1_Signal_Conflict_Alarm`)을 켠다 — 값 [SET(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 38 | &emsp;→&nbsp;**[아니면]** 36행 조건의 반대 상황, 즉 타이머 4번 `SAD_1_CONFLICT_TIMER`(댐퍼 1번 접점 모순 상태가 이어진 시간)으로 잰 시간(초)이 아직 [댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 39 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 40 | **[아니면]** 35행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 41 | &emsp;→&nbsp;타이머 4번 `SAD_1_CONFLICT_TIMER`(댐퍼 1번 접점 모순 상태가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 42 | &emsp;→&nbsp;댐퍼 1번 접점 모순 알람 (`VP_FWU_SAD-1_Signal_Conflict_Alarm`)을 끈다 — 값 [CLEAR(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-3"></a>
 
@@ -73,22 +79,22 @@
 | 행 | 해석 |
 |---:|---|
 | 44 | *[주석] 댐퍼2의 unknown 및 conflict alarm 처리* |
-| 45 | `mbSFstat` = TRUE **그리고** `mbSADcmd` = TRUE **그리고** 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) = FALSE(0) **그리고** 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) = FALSE(0) 이면 : |
-| 46 | &emsp;→&nbsp;타이머 `SAD_2_UNKNOWN_TIMER`(1번: 댐퍼 2번 위치 미확인 확인) 경과시간 > 댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`) 이면 : |
-| 47 | &emsp;&emsp;→&nbsp;댐퍼 2번 위치 미확인 알람 (`VP_FWU_SAD-2_Position_Unknown_Alarm`)에 SET(1) 기록 — 기본 우선순위(P5) |
-| 48 | &emsp;→&nbsp;46행 조건이 성립하지 않으면 : |
-| 49 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 50 | 45행 조건이 성립하지 않으면 : |
-| 51 | &emsp;→&nbsp;타이머 `SAD_2_UNKNOWN_TIMER`(1번: 댐퍼 2번 위치 미확인 확인)를 0초로 초기화 |
-| 52 | &emsp;→&nbsp;댐퍼 2번 위치 미확인 알람 (`VP_FWU_SAD-2_Position_Unknown_Alarm`)에 CLEAR(0) 기록 — 기본 우선순위(P5) |
-| 54 | 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) = TRUE(1) 이면 : |
-| 55 | &emsp;→&nbsp;타이머 `SAD_2_CONFLICT_TIMER`(5번: 댐퍼 2번 접점 모순 확인) 경과시간 > 댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`) 이면 : |
-| 56 | &emsp;&emsp;→&nbsp;댐퍼 2번 접점 모순 알람 (`VP_FWU_SAD-2_Signal_Conflict_Alarm`)에 SET(1) 기록 — 기본 우선순위(P5) |
-| 57 | &emsp;→&nbsp;55행 조건이 성립하지 않으면 : |
-| 58 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 59 | 54행 조건이 성립하지 않으면 : |
-| 60 | &emsp;→&nbsp;타이머 `SAD_2_CONFLICT_TIMER`(5번: 댐퍼 2번 접점 모순 확인)를 0초로 초기화 |
-| 61 | &emsp;→&nbsp;댐퍼 2번 접점 모순 알람 (`VP_FWU_SAD-2_Signal_Conflict_Alarm`)에 CLEAR(0) 기록 — 기본 우선순위(P5) |
+| 45 | **[조건]** 다음이 **모두** 맞음<br>① `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE)) 값이 [TRUE(1)]임<br>② `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE)) 값이 [TRUE(1)]임<br>③ 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) 값이 [FALSE(0)]임 (= 열림 신호 없음)<br>④ 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) 값이 [FALSE(0)]임 (= 닫힘 신호 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 46 | &emsp;→&nbsp;**[조건]** 타이머 1번 `SAD_2_UNKNOWN_TIMER`(댐퍼 2번 위치 미확인 상태가 이어진 시간)으로 잰 시간(초)이 [댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 47 | &emsp;&emsp;→&nbsp;댐퍼 2번 위치 미확인 알람 (`VP_FWU_SAD-2_Position_Unknown_Alarm`)을 켠다 — 값 [SET(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 48 | &emsp;→&nbsp;**[아니면]** 46행 조건의 반대 상황, 즉 타이머 1번 `SAD_2_UNKNOWN_TIMER`(댐퍼 2번 위치 미확인 상태가 이어진 시간)으로 잰 시간(초)이 아직 [댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 49 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 50 | **[아니면]** 45행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE)) 값이 [TRUE(1)]임<br>② `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE)) 값이 [TRUE(1)]임<br>③ 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) 값이 [FALSE(0)]임 (= 열림 신호 없음)<br>④ 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) 값이 [FALSE(0)]임 (= 닫힘 신호 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 51 | &emsp;→&nbsp;타이머 1번 `SAD_2_UNKNOWN_TIMER`(댐퍼 2번 위치 미확인 상태가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 52 | &emsp;→&nbsp;댐퍼 2번 위치 미확인 알람 (`VP_FWU_SAD-2_Position_Unknown_Alarm`)을 끈다 — 값 [CLEAR(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 54 | **[조건]** 다음이 **모두** 맞음<br>① 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 55 | &emsp;→&nbsp;**[조건]** 타이머 5번 `SAD_2_CONFLICT_TIMER`(댐퍼 2번 접점 모순 상태가 이어진 시간)으로 잰 시간(초)이 [댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 56 | &emsp;&emsp;→&nbsp;댐퍼 2번 접점 모순 알람 (`VP_FWU_SAD-2_Signal_Conflict_Alarm`)을 켠다 — 값 [SET(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 57 | &emsp;→&nbsp;**[아니면]** 55행 조건의 반대 상황, 즉 타이머 5번 `SAD_2_CONFLICT_TIMER`(댐퍼 2번 접점 모순 상태가 이어진 시간)으로 잰 시간(초)이 아직 [댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 58 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 59 | **[아니면]** 54행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 60 | &emsp;→&nbsp;타이머 5번 `SAD_2_CONFLICT_TIMER`(댐퍼 2번 접점 모순 상태가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 61 | &emsp;→&nbsp;댐퍼 2번 접점 모순 알람 (`VP_FWU_SAD-2_Signal_Conflict_Alarm`)을 끈다 — 값 [CLEAR(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-4"></a>
 
@@ -97,22 +103,22 @@
 | 행 | 해석 |
 |---:|---|
 | 63 | *[주석] 댐퍼3의 unknown 및 conflict alarm 처리* |
-| 64 | `mbSFstat` = TRUE **그리고** `mbSADcmd` = TRUE **그리고** 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) = FALSE(0) **그리고** 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) = FALSE(0) 이면 : |
-| 65 | &emsp;→&nbsp;타이머 `SAD_3_UNKNOWN_TIMER`(2번: 댐퍼 3번 위치 미확인 확인) 경과시간 > 댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`) 이면 : |
-| 66 | &emsp;&emsp;→&nbsp;댐퍼 3번 위치 미확인 알람 (`VP_FWU_SAD-3_Position_Unknown_Alarm`)에 SET(1) 기록 — 기본 우선순위(P5) |
-| 67 | &emsp;→&nbsp;65행 조건이 성립하지 않으면 : |
-| 68 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 69 | 64행 조건이 성립하지 않으면 : |
-| 70 | &emsp;→&nbsp;타이머 `SAD_3_UNKNOWN_TIMER`(2번: 댐퍼 3번 위치 미확인 확인)를 0초로 초기화 |
-| 71 | &emsp;→&nbsp;댐퍼 3번 위치 미확인 알람 (`VP_FWU_SAD-3_Position_Unknown_Alarm`)에 CLEAR(0) 기록 — 기본 우선순위(P5) |
-| 73 | 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) = TRUE(1) 이면 : |
-| 74 | &emsp;→&nbsp;타이머 `SAD_3_CONFLICT_TIMER`(6번: 댐퍼 3번 접점 모순 확인) 경과시간 > 댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`) 이면 : |
-| 75 | &emsp;&emsp;→&nbsp;댐퍼 3번 접점 모순 알람 (`VP_FWU_SAD-3_Signal_Conflict_Alarm`)에 SET(1) 기록 — 기본 우선순위(P5) |
-| 76 | &emsp;→&nbsp;74행 조건이 성립하지 않으면 : |
-| 77 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 78 | 73행 조건이 성립하지 않으면 : |
-| 79 | &emsp;→&nbsp;타이머 `SAD_3_CONFLICT_TIMER`(6번: 댐퍼 3번 접점 모순 확인)를 0초로 초기화 |
-| 80 | &emsp;→&nbsp;댐퍼 3번 접점 모순 알람 (`VP_FWU_SAD-3_Signal_Conflict_Alarm`)에 CLEAR(0) 기록 — 기본 우선순위(P5) |
+| 64 | **[조건]** 다음이 **모두** 맞음<br>① `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE)) 값이 [TRUE(1)]임<br>② `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE)) 값이 [TRUE(1)]임<br>③ 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) 값이 [FALSE(0)]임 (= 열림 신호 없음)<br>④ 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) 값이 [FALSE(0)]임 (= 닫힘 신호 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 65 | &emsp;→&nbsp;**[조건]** 타이머 2번 `SAD_3_UNKNOWN_TIMER`(댐퍼 3번 위치 미확인 상태가 이어진 시간)으로 잰 시간(초)이 [댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 66 | &emsp;&emsp;→&nbsp;댐퍼 3번 위치 미확인 알람 (`VP_FWU_SAD-3_Position_Unknown_Alarm`)을 켠다 — 값 [SET(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 67 | &emsp;→&nbsp;**[아니면]** 65행 조건의 반대 상황, 즉 타이머 2번 `SAD_3_UNKNOWN_TIMER`(댐퍼 3번 위치 미확인 상태가 이어진 시간)으로 잰 시간(초)이 아직 [댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 68 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 69 | **[아니면]** 64행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE)) 값이 [TRUE(1)]임<br>② `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE)) 값이 [TRUE(1)]임<br>③ 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) 값이 [FALSE(0)]임 (= 열림 신호 없음)<br>④ 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) 값이 [FALSE(0)]임 (= 닫힘 신호 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 70 | &emsp;→&nbsp;타이머 2번 `SAD_3_UNKNOWN_TIMER`(댐퍼 3번 위치 미확인 상태가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 71 | &emsp;→&nbsp;댐퍼 3번 위치 미확인 알람 (`VP_FWU_SAD-3_Position_Unknown_Alarm`)을 끈다 — 값 [CLEAR(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 73 | **[조건]** 다음이 **모두** 맞음<br>① 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 74 | &emsp;→&nbsp;**[조건]** 타이머 6번 `SAD_3_CONFLICT_TIMER`(댐퍼 3번 접점 모순 상태가 이어진 시간)으로 잰 시간(초)이 [댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 75 | &emsp;&emsp;→&nbsp;댐퍼 3번 접점 모순 알람 (`VP_FWU_SAD-3_Signal_Conflict_Alarm`)을 켠다 — 값 [SET(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 76 | &emsp;→&nbsp;**[아니면]** 74행 조건의 반대 상황, 즉 타이머 6번 `SAD_3_CONFLICT_TIMER`(댐퍼 3번 접점 모순 상태가 이어진 시간)으로 잰 시간(초)이 아직 [댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 77 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 78 | **[아니면]** 73행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 79 | &emsp;→&nbsp;타이머 6번 `SAD_3_CONFLICT_TIMER`(댐퍼 3번 접점 모순 상태가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 80 | &emsp;→&nbsp;댐퍼 3번 접점 모순 알람 (`VP_FWU_SAD-3_Signal_Conflict_Alarm`)을 끈다 — 값 [CLEAR(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-5"></a>
 
@@ -121,20 +127,20 @@
 | 행 | 해석 |
 |---:|---|
 | 82 | *[주석] 댐퍼4의 unknown 및 conflict alarm 처리* |
-| 83 | `mbSFstat` = TRUE **그리고** `mbSADcmd` = TRUE **그리고** 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) = FALSE(0) **그리고** 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) = FALSE(0) 이면 : |
-| 84 | &emsp;→&nbsp;타이머 `SAD_4_UNKNOWN_TIMER`(3번: 댐퍼 4번 위치 미확인 확인) 경과시간 > 댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`) 이면 : |
-| 85 | &emsp;&emsp;→&nbsp;댐퍼 4번 위치 미확인 알람 (`VP_FWU_SAD-4_Position_Unknown_Alarm`)에 SET(1) 기록 — 기본 우선순위(P5) |
-| 86 | &emsp;→&nbsp;84행 조건이 성립하지 않으면 : |
-| 87 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 88 | 83행 조건이 성립하지 않으면 : |
-| 89 | &emsp;→&nbsp;타이머 `SAD_4_UNKNOWN_TIMER`(3번: 댐퍼 4번 위치 미확인 확인)를 0초로 초기화 |
-| 90 | &emsp;→&nbsp;댐퍼 4번 위치 미확인 알람 (`VP_FWU_SAD-4_Position_Unknown_Alarm`)에 CLEAR(0) 기록 — 기본 우선순위(P5) |
-| 92 | 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) = TRUE(1) 이면 : |
-| 93 | &emsp;→&nbsp;타이머 `SAD_4_CONFLICT_TIMER`(7번: 댐퍼 4번 접점 모순 확인) 경과시간 > 댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`) 이면 : |
-| 94 | &emsp;&emsp;→&nbsp;댐퍼 4번 접점 모순 알람 (`VP_FWU_SAD-4_Signal_Conflict_Alarm`)에 SET(1) 기록 — 기본 우선순위(P5) |
-| 95 | &emsp;→&nbsp;93행 조건이 성립하지 않으면 : |
-| 96 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 97 | 92행 조건이 성립하지 않으면 : |
-| 98 | &emsp;→&nbsp;타이머 `SAD_4_CONFLICT_TIMER`(7번: 댐퍼 4번 접점 모순 확인)를 0초로 초기화 |
-| 99 | &emsp;→&nbsp;댐퍼 4번 접점 모순 알람 (`VP_FWU_SAD-4_Signal_Conflict_Alarm`)에 CLEAR(0) 기록 — 기본 우선순위(P5) |
+| 83 | **[조건]** 다음이 **모두** 맞음<br>① `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE)) 값이 [TRUE(1)]임<br>② `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE)) 값이 [TRUE(1)]임<br>③ 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) 값이 [FALSE(0)]임 (= 열림 신호 없음)<br>④ 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) 값이 [FALSE(0)]임 (= 닫힘 신호 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 84 | &emsp;→&nbsp;**[조건]** 타이머 3번 `SAD_4_UNKNOWN_TIMER`(댐퍼 4번 위치 미확인 상태가 이어진 시간)으로 잰 시간(초)이 [댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 85 | &emsp;&emsp;→&nbsp;댐퍼 4번 위치 미확인 알람 (`VP_FWU_SAD-4_Position_Unknown_Alarm`)을 켠다 — 값 [SET(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 86 | &emsp;→&nbsp;**[아니면]** 84행 조건의 반대 상황, 즉 타이머 3번 `SAD_4_UNKNOWN_TIMER`(댐퍼 4번 위치 미확인 상태가 이어진 시간)으로 잰 시간(초)이 아직 [댐퍼 위치 미확인 판정 시간 설정 (`VP_FWU_SAD_Unknown_Delay`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 87 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 88 | **[아니면]** 83행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `mbSFstat`(팬이 돌고 있는지(팬 운전 상태가 1이면 TRUE)) 값이 [TRUE(1)]임<br>② `mbSADcmd`(댐퍼 열림 명령 중인지(댐퍼 명령이 1이면 TRUE)) 값이 [TRUE(1)]임<br>③ 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) 값이 [FALSE(0)]임 (= 열림 신호 없음)<br>④ 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) 값이 [FALSE(0)]임 (= 닫힘 신호 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 89 | &emsp;→&nbsp;타이머 3번 `SAD_4_UNKNOWN_TIMER`(댐퍼 4번 위치 미확인 상태가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 90 | &emsp;→&nbsp;댐퍼 4번 위치 미확인 알람 (`VP_FWU_SAD-4_Position_Unknown_Alarm`)을 끈다 — 값 [CLEAR(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 92 | **[조건]** 다음이 **모두** 맞음<br>① 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 93 | &emsp;→&nbsp;**[조건]** 타이머 7번 `SAD_4_CONFLICT_TIMER`(댐퍼 4번 접점 모순 상태가 이어진 시간)으로 잰 시간(초)이 [댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 94 | &emsp;&emsp;→&nbsp;댐퍼 4번 접점 모순 알람 (`VP_FWU_SAD-4_Signal_Conflict_Alarm`)을 켠다 — 값 [SET(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 95 | &emsp;→&nbsp;**[아니면]** 93행 조건의 반대 상황, 즉 타이머 7번 `SAD_4_CONFLICT_TIMER`(댐퍼 4번 접점 모순 상태가 이어진 시간)으로 잰 시간(초)이 아직 [댐퍼 접점 모순 판정 시간 설정 (`VP_FWU_SAD_Conflict_Delay`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 96 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 97 | **[아니면]** 92행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 98 | &emsp;→&nbsp;타이머 7번 `SAD_4_CONFLICT_TIMER`(댐퍼 4번 접점 모순 상태가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 99 | &emsp;→&nbsp;댐퍼 4번 접점 모순 알람 (`VP_FWU_SAD-4_Signal_Conflict_Alarm`)을 끈다 — 값 [CLEAR(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 | 100 | *[주석] LJH 2026-11-17 수정 표시. 주제 = 댐퍼 위치 미확인 및 접점 모순 감시* |

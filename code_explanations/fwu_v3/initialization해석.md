@@ -1,7 +1,7 @@
 # Initialization 줄별 해석
 
 > **대상 코드** : `fwu_v3/Logic/Initialization.py` (674 줄)  
-> **기준** : `sy 브랜치 2026-11-23 (naming rule·관제점 이름 변경 반영)`  
+> **기준** : `sy 브랜치 2026-11-24 (댐퍼 설치 여부 설정 반영)`  
 > **행** = 코드 줄 번호 (빈 줄은 생략)  
 > **표기** : `→` 들여쓰기 단계 · *[주석]* 코드 안 주석 · `이름` 코드 안 상수·변수 · **※** 읽을 때 주의할 점
 
@@ -31,7 +31,13 @@
 - [660~668행 · 운전 명령 맞추기: 원격(BMS) 선택이면 BMS 명령을 HMI 쪽에, 로컬이면 HMI 명령을 BMS 쪽에 따라 쓴다](#section-20)
 - [670~674행 · 팬 최대 RPM = 설계 RPM × 비율(%). 단 정격 최대 RPM은 넘지 않게 한다 (SF Control이 이 값을 쓴다)](#section-21)
 
-**※ 공통 표기**: 매크로 상수 TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0. `SECTIMER(타이머, TMR_CLEAR)`는 타이머를 0초로 초기화, `SECTIMER(타이머, TMR_READ)`는 경과시간 확인이다. P번호가 없는 쓰기(`WRITEPOINT`)는 기본 우선순위 P5를 쓴다. 조건이 거짓이라고 관제점이 저절로 0이 되지는 않는다. 해당 분기에 쓰기가 없으면 이전 값이 남는다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일의 전역변수, `b`가 붙은 이름은 참/거짓 값이다.
+**※ 읽는 법**
+
+- **[조건]** 줄은 조건이 맞을 때만 바로 아래 한 칸 더 들여쓴(→가 하나 더 붙은) 줄들을 실행한다. **[아니면]** 줄은 그 조건이 맞지 않을 때 실행하는 부분이다.
+- 값은 [ ] 안에 적었다. TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0 이다. 0/1 값 옆 (= …)은 그 관제점에서 0/1이 뜻하는 상태다.
+- **우선순위 칸**: 관제점 하나에 번호가 붙은 여러 칸이 있고, **숫자가 작은 칸의 값이 이긴다**. 1 = 비상정지, 2 = 원격·화재 정지, 5 = 일반 로직(번호 없이 쓰는 `WRITEPOINT`), 11 = 값 보관·정지 요청. 칸을 지우면(해제) 그다음 칸의 값이 적용된다.
+- 조건이 맞지 않는다고 관제점이 저절로 0이 되지는 않는다. 그 분기에 쓰는 줄이 없으면 **이전 값이 그대로 남는다**.
+- 타이머는 0으로 되돌린 순간부터 흐른 시간(초)을 잰다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일 전체에서 쓰는 변수, 이름에 `b`가 붙은 변수는 TRUE/FALSE 값이다.
 
 <a id="section-1"></a>
 
@@ -42,49 +48,49 @@
 | 1 | *[주석] LJH 2026-11-17 수정 구간 시작. 주제 = 상위 감시와 외부 센서 집계* |
 | 2 | *[주석] JSY 2026-11-23 수정 구간 시작. 주제 = Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석)* |
 | 4 | *[주석] 로직엔진 loading* |
-| 5 | DDC 로직 엔진 객체 생성 (이후 engine.xxx로 관제점을 읽고 씀) |
+| 5 | DDC 로직 엔진을 불러온다. 이 아래에서 `engine.READPOINT`(관제점 읽기), `engine.WRITEPOINT`(관제점 쓰기) 같은 기능을 이 이름으로 쓴다 |
 | 7 | *[주석] Macro상수 정의* |
-| 8 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC = 1 (긍정의 의미 또는 1인 인자) |
-| 9 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC = 0 (부정의 의미 또는 0인 인자) |
-| 10 | 설정값 상수 `FAIL_RPM`: 팬 운전 판단 RPM 설정 (`VP_FWU_SF_Failure_RPM_Set`) 값을 읽어 둠<br>*[주석] 팬 RPM이 이 값 이상이면 도는 것으로 봄* |
-| 11 | 설정값 상수 `RUN_DP`: 팬 운전 판단 차압 설정 (`VP_FWU_SF_Run_DP_Set`) 값을 읽어 둠<br>*[주석] 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄* |
+| 8 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC를 모두 숫자 1으로 정한다. 코드에서 숫자 1 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 읽기·켜짐·참·DEC 방향처럼 '긍정' 또는 1을 뜻하는 인자) |
+| 9 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC를 모두 숫자 0으로 정한다. 코드에서 숫자 0 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 초기화·꺼짐·거짓·INC 방향처럼 '부정' 또는 0을 뜻하는 인자) |
+| 10 | 설정값 상수 `FAIL_RPM`: 팬 운전 판단 RPM 설정 (`VP_FWU_SF_Failure_RPM_Set`) 값을 이 로직이 실행될 때마다 한 번 읽어 이 이름에 담아 둔다. 뜻: 팬 RPM이 이 값 이상이면 도는 것으로 봄 |
+| 11 | 설정값 상수 `RUN_DP`: 팬 운전 판단 차압 설정 (`VP_FWU_SF_Run_DP_Set`) 값을 이 로직이 실행될 때마다 한 번 읽어 이 이름에 담아 둔다. 뜻: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄 |
 | 13 | *[주석] 타이머 정의* |
-| 14 | 타이머 번호 상수 `SF_STATUS_TIMER` = 5번<br>*[주석] 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간* |
-| 15 | 타이머 번호 상수 `UPPER_HEARTBEAT_TIMER` = 6번<br>*[주석] 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간* |
-| 16 | 타이머 번호 상수 `UPPER_RESET_TIMER` = 7번<br>*[주석] 상위 통신 Reset 입력이 켜져 있던 시간* |
+| 14 | 타이머 번호에 이름 붙이기: `SF_STATUS_TIMER` = 타이머 5번. 이 타이머로 '팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 15 | 타이머 번호에 이름 붙이기: `UPPER_HEARTBEAT_TIMER` = 타이머 6번. 이 타이머로 '상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 16 | 타이머 번호에 이름 붙이기: `UPPER_RESET_TIMER` = 타이머 7번. 이 타이머로 '상위 통신 Reset 입력이 켜져 있던 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
 | 18 | *[주석] 전역변수 선언* |
-| 19 | 전역변수 `mbUpperEnabled` ← 상위 통신 감시 사용 설정 (`VP_FWU_Upper_Comm_Enable`) = TRUE(1) 이면 TRUE, 아니면 FALSE<br>*[주석] 상위(BMS/PLC) 통신 감시를 쓰는지 (HMI 설정)* |
-| 20 | `mHeartbeat` ← 상위 heartbeat 값 (`VP_FWU_BMS_PLC_Heartbeat`) 값 읽기<br>*[주석] 상위가 주기적으로 바꿔 주는 값* |
-| 21 | 전역변수 `mbHBOk` 선언, 처음 값 = FALSE(0)<br>*[주석] 이번 실행에서 heartbeat가 살아 있다고 확인되면 TRUE* |
-| 22 | 전역변수 `mbUpperOk` 선언, 처음 값 = FALSE(0)<br>*[주석] 상위 통신이 정상이라 외부 센서값을 써도 되면 TRUE (heartbeat 확인 뒤에 계산)* |
+| 19 | `mbUpperEnabled`(상위 통신 감시를 쓰는지, TRUE면 씀)에 판단 결과를 넣는다: 상위 통신 감시 사용 설정 (`VP_FWU_Upper_Comm_Enable`) 값이 [TRUE(1)]임 (= 상위 통신 감시 사용)<br>→ 맞으면 TRUE(1), 아니면 FALSE(0)<br>*[주석] 상위(BMS/PLC) 통신 감시를 쓰는지 (HMI 설정)* |
+| 20 | `mHeartbeat`(이번에 읽은 상위 heartbeat 값)에 상위 heartbeat 값 (`VP_FWU_BMS_PLC_Heartbeat`) 값을 읽어 넣는다<br>*[주석] 상위가 주기적으로 바꿔 주는 값* |
+| 21 | 전역변수 `mbHBOk`(heartbeat가 살아 있는지, TRUE면 정상)를 만들고 처음 값을 [FALSE(0)]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다<br>*[주석] 이번 실행에서 heartbeat가 살아 있다고 확인되면 TRUE* |
+| 22 | 전역변수 `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀)를 만들고 처음 값을 [FALSE(0)]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다<br>*[주석] 상위 통신이 정상이라 외부 센서값을 써도 되면 TRUE (heartbeat 확인 뒤에 계산)* |
 | 24 | *[주석] 외부 센서 집계값. 최대·최소는 어떤 센서값보다도 작게/크게 잡고 시작한다* |
-| 25 | 전역변수 `mCZTCount` 선언, 처음 값 = 0 |
-| 26 | 전역변수 `mCZTSum` 선언, 처음 값 = 0 |
-| 27 | 전역변수 `mCZTMax` 선언, 처음 값 = -1000 |
-| 28 | 전역변수 `mCZTMin` 선언, 처음 값 = 1000 |
-| 29 | 전역변수 `mHZTCount` 선언, 처음 값 = 0 |
-| 30 | 전역변수 `mHZTSum` 선언, 처음 값 = 0 |
-| 31 | 전역변수 `mHZTMax` 선언, 처음 값 = -1000 |
-| 32 | 전역변수 `mHZTMin` 선언, 처음 값 = 1000 |
-| 33 | 전역변수 `mRDPCount` 선언, 처음 값 = 0 |
-| 34 | 전역변수 `mRDPSum` 선언, 처음 값 = 0 |
-| 35 | 전역변수 `mRDPMax` 선언, 처음 값 = -1000 |
-| 36 | 전역변수 `mRDPMin` 선언, 처음 값 = 1000 |
-| 37 | 전역변수 `mCZHCount` 선언, 처음 값 = 0 |
-| 38 | 전역변수 `mCZHSum` 선언, 처음 값 = 0 |
-| 39 | 전역변수 `mCZHMax` 선언, 처음 값 = -1000 |
-| 40 | 전역변수 `mCZHMin` 선언, 처음 값 = 1000 |
+| 25 | 전역변수 `mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 만들고 처음 값을 [0]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 26 | 전역변수 `mCZTSum`(냉복도 온도 집계용 합계)를 만들고 처음 값을 [0]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 27 | 전역변수 `mCZTMax`(냉복도 온도 집계용 최대값)를 만들고 처음 값을 [-1000]로 둔다 (최대·최소를 찾을 때 어떤 센서값보다도 작은/큰 값에서 시작하기 위한 값). 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 28 | 전역변수 `mCZTMin`(냉복도 온도 집계용 최소값)를 만들고 처음 값을 [1000]로 둔다 (최대·최소를 찾을 때 어떤 센서값보다도 작은/큰 값에서 시작하기 위한 값). 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 29 | 전역변수 `mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 만들고 처음 값을 [0]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 30 | 전역변수 `mHZTSum`(열복도 온도 집계용 합계)를 만들고 처음 값을 [0]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 31 | 전역변수 `mHZTMax`(열복도 온도 집계용 최대값)를 만들고 처음 값을 [-1000]로 둔다 (최대·최소를 찾을 때 어떤 센서값보다도 작은/큰 값에서 시작하기 위한 값). 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 32 | 전역변수 `mHZTMin`(열복도 온도 집계용 최소값)를 만들고 처음 값을 [1000]로 둔다 (최대·최소를 찾을 때 어떤 센서값보다도 작은/큰 값에서 시작하기 위한 값). 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 33 | 전역변수 `mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 만들고 처음 값을 [0]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 34 | 전역변수 `mRDPSum`(룸 차압 집계용 합계)를 만들고 처음 값을 [0]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 35 | 전역변수 `mRDPMax`(룸 차압 집계용 최대값)를 만들고 처음 값을 [-1000]로 둔다 (최대·최소를 찾을 때 어떤 센서값보다도 작은/큰 값에서 시작하기 위한 값). 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 36 | 전역변수 `mRDPMin`(룸 차압 집계용 최소값)를 만들고 처음 값을 [1000]로 둔다 (최대·최소를 찾을 때 어떤 센서값보다도 작은/큰 값에서 시작하기 위한 값). 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 37 | 전역변수 `mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 만들고 처음 값을 [0]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 38 | 전역변수 `mCZHSum`(냉복도 습도 집계용 합계)를 만들고 처음 값을 [0]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 39 | 전역변수 `mCZHMax`(냉복도 습도 집계용 최대값)를 만들고 처음 값을 [-1000]로 둔다 (최대·최소를 찾을 때 어떤 센서값보다도 작은/큰 값에서 시작하기 위한 값). 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
+| 40 | 전역변수 `mCZHMin`(냉복도 습도 집계용 최소값)를 만들고 처음 값을 [1000]로 둔다 (최대·최소를 찾을 때 어떤 센서값보다도 작은/큰 값에서 시작하기 위한 값). 이 로직이 실행될 때마다 이 값에서 다시 시작한다 |
 | 42 | *[주석] 팬 8대의 통신 이상 상태 (Comm Fault Alarm이 판단해 둔 값)* |
-| 43 | `mbSF1CommFault` ← 팬 1번 통신 이상 (`VP_FWU_SF-1_Comm_Fault`) 값 읽기 |
-| 44 | `mbSF2CommFault` ← 팬 2번 통신 이상 (`VP_FWU_SF-2_Comm_Fault`) 값 읽기 |
-| 45 | `mbSF3CommFault` ← 팬 3번 통신 이상 (`VP_FWU_SF-3_Comm_Fault`) 값 읽기 |
-| 46 | `mbSF4CommFault` ← 팬 4번 통신 이상 (`VP_FWU_SF-4_Comm_Fault`) 값 읽기 |
-| 47 | `mbSF5CommFault` ← 팬 5번 통신 이상 (`VP_FWU_SF-5_Comm_Fault`) 값 읽기 |
-| 48 | `mbSF6CommFault` ← 팬 6번 통신 이상 (`VP_FWU_SF-6_Comm_Fault`) 값 읽기 |
-| 49 | `mbSF7CommFault` ← 팬 7번 통신 이상 (`VP_FWU_SF-7_Comm_Fault`) 값 읽기 |
-| 50 | `mbSF8CommFault` ← 팬 8번 통신 이상 (`VP_FWU_SF-8_Comm_Fault`) 값 읽기 |
-| 52 | `mSAFlowDP` ← 급기 풍량 차압(FMS) (`FWU_SAFLOW_DP`) 값 읽기<br>*[주석] 급기 차압(Pa)* |
-| 53 | 전역변수 `mbSFRun` 선언, 처음 값 = FALSE(0)<br>*[주석] 팬이 한 대라도 돌고 있다고 판단되면 TRUE* |
+| 43 | `mbSF1CommFault`(팬 1번 통신 이상 여부, TRUE면 이상)에 팬 1번 통신 이상 (`VP_FWU_SF-1_Comm_Fault`) 값을 읽어 넣는다 |
+| 44 | `mbSF2CommFault`(팬 2번 통신 이상 여부, TRUE면 이상)에 팬 2번 통신 이상 (`VP_FWU_SF-2_Comm_Fault`) 값을 읽어 넣는다 |
+| 45 | `mbSF3CommFault`(팬 3번 통신 이상 여부, TRUE면 이상)에 팬 3번 통신 이상 (`VP_FWU_SF-3_Comm_Fault`) 값을 읽어 넣는다 |
+| 46 | `mbSF4CommFault`(팬 4번 통신 이상 여부, TRUE면 이상)에 팬 4번 통신 이상 (`VP_FWU_SF-4_Comm_Fault`) 값을 읽어 넣는다 |
+| 47 | `mbSF5CommFault`(팬 5번 통신 이상 여부, TRUE면 이상)에 팬 5번 통신 이상 (`VP_FWU_SF-5_Comm_Fault`) 값을 읽어 넣는다 |
+| 48 | `mbSF6CommFault`(팬 6번 통신 이상 여부, TRUE면 이상)에 팬 6번 통신 이상 (`VP_FWU_SF-6_Comm_Fault`) 값을 읽어 넣는다 |
+| 49 | `mbSF7CommFault`(팬 7번 통신 이상 여부, TRUE면 이상)에 팬 7번 통신 이상 (`VP_FWU_SF-7_Comm_Fault`) 값을 읽어 넣는다 |
+| 50 | `mbSF8CommFault`(팬 8번 통신 이상 여부, TRUE면 이상)에 팬 8번 통신 이상 (`VP_FWU_SF-8_Comm_Fault`) 값을 읽어 넣는다 |
+| 52 | `mSAFlowDP`(급기 풍량 차압(Pa))에 급기 풍량 차압(FMS) (`FWU_SAFLOW_DP`) 값을 읽어 넣는다<br>*[주석] 급기 차압(Pa)* |
+| 53 | 전역변수 `mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중)를 만들고 처음 값을 [FALSE(0)]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다<br>*[주석] 팬이 한 대라도 돌고 있다고 판단되면 TRUE* |
 | 55 | *[주석] 상위가 없는 모델은 감시를 끄고 고정속도/RAT/ΔT를 사용한다.* |
 | 56 | *[주석] 감시를 끄면 외부 온도·차압은 제어 입력으로 쓰지 않는다.* |
 
@@ -98,28 +104,28 @@
 |---:|---|
 | 58 | *[주석] 상위 통신(heartbeat) 감시* |
 | 59 | *[주석] 상위가 heartbeat 값을 계속 바꿔 주는지 본다. Upper_Comm_Timeout 동안 그대로면 통신 이상으로 잡아 둔다* |
-| 60 | `mbUpperEnabled` = TRUE(1) 이면 : |
+| 60 | **[조건]** `mbUpperEnabled`(상위 통신 감시를 쓰는지, TRUE면 씀) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
 | 61 | &emsp;→&nbsp;*[주석] 감시를 막 켰으면(이전 실행에서는 꺼져 있었으면) 지금 값을 기준으로 새로 잰다* |
-| 62 | &emsp;→&nbsp;직전 감시 사용 상태(기억용) (`VP_FWU_Upper_Comm_Enable_Prev`) = TRUE(1) 이면 : |
-| 63 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) — 이전 실행에서도 켜져 있었음. 하던 대로 잰다 |
-| 64 | &emsp;→&nbsp;62행 조건이 성립하지 않으면 : |
-| 65 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0초로 초기화 |
-| 66 | &emsp;&emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`)에 `mHeartbeat` 기록 — 기본 우선순위(P5) |
-| 67 | &emsp;→&nbsp;`mHeartbeat` = 직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`) 이면 :<br>*[주석] 값이 그대로면 Timeout을 넘었는지 본다* |
-| 68 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간) 경과시간 > 상위 통신 끊김 판정 시간 설정(초) (`VP_FWU_Upper_Comm_Timeout`) 이면 : |
-| 69 | &emsp;&emsp;&emsp;→&nbsp;상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 70 | &emsp;&emsp;→&nbsp;68행 조건이 성립하지 않으면 : |
-| 71 | &emsp;&emsp;&emsp;→&nbsp;`mbHBOk` ← TRUE(1) |
-| 72 | &emsp;→&nbsp;67행 조건이 성립하지 않으면 : |
+| 62 | &emsp;→&nbsp;**[조건]** 직전 감시 사용 상태(기억용) (`VP_FWU_Upper_Comm_Enable_Prev`) 값이 [TRUE(1)]임 (= 직전 실행에서도 감시가 켜져 있었음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 63 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) — 이전 실행에서도 켜져 있었음. 하던 대로 잰다 |
+| 64 | &emsp;→&nbsp;**[아니면]** 62행 조건의 반대 상황, 즉 직전 감시 사용 상태(기억용) (`VP_FWU_Upper_Comm_Enable_Prev`) 값이 [TRUE(1)]이 아님 (= 직전 실행에서는 감시가 꺼져 있었음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 65 | &emsp;&emsp;→&nbsp;타이머 6번 `UPPER_HEARTBEAT_TIMER`(상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 66 | &emsp;&emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`) 값을 [`mHeartbeat`(이번에 읽은 상위 heartbeat 값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 67 | &emsp;→&nbsp;**[조건]** `mHeartbeat`(이번에 읽은 상위 heartbeat 값) 값과 직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`) 값이 같음<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] 값이 그대로면 Timeout을 넘었는지 본다* |
+| 68 | &emsp;&emsp;→&nbsp;**[조건]** 타이머 6번 `UPPER_HEARTBEAT_TIMER`(상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)으로 잰 시간(초)이 [상위 통신 끊김 판정 시간 설정(초) (`VP_FWU_Upper_Comm_Timeout`)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 69 | &emsp;&emsp;&emsp;→&nbsp;상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`) 값을 [TRUE(1)]로 바꾼다 (= 통신 이상) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 70 | &emsp;&emsp;→&nbsp;**[아니면]** 68행 조건의 반대 상황, 즉 타이머 6번 `UPPER_HEARTBEAT_TIMER`(상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)으로 잰 시간(초)이 아직 [상위 통신 끊김 판정 시간 설정(초) (`VP_FWU_Upper_Comm_Timeout`)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 71 | &emsp;&emsp;&emsp;→&nbsp;`mbHBOk`(heartbeat가 살아 있는지, TRUE면 정상) 값을 [TRUE(1)]로 바꾼다 |
+| 72 | &emsp;→&nbsp;**[아니면]** 67행 조건의 반대 상황, 즉 `mHeartbeat`(이번에 읽은 상위 heartbeat 값) 값과 직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`) 값이 다름<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
 | 73 | &emsp;&emsp;→&nbsp;*[주석] 값이 바뀌었으면 살아 있는 것. 기준값을 새로 남기고 시간을 다시 잰다* |
-| 74 | &emsp;&emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`)에 `mHeartbeat` 기록 — 기본 우선순위(P5) |
-| 75 | &emsp;&emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0초로 초기화 |
-| 76 | &emsp;&emsp;→&nbsp;`mbHBOk` ← TRUE(1) |
-| 77 | 60행 조건이 성립하지 않으면 : |
+| 74 | &emsp;&emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`) 값을 [`mHeartbeat`(이번에 읽은 상위 heartbeat 값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 75 | &emsp;&emsp;→&nbsp;타이머 6번 `UPPER_HEARTBEAT_TIMER`(상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 76 | &emsp;&emsp;→&nbsp;`mbHBOk`(heartbeat가 살아 있는지, TRUE면 정상) 값을 [TRUE(1)]로 바꾼다 |
+| 77 | **[아니면]** 60행 조건의 반대 상황, 즉 `mbUpperEnabled`(상위 통신 감시를 쓰는지, TRUE면 씀) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
 | 78 | &emsp;→&nbsp;*[주석] 감시를 안 쓰면 타이머와 통신 이상을 풀어 둔다* |
-| 79 | &emsp;→&nbsp;타이머 `UPPER_HEARTBEAT_TIMER`(6번: 상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0초로 초기화 |
-| 80 | &emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`)에 `mHeartbeat` 기록 — 기본 우선순위(P5) |
-| 81 | &emsp;→&nbsp;상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 79 | &emsp;→&nbsp;타이머 6번 `UPPER_HEARTBEAT_TIMER`(상위 heartbeat 값이 마지막으로 바뀐 뒤 지난 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 80 | &emsp;→&nbsp;직전 heartbeat 값(기억용) (`VP_FWU_BMS_PLC_Heartbeat_Prev`) 값을 [`mHeartbeat`(이번에 읽은 상위 heartbeat 값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 81 | &emsp;→&nbsp;상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`) 값을 [FALSE(0)]로 바꾼다 (= 통신 정상) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-3"></a>
 
@@ -128,7 +134,7 @@
 | 행 | 해석 |
 |---:|---|
 | 83 | *[주석] 다음 실행에서 '감시를 막 켰는지' 알 수 있도록 지금 상태를 남긴다* |
-| 84 | 직전 감시 사용 상태(기억용) (`VP_FWU_Upper_Comm_Enable_Prev`)에 `mbUpperEnabled` 기록 — 기본 우선순위(P5) |
+| 84 | 직전 감시 사용 상태(기억용) (`VP_FWU_Upper_Comm_Enable_Prev`) 값을 [`mbUpperEnabled`(상위 통신 감시를 쓰는지, TRUE면 씀)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-4"></a>
 
@@ -137,18 +143,18 @@
 | 행 | 해석 |
 |---:|---|
 | 86 | *[주석] 통신 이상 Reset: heartbeat가 살아 있을 때만 알람을 풀고, Reset 입력은 5초 뒤 스스로 되돌린다* |
-| 87 | 상위 통신 이상 Reset 입력 (`VP_FWU_BMS_PLC_Comm_Reset`) = TRUE(1) 이면 : |
-| 88 | &emsp;→&nbsp;`mbHBOk` = TRUE(1) 이면 : |
-| 89 | &emsp;&emsp;→&nbsp;상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 90 | &emsp;→&nbsp;88행 조건이 성립하지 않으면 : |
-| 91 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 92 | &emsp;→&nbsp;타이머 `UPPER_RESET_TIMER`(7번: 상위 통신 Reset 입력이 켜져 있던 시간) 경과시간 > 5 이면 :<br>*[주석] 5초* |
-| 93 | &emsp;&emsp;→&nbsp;상위 통신 이상 Reset 입력 (`VP_FWU_BMS_PLC_Comm_Reset`)에 FALSE(0) 기록 — 우선순위 P11 |
-| 94 | &emsp;&emsp;→&nbsp;타이머 `UPPER_RESET_TIMER`(7번: 상위 통신 Reset 입력이 켜져 있던 시간)를 0초로 초기화 |
-| 95 | &emsp;→&nbsp;92행 조건이 성립하지 않으면 : |
-| 96 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 97 | 87행 조건이 성립하지 않으면 : |
-| 98 | &emsp;→&nbsp;타이머 `UPPER_RESET_TIMER`(7번: 상위 통신 Reset 입력이 켜져 있던 시간)를 0초로 초기화 |
+| 87 | **[조건]** 상위 통신 이상 Reset 입력 (`VP_FWU_BMS_PLC_Comm_Reset`) 값이 [TRUE(1)]임 (= Reset 누름)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 88 | &emsp;→&nbsp;**[조건]** `mbHBOk`(heartbeat가 살아 있는지, TRUE면 정상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 89 | &emsp;&emsp;→&nbsp;상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`) 값을 [FALSE(0)]로 바꾼다 (= 통신 정상) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 90 | &emsp;→&nbsp;**[아니면]** 88행 조건의 반대 상황, 즉 `mbHBOk`(heartbeat가 살아 있는지, TRUE면 정상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 91 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 92 | &emsp;→&nbsp;**[조건]** 타이머 7번 `UPPER_RESET_TIMER`(상위 통신 Reset 입력이 켜져 있던 시간)으로 잰 시간(초)이 [5]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] 5초* |
+| 93 | &emsp;&emsp;→&nbsp;상위 통신 이상 Reset 입력 (`VP_FWU_BMS_PLC_Comm_Reset`) 값을 [FALSE(0)]로 바꾼다 (= Reset 안 누름) — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
+| 94 | &emsp;&emsp;→&nbsp;타이머 7번 `UPPER_RESET_TIMER`(상위 통신 Reset 입력이 켜져 있던 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 95 | &emsp;→&nbsp;**[아니면]** 92행 조건의 반대 상황, 즉 타이머 7번 `UPPER_RESET_TIMER`(상위 통신 Reset 입력이 켜져 있던 시간)으로 잰 시간(초)이 아직 [5]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 96 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 97 | **[아니면]** 87행 조건의 반대 상황, 즉 상위 통신 이상 Reset 입력 (`VP_FWU_BMS_PLC_Comm_Reset`) 값이 [TRUE(1)]이 아님 (= Reset 안 누름)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 98 | &emsp;→&nbsp;타이머 7번 `UPPER_RESET_TIMER`(상위 통신 Reset 입력이 켜져 있던 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
 
 <a id="section-5"></a>
 
@@ -157,7 +163,7 @@
 | 행 | 해석 |
 |---:|---|
 | 100 | *[주석] 상위 통신이 정상일 때만 외부 센서(CZT/HZT/RDP)값을 쓴다* |
-| 101 | `mbUpperOk` ← `mbUpperEnabled` = TRUE **그리고** 상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`) = FALSE(0) 이면 TRUE, 아니면 FALSE |
+| 101 | `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀)에 판단 결과를 넣는다: 다음이 **모두** 맞음<br>① `mbUpperEnabled`(상위 통신 감시를 쓰는지, TRUE면 씀) 값이 [TRUE(1)]임<br>② 상위(BMS/PLC) 통신 이상 (`VP_FWU_BMS_PLC_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
 
 <a id="section-6"></a>
 
@@ -170,86 +176,86 @@
 | 103 | *[주석] CZT(냉복도 온도) 집계* |
 | 104 | *[주석] 사용 개수(CZT_Count) 안의 센서 중, 상위 통신이 정상이고 고장 알람이 없는 것만 평균·최대·최소에 넣는다* |
 | 105 | *[주석] 사용 개수는 0~10 정수. 상위에서 대표값 하나만 받으면 사용 개수를 1로 설정한다* |
-| 106 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 1 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 1번 센서 고장 알람 (`VP_FWU_CZT-1_Failure_Alarm`) = FALSE(0) 이면 : |
-| 107 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 1번 값 (`VP_FWU_CZT-1`) 값 읽기 |
-| 108 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 109 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 110 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 111 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 112 | 106행 조건이 성립하지 않으면 : |
-| 113 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 115 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 2 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 2번 센서 고장 알람 (`VP_FWU_CZT-2_Failure_Alarm`) = FALSE(0) 이면 : |
-| 116 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 2번 값 (`VP_FWU_CZT-2`) 값 읽기 |
-| 117 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 118 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 119 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 120 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 121 | 115행 조건이 성립하지 않으면 : |
-| 122 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 124 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 3 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 3번 센서 고장 알람 (`VP_FWU_CZT-3_Failure_Alarm`) = FALSE(0) 이면 : |
-| 125 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 3번 값 (`VP_FWU_CZT-3`) 값 읽기 |
-| 126 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 127 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 128 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 129 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 130 | 124행 조건이 성립하지 않으면 : |
-| 131 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 133 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 4 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 4번 센서 고장 알람 (`VP_FWU_CZT-4_Failure_Alarm`) = FALSE(0) 이면 : |
-| 134 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 4번 값 (`VP_FWU_CZT-4`) 값 읽기 |
-| 135 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 136 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 137 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 138 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 139 | 133행 조건이 성립하지 않으면 : |
-| 140 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 142 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 5 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 5번 센서 고장 알람 (`VP_FWU_CZT-5_Failure_Alarm`) = FALSE(0) 이면 : |
-| 143 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 5번 값 (`VP_FWU_CZT-5`) 값 읽기 |
-| 144 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 145 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 146 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 147 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 148 | 142행 조건이 성립하지 않으면 : |
-| 149 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 151 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 6 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 6번 센서 고장 알람 (`VP_FWU_CZT-6_Failure_Alarm`) = FALSE(0) 이면 : |
-| 152 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 6번 값 (`VP_FWU_CZT-6`) 값 읽기 |
-| 153 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 154 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 155 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 156 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 157 | 151행 조건이 성립하지 않으면 : |
-| 158 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 160 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 7 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 7번 센서 고장 알람 (`VP_FWU_CZT-7_Failure_Alarm`) = FALSE(0) 이면 : |
-| 161 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 7번 값 (`VP_FWU_CZT-7`) 값 읽기 |
-| 162 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 163 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 164 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 165 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 166 | 160행 조건이 성립하지 않으면 : |
-| 167 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 169 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 8 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 8번 센서 고장 알람 (`VP_FWU_CZT-8_Failure_Alarm`) = FALSE(0) 이면 : |
-| 170 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 8번 값 (`VP_FWU_CZT-8`) 값 읽기 |
-| 171 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 172 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 173 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 174 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 175 | 169행 조건이 성립하지 않으면 : |
-| 176 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 178 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 9 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 9번 센서 고장 알람 (`VP_FWU_CZT-9_Failure_Alarm`) = FALSE(0) 이면 : |
-| 179 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 9번 값 (`VP_FWU_CZT-9`) 값 읽기 |
-| 180 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 181 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 182 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 183 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 184 | 178행 조건이 성립하지 않으면 : |
-| 185 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 187 | 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) ≥ 10 **그리고** `mbUpperOk` = TRUE(1) **그리고** 냉복도 온도 10번 센서 고장 알람 (`VP_FWU_CZT-10_Failure_Alarm`) = FALSE(0) 이면 : |
-| 188 | &emsp;→&nbsp;`SensorValue` ← 냉복도 온도 10번 값 (`VP_FWU_CZT-10`) 값 읽기 |
-| 189 | &emsp;→&nbsp;`mCZTCount`에 1을(를) 더함 |
-| 190 | &emsp;→&nbsp;`mCZTSum`에 `SensorValue`을(를) 더함 |
-| 191 | &emsp;→&nbsp;`mCZTMax` ← [`mCZTMax`, `SensorValue`] 중 최댓값 |
-| 192 | &emsp;→&nbsp;`mCZTMin` ← [`mCZTMin`, `SensorValue`] 중 최솟값 |
-| 193 | 187행 조건이 성립하지 않으면 : |
-| 194 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
+| 106 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [1] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 1번 센서 고장 알람 (`VP_FWU_CZT-1_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 107 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 1번 값 (`VP_FWU_CZT-1`) 값을 읽어 넣는다 |
+| 108 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 109 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 110 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 111 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 112 | **[아니면]** 106행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [1] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 1번 센서 고장 알람 (`VP_FWU_CZT-1_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 113 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 115 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [2] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 2번 센서 고장 알람 (`VP_FWU_CZT-2_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 116 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 2번 값 (`VP_FWU_CZT-2`) 값을 읽어 넣는다 |
+| 117 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 118 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 119 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 120 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 121 | **[아니면]** 115행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [2] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 2번 센서 고장 알람 (`VP_FWU_CZT-2_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 122 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 124 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [3] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 3번 센서 고장 알람 (`VP_FWU_CZT-3_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 125 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 3번 값 (`VP_FWU_CZT-3`) 값을 읽어 넣는다 |
+| 126 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 127 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 128 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 129 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 130 | **[아니면]** 124행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [3] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 3번 센서 고장 알람 (`VP_FWU_CZT-3_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 131 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 133 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [4] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 4번 센서 고장 알람 (`VP_FWU_CZT-4_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 134 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 4번 값 (`VP_FWU_CZT-4`) 값을 읽어 넣는다 |
+| 135 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 136 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 137 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 138 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 139 | **[아니면]** 133행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [4] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 4번 센서 고장 알람 (`VP_FWU_CZT-4_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 140 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 142 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [5] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 5번 센서 고장 알람 (`VP_FWU_CZT-5_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 143 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 5번 값 (`VP_FWU_CZT-5`) 값을 읽어 넣는다 |
+| 144 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 145 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 146 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 147 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 148 | **[아니면]** 142행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [5] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 5번 센서 고장 알람 (`VP_FWU_CZT-5_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 149 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 151 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [6] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 6번 센서 고장 알람 (`VP_FWU_CZT-6_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 152 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 6번 값 (`VP_FWU_CZT-6`) 값을 읽어 넣는다 |
+| 153 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 154 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 155 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 156 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 157 | **[아니면]** 151행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [6] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 6번 센서 고장 알람 (`VP_FWU_CZT-6_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 158 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 160 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [7] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 7번 센서 고장 알람 (`VP_FWU_CZT-7_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 161 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 7번 값 (`VP_FWU_CZT-7`) 값을 읽어 넣는다 |
+| 162 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 163 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 164 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 165 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 166 | **[아니면]** 160행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [7] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 7번 센서 고장 알람 (`VP_FWU_CZT-7_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 167 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 169 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [8] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 8번 센서 고장 알람 (`VP_FWU_CZT-8_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 170 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 8번 값 (`VP_FWU_CZT-8`) 값을 읽어 넣는다 |
+| 171 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 172 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 173 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 174 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 175 | **[아니면]** 169행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [8] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 8번 센서 고장 알람 (`VP_FWU_CZT-8_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 176 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 178 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [9] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 9번 센서 고장 알람 (`VP_FWU_CZT-9_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 179 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 9번 값 (`VP_FWU_CZT-9`) 값을 읽어 넣는다 |
+| 180 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 181 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 182 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 183 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 184 | **[아니면]** 178행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [9] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 9번 센서 고장 알람 (`VP_FWU_CZT-9_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 185 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 187 | **[조건]** 다음이 **모두** 맞음<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [10] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 10번 센서 고장 알람 (`VP_FWU_CZT-10_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 188 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 온도 10번 값 (`VP_FWU_CZT-10`) 값을 읽어 넣는다 |
+| 189 | &emsp;→&nbsp;`mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 190 | &emsp;→&nbsp;`mCZTSum`(냉복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 191 | &emsp;→&nbsp;`mCZTMax`(냉복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZTMax`(냉복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 192 | &emsp;→&nbsp;`mCZTMin`(냉복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZTMin`(냉복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 193 | **[아니면]** 187행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 냉복도 온도 사용 센서 수 설정 (`VP_FWU_CZT_Count`) 값이 [10] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 냉복도 온도 10번 센서 고장 알람 (`VP_FWU_CZT-10_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 194 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
 
 <a id="section-7"></a>
 
@@ -258,16 +264,16 @@
 | 행 | 해석 |
 |---:|---|
 | 196 | *[주석] 쓸 수 있는 센서가 하나라도 있으면 평균·최대·최소를 내보내고, 없으면 0과 '무효'로 표시* |
-| 197 | `mCZTCount` > 0 이면 : |
-| 198 | &emsp;→&nbsp;냉복도 온도 평균 (`VP_FWU_CZT_Avg`)에 `mCZTSum` ÷ `mCZTCount` 기록 — 기본 우선순위(P5) |
-| 199 | &emsp;→&nbsp;냉복도 온도 최대값 (`VP_FWU_CZT_Max`)에 `mCZTMax` 기록 — 기본 우선순위(P5) |
-| 200 | &emsp;→&nbsp;냉복도 온도 최소값 (`VP_FWU_CZT_Min`)에 `mCZTMin` 기록 — 기본 우선순위(P5) |
-| 201 | &emsp;→&nbsp;냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 202 | 197행 조건이 성립하지 않으면 : |
-| 203 | &emsp;→&nbsp;냉복도 온도 평균 (`VP_FWU_CZT_Avg`)에 0 기록 — 기본 우선순위(P5) |
-| 204 | &emsp;→&nbsp;냉복도 온도 최대값 (`VP_FWU_CZT_Max`)에 0 기록 — 기본 우선순위(P5) |
-| 205 | &emsp;→&nbsp;냉복도 온도 최소값 (`VP_FWU_CZT_Min`)에 0 기록 — 기본 우선순위(P5) |
-| 206 | &emsp;→&nbsp;냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 197 | **[조건]** `mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수) 값이 [0]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 198 | &emsp;→&nbsp;냉복도 온도 평균 (`VP_FWU_CZT_Avg`) 값을 다음 계산값으로 바꾼다: `mCZTSum`(냉복도 온도 집계용 합계) ÷ `mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 199 | &emsp;→&nbsp;냉복도 온도 최대값 (`VP_FWU_CZT_Max`) 값을 [`mCZTMax`(냉복도 온도 집계용 최대값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 200 | &emsp;→&nbsp;냉복도 온도 최소값 (`VP_FWU_CZT_Min`) 값을 [`mCZTMin`(냉복도 온도 집계용 최소값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 201 | &emsp;→&nbsp;냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`) 값을 [TRUE(1)]로 바꾼다 (= 유효, 쓸 수 있음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 202 | **[아니면]** 197행 조건의 반대 상황, 즉 `mCZTCount`(냉복도 온도 집계용 쓸 수 있는 센서 개수) 값이 [0] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 203 | &emsp;→&nbsp;냉복도 온도 평균 (`VP_FWU_CZT_Avg`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 204 | &emsp;→&nbsp;냉복도 온도 최대값 (`VP_FWU_CZT_Max`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 205 | &emsp;→&nbsp;냉복도 온도 최소값 (`VP_FWU_CZT_Min`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 206 | &emsp;→&nbsp;냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`) 값을 [FALSE(0)]로 바꾼다 (= 무효, 쓸 수 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-8"></a>
 
@@ -276,13 +282,13 @@
 | 행 | 해석 |
 |---:|---|
 | 208 | *[주석] 제어에 쓸 CZT 값 (Select 0 = 평균, 1 = 최대)* |
-| 209 | 냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`) = TRUE(1) 이면 : |
-| 210 | &emsp;→&nbsp;냉복도 온도 제어값 선택 설정 (`VP_FWU_CZT_Select`) = FALSE(0) 이면 : |
-| 211 | &emsp;&emsp;→&nbsp;냉복도 온도 제어용 값(PV) (`VP_FWU_CZT_PV`)에 냉복도 온도 평균 (`VP_FWU_CZT_Avg`) 값을 그대로 복사 — 기본 우선순위(P5) |
-| 212 | &emsp;→&nbsp;210행 조건이 성립하지 않으면 : |
-| 213 | &emsp;&emsp;→&nbsp;냉복도 온도 제어용 값(PV) (`VP_FWU_CZT_PV`)에 냉복도 온도 최대값 (`VP_FWU_CZT_Max`) 값을 그대로 복사 — 기본 우선순위(P5) |
-| 214 | 209행 조건이 성립하지 않으면 : |
-| 215 | &emsp;→&nbsp;냉복도 온도 제어용 값(PV) (`VP_FWU_CZT_PV`)에 0 기록 — 기본 우선순위(P5) |
+| 209 | **[조건]** 냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`) 값이 [TRUE(1)]임 (= 유효, 쓸 수 있음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 210 | &emsp;→&nbsp;**[조건]** 냉복도 온도 제어값 선택 설정 (`VP_FWU_CZT_Select`) 값이 [FALSE(0)]임 (= 평균값을 제어에 사용)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 211 | &emsp;&emsp;→&nbsp;냉복도 온도 제어용 값(PV) (`VP_FWU_CZT_PV`) 값을 냉복도 온도 평균 (`VP_FWU_CZT_Avg`)의 지금 값과 똑같이 맞춘다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 212 | &emsp;→&nbsp;**[아니면]** 210행 조건의 반대 상황, 즉 냉복도 온도 제어값 선택 설정 (`VP_FWU_CZT_Select`) 값이 [FALSE(0)]이 아님 (= 최대값을 제어에 사용)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 213 | &emsp;&emsp;→&nbsp;냉복도 온도 제어용 값(PV) (`VP_FWU_CZT_PV`) 값을 냉복도 온도 최대값 (`VP_FWU_CZT_Max`)의 지금 값과 똑같이 맞춘다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 214 | **[아니면]** 209행 조건의 반대 상황, 즉 냉복도 온도 제어용 값 유효 표시 (`VP_FWU_CZT_PV_Valid`) 값이 [TRUE(1)]이 아님 (= 무효, 쓸 수 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 215 | &emsp;→&nbsp;냉복도 온도 제어용 값(PV) (`VP_FWU_CZT_PV`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-9"></a>
 
@@ -294,86 +300,86 @@
 |---:|---|
 | 217 | *[주석] HZT(열복도 온도) 집계* |
 | 218 | *[주석] 사용 개수(HZT_Count) 안의 센서 중, 상위 통신이 정상이고 고장 알람이 없는 것만 평균·최대·최소에 넣는다* |
-| 219 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 1 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 1번 센서 고장 알람 (`VP_FWU_HZT-1_Failure_Alarm`) = FALSE(0) 이면 : |
-| 220 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 1번 값 (`VP_FWU_HZT-1`) 값 읽기 |
-| 221 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 222 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 223 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 224 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 225 | 219행 조건이 성립하지 않으면 : |
-| 226 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 228 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 2 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 2번 센서 고장 알람 (`VP_FWU_HZT-2_Failure_Alarm`) = FALSE(0) 이면 : |
-| 229 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 2번 값 (`VP_FWU_HZT-2`) 값 읽기 |
-| 230 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 231 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 232 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 233 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 234 | 228행 조건이 성립하지 않으면 : |
-| 235 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 237 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 3 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 3번 센서 고장 알람 (`VP_FWU_HZT-3_Failure_Alarm`) = FALSE(0) 이면 : |
-| 238 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 3번 값 (`VP_FWU_HZT-3`) 값 읽기 |
-| 239 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 240 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 241 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 242 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 243 | 237행 조건이 성립하지 않으면 : |
-| 244 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 246 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 4 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 4번 센서 고장 알람 (`VP_FWU_HZT-4_Failure_Alarm`) = FALSE(0) 이면 : |
-| 247 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 4번 값 (`VP_FWU_HZT-4`) 값 읽기 |
-| 248 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 249 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 250 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 251 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 252 | 246행 조건이 성립하지 않으면 : |
-| 253 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 255 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 5 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 5번 센서 고장 알람 (`VP_FWU_HZT-5_Failure_Alarm`) = FALSE(0) 이면 : |
-| 256 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 5번 값 (`VP_FWU_HZT-5`) 값 읽기 |
-| 257 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 258 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 259 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 260 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 261 | 255행 조건이 성립하지 않으면 : |
-| 262 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 264 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 6 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 6번 센서 고장 알람 (`VP_FWU_HZT-6_Failure_Alarm`) = FALSE(0) 이면 : |
-| 265 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 6번 값 (`VP_FWU_HZT-6`) 값 읽기 |
-| 266 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 267 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 268 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 269 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 270 | 264행 조건이 성립하지 않으면 : |
-| 271 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 273 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 7 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 7번 센서 고장 알람 (`VP_FWU_HZT-7_Failure_Alarm`) = FALSE(0) 이면 : |
-| 274 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 7번 값 (`VP_FWU_HZT-7`) 값 읽기 |
-| 275 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 276 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 277 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 278 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 279 | 273행 조건이 성립하지 않으면 : |
-| 280 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 282 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 8 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 8번 센서 고장 알람 (`VP_FWU_HZT-8_Failure_Alarm`) = FALSE(0) 이면 : |
-| 283 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 8번 값 (`VP_FWU_HZT-8`) 값 읽기 |
-| 284 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 285 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 286 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 287 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 288 | 282행 조건이 성립하지 않으면 : |
-| 289 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 291 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 9 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 9번 센서 고장 알람 (`VP_FWU_HZT-9_Failure_Alarm`) = FALSE(0) 이면 : |
-| 292 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 9번 값 (`VP_FWU_HZT-9`) 값 읽기 |
-| 293 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 294 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 295 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 296 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 297 | 291행 조건이 성립하지 않으면 : |
-| 298 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 300 | 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) ≥ 10 **그리고** `mbUpperOk` = TRUE(1) **그리고** 열복도 온도 10번 센서 고장 알람 (`VP_FWU_HZT-10_Failure_Alarm`) = FALSE(0) 이면 : |
-| 301 | &emsp;→&nbsp;`SensorValue` ← 열복도 온도 10번 값 (`VP_FWU_HZT-10`) 값 읽기 |
-| 302 | &emsp;→&nbsp;`mHZTCount`에 1을(를) 더함 |
-| 303 | &emsp;→&nbsp;`mHZTSum`에 `SensorValue`을(를) 더함 |
-| 304 | &emsp;→&nbsp;`mHZTMax` ← [`mHZTMax`, `SensorValue`] 중 최댓값 |
-| 305 | &emsp;→&nbsp;`mHZTMin` ← [`mHZTMin`, `SensorValue`] 중 최솟값 |
-| 306 | 300행 조건이 성립하지 않으면 : |
-| 307 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
+| 219 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [1] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 1번 센서 고장 알람 (`VP_FWU_HZT-1_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 220 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 1번 값 (`VP_FWU_HZT-1`) 값을 읽어 넣는다 |
+| 221 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 222 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 223 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 224 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 225 | **[아니면]** 219행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [1] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 1번 센서 고장 알람 (`VP_FWU_HZT-1_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 226 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 228 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [2] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 2번 센서 고장 알람 (`VP_FWU_HZT-2_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 229 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 2번 값 (`VP_FWU_HZT-2`) 값을 읽어 넣는다 |
+| 230 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 231 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 232 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 233 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 234 | **[아니면]** 228행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [2] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 2번 센서 고장 알람 (`VP_FWU_HZT-2_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 235 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 237 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [3] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 3번 센서 고장 알람 (`VP_FWU_HZT-3_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 238 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 3번 값 (`VP_FWU_HZT-3`) 값을 읽어 넣는다 |
+| 239 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 240 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 241 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 242 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 243 | **[아니면]** 237행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [3] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 3번 센서 고장 알람 (`VP_FWU_HZT-3_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 244 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 246 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [4] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 4번 센서 고장 알람 (`VP_FWU_HZT-4_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 247 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 4번 값 (`VP_FWU_HZT-4`) 값을 읽어 넣는다 |
+| 248 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 249 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 250 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 251 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 252 | **[아니면]** 246행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [4] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 4번 센서 고장 알람 (`VP_FWU_HZT-4_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 253 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 255 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [5] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 5번 센서 고장 알람 (`VP_FWU_HZT-5_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 256 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 5번 값 (`VP_FWU_HZT-5`) 값을 읽어 넣는다 |
+| 257 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 258 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 259 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 260 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 261 | **[아니면]** 255행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [5] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 5번 센서 고장 알람 (`VP_FWU_HZT-5_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 262 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 264 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [6] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 6번 센서 고장 알람 (`VP_FWU_HZT-6_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 265 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 6번 값 (`VP_FWU_HZT-6`) 값을 읽어 넣는다 |
+| 266 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 267 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 268 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 269 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 270 | **[아니면]** 264행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [6] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 6번 센서 고장 알람 (`VP_FWU_HZT-6_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 271 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 273 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [7] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 7번 센서 고장 알람 (`VP_FWU_HZT-7_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 274 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 7번 값 (`VP_FWU_HZT-7`) 값을 읽어 넣는다 |
+| 275 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 276 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 277 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 278 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 279 | **[아니면]** 273행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [7] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 7번 센서 고장 알람 (`VP_FWU_HZT-7_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 280 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 282 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [8] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 8번 센서 고장 알람 (`VP_FWU_HZT-8_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 283 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 8번 값 (`VP_FWU_HZT-8`) 값을 읽어 넣는다 |
+| 284 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 285 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 286 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 287 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 288 | **[아니면]** 282행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [8] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 8번 센서 고장 알람 (`VP_FWU_HZT-8_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 289 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 291 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [9] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 9번 센서 고장 알람 (`VP_FWU_HZT-9_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 292 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 9번 값 (`VP_FWU_HZT-9`) 값을 읽어 넣는다 |
+| 293 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 294 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 295 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 296 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 297 | **[아니면]** 291행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [9] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 9번 센서 고장 알람 (`VP_FWU_HZT-9_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 298 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 300 | **[조건]** 다음이 **모두** 맞음<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [10] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 10번 센서 고장 알람 (`VP_FWU_HZT-10_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 301 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 열복도 온도 10번 값 (`VP_FWU_HZT-10`) 값을 읽어 넣는다 |
+| 302 | &emsp;→&nbsp;`mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 303 | &emsp;→&nbsp;`mHZTSum`(열복도 온도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 304 | &emsp;→&nbsp;`mHZTMax`(열복도 온도 집계용 최대값)에 다음 계산값을 넣는다: [`mHZTMax`(열복도 온도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 305 | &emsp;→&nbsp;`mHZTMin`(열복도 온도 집계용 최소값)에 다음 계산값을 넣는다: [`mHZTMin`(열복도 온도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 306 | **[아니면]** 300행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 열복도 온도 사용 센서 수 설정 (`VP_FWU_HZT_Count`) 값이 [10] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 열복도 온도 10번 센서 고장 알람 (`VP_FWU_HZT-10_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 307 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
 
 <a id="section-10"></a>
 
@@ -382,16 +388,16 @@
 | 행 | 해석 |
 |---:|---|
 | 309 | *[주석] 쓸 수 있는 센서가 하나라도 있으면 평균·최대·최소를 내보내고, 없으면 0과 '무효'로 표시* |
-| 310 | `mHZTCount` > 0 이면 : |
-| 311 | &emsp;→&nbsp;열복도 온도 평균 (`VP_FWU_HZT_Avg`)에 `mHZTSum` ÷ `mHZTCount` 기록 — 기본 우선순위(P5) |
-| 312 | &emsp;→&nbsp;열복도 온도 최대값 (`VP_FWU_HZT_Max`)에 `mHZTMax` 기록 — 기본 우선순위(P5) |
-| 313 | &emsp;→&nbsp;열복도 온도 최소값 (`VP_FWU_HZT_Min`)에 `mHZTMin` 기록 — 기본 우선순위(P5) |
-| 314 | &emsp;→&nbsp;열복도 온도 제어용 값 유효 표시 (`VP_FWU_HZT_PV_Valid`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 315 | 310행 조건이 성립하지 않으면 : |
-| 316 | &emsp;→&nbsp;열복도 온도 평균 (`VP_FWU_HZT_Avg`)에 0 기록 — 기본 우선순위(P5) |
-| 317 | &emsp;→&nbsp;열복도 온도 최대값 (`VP_FWU_HZT_Max`)에 0 기록 — 기본 우선순위(P5) |
-| 318 | &emsp;→&nbsp;열복도 온도 최소값 (`VP_FWU_HZT_Min`)에 0 기록 — 기본 우선순위(P5) |
-| 319 | &emsp;→&nbsp;열복도 온도 제어용 값 유효 표시 (`VP_FWU_HZT_PV_Valid`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 310 | **[조건]** `mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수) 값이 [0]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 311 | &emsp;→&nbsp;열복도 온도 평균 (`VP_FWU_HZT_Avg`) 값을 다음 계산값으로 바꾼다: `mHZTSum`(열복도 온도 집계용 합계) ÷ `mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 312 | &emsp;→&nbsp;열복도 온도 최대값 (`VP_FWU_HZT_Max`) 값을 [`mHZTMax`(열복도 온도 집계용 최대값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 313 | &emsp;→&nbsp;열복도 온도 최소값 (`VP_FWU_HZT_Min`) 값을 [`mHZTMin`(열복도 온도 집계용 최소값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 314 | &emsp;→&nbsp;열복도 온도 제어용 값 유효 표시 (`VP_FWU_HZT_PV_Valid`) 값을 [TRUE(1)]로 바꾼다 (= 유효, 쓸 수 있음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 315 | **[아니면]** 310행 조건의 반대 상황, 즉 `mHZTCount`(열복도 온도 집계용 쓸 수 있는 센서 개수) 값이 [0] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 316 | &emsp;→&nbsp;열복도 온도 평균 (`VP_FWU_HZT_Avg`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 317 | &emsp;→&nbsp;열복도 온도 최대값 (`VP_FWU_HZT_Max`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 318 | &emsp;→&nbsp;열복도 온도 최소값 (`VP_FWU_HZT_Min`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 319 | &emsp;→&nbsp;열복도 온도 제어용 값 유효 표시 (`VP_FWU_HZT_PV_Valid`) 값을 [FALSE(0)]로 바꾼다 (= 무효, 쓸 수 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-11"></a>
 
@@ -400,13 +406,13 @@
 | 행 | 해석 |
 |---:|---|
 | 321 | *[주석] 제어에 쓸 HZT 값 (Select 0 = 평균, 1 = 최대)* |
-| 322 | 열복도 온도 제어용 값 유효 표시 (`VP_FWU_HZT_PV_Valid`) = TRUE(1) 이면 : |
-| 323 | &emsp;→&nbsp;열복도 온도 제어값 선택 설정 (`VP_FWU_HZT_Select`) = FALSE(0) 이면 : |
-| 324 | &emsp;&emsp;→&nbsp;열복도 온도 제어용 값(PV) (`VP_FWU_HZT_PV`)에 열복도 온도 평균 (`VP_FWU_HZT_Avg`) 값을 그대로 복사 — 기본 우선순위(P5) |
-| 325 | &emsp;→&nbsp;323행 조건이 성립하지 않으면 : |
-| 326 | &emsp;&emsp;→&nbsp;열복도 온도 제어용 값(PV) (`VP_FWU_HZT_PV`)에 열복도 온도 최대값 (`VP_FWU_HZT_Max`) 값을 그대로 복사 — 기본 우선순위(P5) |
-| 327 | 322행 조건이 성립하지 않으면 : |
-| 328 | &emsp;→&nbsp;열복도 온도 제어용 값(PV) (`VP_FWU_HZT_PV`)에 0 기록 — 기본 우선순위(P5) |
+| 322 | **[조건]** 열복도 온도 제어용 값 유효 표시 (`VP_FWU_HZT_PV_Valid`) 값이 [TRUE(1)]임 (= 유효, 쓸 수 있음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 323 | &emsp;→&nbsp;**[조건]** 열복도 온도 제어값 선택 설정 (`VP_FWU_HZT_Select`) 값이 [FALSE(0)]임 (= 평균값을 제어에 사용)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 324 | &emsp;&emsp;→&nbsp;열복도 온도 제어용 값(PV) (`VP_FWU_HZT_PV`) 값을 열복도 온도 평균 (`VP_FWU_HZT_Avg`)의 지금 값과 똑같이 맞춘다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 325 | &emsp;→&nbsp;**[아니면]** 323행 조건의 반대 상황, 즉 열복도 온도 제어값 선택 설정 (`VP_FWU_HZT_Select`) 값이 [FALSE(0)]이 아님 (= 최대값을 제어에 사용)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 326 | &emsp;&emsp;→&nbsp;열복도 온도 제어용 값(PV) (`VP_FWU_HZT_PV`) 값을 열복도 온도 최대값 (`VP_FWU_HZT_Max`)의 지금 값과 똑같이 맞춘다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 327 | **[아니면]** 322행 조건의 반대 상황, 즉 열복도 온도 제어용 값 유효 표시 (`VP_FWU_HZT_PV_Valid`) 값이 [TRUE(1)]이 아님 (= 무효, 쓸 수 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 328 | &emsp;→&nbsp;열복도 온도 제어용 값(PV) (`VP_FWU_HZT_PV`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-12"></a>
 
@@ -418,86 +424,86 @@
 |---:|---|
 | 330 | *[주석] RDP(룸 차압) 집계* |
 | 331 | *[주석] 사용 개수(RDP_Count) 안의 센서 중, 상위 통신이 정상이고 고장 알람이 없는 것만 평균·최대·최소에 넣는다* |
-| 332 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 1 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 1번 센서 고장 알람 (`VP_FWU_RDP-1_Failure_Alarm`) = FALSE(0) 이면 : |
-| 333 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 1번 값 (`VP_FWU_RDP-1`) 값 읽기 |
-| 334 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 335 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 336 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 337 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 338 | 332행 조건이 성립하지 않으면 : |
-| 339 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 341 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 2 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 2번 센서 고장 알람 (`VP_FWU_RDP-2_Failure_Alarm`) = FALSE(0) 이면 : |
-| 342 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 2번 값 (`VP_FWU_RDP-2`) 값 읽기 |
-| 343 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 344 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 345 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 346 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 347 | 341행 조건이 성립하지 않으면 : |
-| 348 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 350 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 3 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 3번 센서 고장 알람 (`VP_FWU_RDP-3_Failure_Alarm`) = FALSE(0) 이면 : |
-| 351 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 3번 값 (`VP_FWU_RDP-3`) 값 읽기 |
-| 352 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 353 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 354 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 355 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 356 | 350행 조건이 성립하지 않으면 : |
-| 357 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 359 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 4 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 4번 센서 고장 알람 (`VP_FWU_RDP-4_Failure_Alarm`) = FALSE(0) 이면 : |
-| 360 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 4번 값 (`VP_FWU_RDP-4`) 값 읽기 |
-| 361 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 362 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 363 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 364 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 365 | 359행 조건이 성립하지 않으면 : |
-| 366 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 368 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 5 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 5번 센서 고장 알람 (`VP_FWU_RDP-5_Failure_Alarm`) = FALSE(0) 이면 : |
-| 369 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 5번 값 (`VP_FWU_RDP-5`) 값 읽기 |
-| 370 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 371 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 372 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 373 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 374 | 368행 조건이 성립하지 않으면 : |
-| 375 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 377 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 6 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 6번 센서 고장 알람 (`VP_FWU_RDP-6_Failure_Alarm`) = FALSE(0) 이면 : |
-| 378 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 6번 값 (`VP_FWU_RDP-6`) 값 읽기 |
-| 379 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 380 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 381 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 382 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 383 | 377행 조건이 성립하지 않으면 : |
-| 384 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 386 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 7 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 7번 센서 고장 알람 (`VP_FWU_RDP-7_Failure_Alarm`) = FALSE(0) 이면 : |
-| 387 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 7번 값 (`VP_FWU_RDP-7`) 값 읽기 |
-| 388 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 389 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 390 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 391 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 392 | 386행 조건이 성립하지 않으면 : |
-| 393 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 395 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 8 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 8번 센서 고장 알람 (`VP_FWU_RDP-8_Failure_Alarm`) = FALSE(0) 이면 : |
-| 396 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 8번 값 (`VP_FWU_RDP-8`) 값 읽기 |
-| 397 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 398 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 399 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 400 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 401 | 395행 조건이 성립하지 않으면 : |
-| 402 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 404 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 9 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 9번 센서 고장 알람 (`VP_FWU_RDP-9_Failure_Alarm`) = FALSE(0) 이면 : |
-| 405 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 9번 값 (`VP_FWU_RDP-9`) 값 읽기 |
-| 406 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 407 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 408 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 409 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 410 | 404행 조건이 성립하지 않으면 : |
-| 411 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 413 | 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) ≥ 10 **그리고** `mbUpperOk` = TRUE(1) **그리고** 룸 차압 10번 센서 고장 알람 (`VP_FWU_RDP-10_Failure_Alarm`) = FALSE(0) 이면 : |
-| 414 | &emsp;→&nbsp;`SensorValue` ← 룸 차압 10번 값 (`VP_FWU_RDP-10`) 값 읽기 |
-| 415 | &emsp;→&nbsp;`mRDPCount`에 1을(를) 더함 |
-| 416 | &emsp;→&nbsp;`mRDPSum`에 `SensorValue`을(를) 더함 |
-| 417 | &emsp;→&nbsp;`mRDPMax` ← [`mRDPMax`, `SensorValue`] 중 최댓값 |
-| 418 | &emsp;→&nbsp;`mRDPMin` ← [`mRDPMin`, `SensorValue`] 중 최솟값 |
-| 419 | 413행 조건이 성립하지 않으면 : |
-| 420 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
+| 332 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [1] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 1번 센서 고장 알람 (`VP_FWU_RDP-1_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 333 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 1번 값 (`VP_FWU_RDP-1`) 값을 읽어 넣는다 |
+| 334 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 335 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 336 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 337 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 338 | **[아니면]** 332행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [1] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 1번 센서 고장 알람 (`VP_FWU_RDP-1_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 339 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 341 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [2] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 2번 센서 고장 알람 (`VP_FWU_RDP-2_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 342 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 2번 값 (`VP_FWU_RDP-2`) 값을 읽어 넣는다 |
+| 343 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 344 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 345 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 346 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 347 | **[아니면]** 341행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [2] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 2번 센서 고장 알람 (`VP_FWU_RDP-2_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 348 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 350 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [3] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 3번 센서 고장 알람 (`VP_FWU_RDP-3_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 351 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 3번 값 (`VP_FWU_RDP-3`) 값을 읽어 넣는다 |
+| 352 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 353 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 354 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 355 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 356 | **[아니면]** 350행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [3] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 3번 센서 고장 알람 (`VP_FWU_RDP-3_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 357 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 359 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [4] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 4번 센서 고장 알람 (`VP_FWU_RDP-4_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 360 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 4번 값 (`VP_FWU_RDP-4`) 값을 읽어 넣는다 |
+| 361 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 362 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 363 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 364 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 365 | **[아니면]** 359행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [4] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 4번 센서 고장 알람 (`VP_FWU_RDP-4_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 366 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 368 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [5] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 5번 센서 고장 알람 (`VP_FWU_RDP-5_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 369 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 5번 값 (`VP_FWU_RDP-5`) 값을 읽어 넣는다 |
+| 370 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 371 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 372 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 373 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 374 | **[아니면]** 368행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [5] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 5번 센서 고장 알람 (`VP_FWU_RDP-5_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 375 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 377 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [6] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 6번 센서 고장 알람 (`VP_FWU_RDP-6_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 378 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 6번 값 (`VP_FWU_RDP-6`) 값을 읽어 넣는다 |
+| 379 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 380 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 381 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 382 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 383 | **[아니면]** 377행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [6] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 6번 센서 고장 알람 (`VP_FWU_RDP-6_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 384 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 386 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [7] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 7번 센서 고장 알람 (`VP_FWU_RDP-7_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 387 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 7번 값 (`VP_FWU_RDP-7`) 값을 읽어 넣는다 |
+| 388 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 389 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 390 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 391 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 392 | **[아니면]** 386행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [7] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 7번 센서 고장 알람 (`VP_FWU_RDP-7_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 393 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 395 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [8] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 8번 센서 고장 알람 (`VP_FWU_RDP-8_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 396 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 8번 값 (`VP_FWU_RDP-8`) 값을 읽어 넣는다 |
+| 397 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 398 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 399 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 400 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 401 | **[아니면]** 395행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [8] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 8번 센서 고장 알람 (`VP_FWU_RDP-8_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 402 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 404 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [9] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 9번 센서 고장 알람 (`VP_FWU_RDP-9_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 405 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 9번 값 (`VP_FWU_RDP-9`) 값을 읽어 넣는다 |
+| 406 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 407 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 408 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 409 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 410 | **[아니면]** 404행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [9] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 9번 센서 고장 알람 (`VP_FWU_RDP-9_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 411 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 413 | **[조건]** 다음이 **모두** 맞음<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [10] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 10번 센서 고장 알람 (`VP_FWU_RDP-10_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 414 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 룸 차압 10번 값 (`VP_FWU_RDP-10`) 값을 읽어 넣는다 |
+| 415 | &emsp;→&nbsp;`mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 416 | &emsp;→&nbsp;`mRDPSum`(룸 차압 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 417 | &emsp;→&nbsp;`mRDPMax`(룸 차압 집계용 최대값)에 다음 계산값을 넣는다: [`mRDPMax`(룸 차압 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 418 | &emsp;→&nbsp;`mRDPMin`(룸 차압 집계용 최소값)에 다음 계산값을 넣는다: [`mRDPMin`(룸 차압 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 419 | **[아니면]** 413행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 룸 차압 사용 센서 수 설정 (`VP_FWU_RDP_Count`) 값이 [10] 이상<br>② `mbUpperOk`(상위 통신이 정상이라 외부 센서값을 써도 되는지, TRUE면 씀) 값이 [TRUE(1)]임<br>③ 룸 차압 10번 센서 고장 알람 (`VP_FWU_RDP-10_Failure_Alarm`) 값이 [FALSE(0)]임 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 420 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
 
 <a id="section-13"></a>
 
@@ -506,16 +512,16 @@
 | 행 | 해석 |
 |---:|---|
 | 422 | *[주석] 쓸 수 있는 센서가 하나라도 있으면 평균·최대·최소를 내보내고, 없으면 0과 '무효'로 표시* |
-| 423 | `mRDPCount` > 0 이면 : |
-| 424 | &emsp;→&nbsp;룸 차압 평균 (`VP_FWU_RDP_Avg`)에 `mRDPSum` ÷ `mRDPCount` 기록 — 기본 우선순위(P5) |
-| 425 | &emsp;→&nbsp;룸 차압 최대값 (`VP_FWU_RDP_Max`)에 `mRDPMax` 기록 — 기본 우선순위(P5) |
-| 426 | &emsp;→&nbsp;룸 차압 최소값 (`VP_FWU_RDP_Min`)에 `mRDPMin` 기록 — 기본 우선순위(P5) |
-| 427 | &emsp;→&nbsp;룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 428 | 423행 조건이 성립하지 않으면 : |
-| 429 | &emsp;→&nbsp;룸 차압 평균 (`VP_FWU_RDP_Avg`)에 0 기록 — 기본 우선순위(P5) |
-| 430 | &emsp;→&nbsp;룸 차압 최대값 (`VP_FWU_RDP_Max`)에 0 기록 — 기본 우선순위(P5) |
-| 431 | &emsp;→&nbsp;룸 차압 최소값 (`VP_FWU_RDP_Min`)에 0 기록 — 기본 우선순위(P5) |
-| 432 | &emsp;→&nbsp;룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 423 | **[조건]** `mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수) 값이 [0]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 424 | &emsp;→&nbsp;룸 차압 평균 (`VP_FWU_RDP_Avg`) 값을 다음 계산값으로 바꾼다: `mRDPSum`(룸 차압 집계용 합계) ÷ `mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 425 | &emsp;→&nbsp;룸 차압 최대값 (`VP_FWU_RDP_Max`) 값을 [`mRDPMax`(룸 차압 집계용 최대값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 426 | &emsp;→&nbsp;룸 차압 최소값 (`VP_FWU_RDP_Min`) 값을 [`mRDPMin`(룸 차압 집계용 최소값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 427 | &emsp;→&nbsp;룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`) 값을 [TRUE(1)]로 바꾼다 (= 유효, 쓸 수 있음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 428 | **[아니면]** 423행 조건의 반대 상황, 즉 `mRDPCount`(룸 차압 집계용 쓸 수 있는 센서 개수) 값이 [0] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 429 | &emsp;→&nbsp;룸 차압 평균 (`VP_FWU_RDP_Avg`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 430 | &emsp;→&nbsp;룸 차압 최대값 (`VP_FWU_RDP_Max`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 431 | &emsp;→&nbsp;룸 차압 최소값 (`VP_FWU_RDP_Min`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 432 | &emsp;→&nbsp;룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`) 값을 [FALSE(0)]로 바꾼다 (= 무효, 쓸 수 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-14"></a>
 
@@ -524,13 +530,13 @@
 | 행 | 해석 |
 |---:|---|
 | 434 | *[주석] 제어에 쓸 RDP 값 (Select 0 = 평균, 1 = 최소)* |
-| 435 | 룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`) = TRUE(1) 이면 : |
-| 436 | &emsp;→&nbsp;룸 차압 제어값 선택 설정 (`VP_FWU_RDP_Select`) = FALSE(0) 이면 : |
-| 437 | &emsp;&emsp;→&nbsp;룸 차압 제어용 값(PV) (`VP_FWU_RDP_PV`)에 룸 차압 평균 (`VP_FWU_RDP_Avg`) 값을 그대로 복사 — 기본 우선순위(P5) |
-| 438 | &emsp;→&nbsp;436행 조건이 성립하지 않으면 : |
-| 439 | &emsp;&emsp;→&nbsp;룸 차압 제어용 값(PV) (`VP_FWU_RDP_PV`)에 룸 차압 최소값 (`VP_FWU_RDP_Min`) 값을 그대로 복사 — 기본 우선순위(P5) |
-| 440 | 435행 조건이 성립하지 않으면 : |
-| 441 | &emsp;→&nbsp;룸 차압 제어용 값(PV) (`VP_FWU_RDP_PV`)에 0 기록 — 기본 우선순위(P5) |
+| 435 | **[조건]** 룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`) 값이 [TRUE(1)]임 (= 유효, 쓸 수 있음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 436 | &emsp;→&nbsp;**[조건]** 룸 차압 제어값 선택 설정 (`VP_FWU_RDP_Select`) 값이 [FALSE(0)]임 (= 평균값을 제어에 사용)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 437 | &emsp;&emsp;→&nbsp;룸 차압 제어용 값(PV) (`VP_FWU_RDP_PV`) 값을 룸 차압 평균 (`VP_FWU_RDP_Avg`)의 지금 값과 똑같이 맞춘다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 438 | &emsp;→&nbsp;**[아니면]** 436행 조건의 반대 상황, 즉 룸 차압 제어값 선택 설정 (`VP_FWU_RDP_Select`) 값이 [FALSE(0)]이 아님 (= 최소값을 제어에 사용)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 439 | &emsp;&emsp;→&nbsp;룸 차압 제어용 값(PV) (`VP_FWU_RDP_PV`) 값을 룸 차압 최소값 (`VP_FWU_RDP_Min`)의 지금 값과 똑같이 맞춘다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 440 | **[아니면]** 435행 조건의 반대 상황, 즉 룸 차압 제어용 값 유효 표시 (`VP_FWU_RDP_PV_Valid`) 값이 [TRUE(1)]이 아님 (= 무효, 쓸 수 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 441 | &emsp;→&nbsp;룸 차압 제어용 값(PV) (`VP_FWU_RDP_PV`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-15"></a>
 
@@ -539,94 +545,94 @@
 | 행 | 해석 |
 |---:|---|
 | 443 | *[주석] CZH(냉복도 습도) 집계: 표시용이라 상위 통신·고장 조건 없이 사용 개수만 본다* |
-| 444 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 1 이면 : |
-| 445 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 1번 값 (`VP_FWU_CZH-1`) 값 읽기 |
-| 446 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 447 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 448 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 449 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 450 | 444행 조건이 성립하지 않으면 : |
-| 451 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 453 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 2 이면 : |
-| 454 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 2번 값 (`VP_FWU_CZH-2`) 값 읽기 |
-| 455 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 456 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 457 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 458 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 459 | 453행 조건이 성립하지 않으면 : |
-| 460 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 462 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 3 이면 : |
-| 463 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 3번 값 (`VP_FWU_CZH-3`) 값 읽기 |
-| 464 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 465 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 466 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 467 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 468 | 462행 조건이 성립하지 않으면 : |
-| 469 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 471 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 4 이면 : |
-| 472 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 4번 값 (`VP_FWU_CZH-4`) 값 읽기 |
-| 473 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 474 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 475 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 476 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 477 | 471행 조건이 성립하지 않으면 : |
-| 478 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 480 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 5 이면 : |
-| 481 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 5번 값 (`VP_FWU_CZH-5`) 값 읽기 |
-| 482 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 483 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 484 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 485 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 486 | 480행 조건이 성립하지 않으면 : |
-| 487 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 489 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 6 이면 : |
-| 490 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 6번 값 (`VP_FWU_CZH-6`) 값 읽기 |
-| 491 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 492 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 493 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 494 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 495 | 489행 조건이 성립하지 않으면 : |
-| 496 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 498 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 7 이면 : |
-| 499 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 7번 값 (`VP_FWU_CZH-7`) 값 읽기 |
-| 500 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 501 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 502 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 503 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 504 | 498행 조건이 성립하지 않으면 : |
-| 505 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 507 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 8 이면 : |
-| 508 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 8번 값 (`VP_FWU_CZH-8`) 값 읽기 |
-| 509 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 510 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 511 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 512 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 513 | 507행 조건이 성립하지 않으면 : |
-| 514 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 516 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 9 이면 : |
-| 517 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 9번 값 (`VP_FWU_CZH-9`) 값 읽기 |
-| 518 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 519 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 520 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 521 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 522 | 516행 조건이 성립하지 않으면 : |
-| 523 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 525 | 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) ≥ 10 이면 : |
-| 526 | &emsp;→&nbsp;`SensorValue` ← 냉복도 습도 10번 값 (`VP_FWU_CZH-10`) 값 읽기 |
-| 527 | &emsp;→&nbsp;`mCZHCount`에 1을(를) 더함 |
-| 528 | &emsp;→&nbsp;`mCZHSum`에 `SensorValue`을(를) 더함 |
-| 529 | &emsp;→&nbsp;`mCZHMax` ← [`mCZHMax`, `SensorValue`] 중 최댓값 |
-| 530 | &emsp;→&nbsp;`mCZHMin` ← [`mCZHMin`, `SensorValue`] 중 최솟값 |
-| 531 | 525행 조건이 성립하지 않으면 : |
-| 532 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 534 | `mCZHCount` > 0 이면 : |
-| 535 | &emsp;→&nbsp;냉복도 습도 평균 (`VP_FWU_CZH_Avg`)에 `mCZHSum` ÷ `mCZHCount` 기록 — 기본 우선순위(P5) |
-| 536 | &emsp;→&nbsp;냉복도 습도 최대값 (`VP_FWU_CZH_Max`)에 `mCZHMax` 기록 — 기본 우선순위(P5) |
-| 537 | &emsp;→&nbsp;냉복도 습도 최소값 (`VP_FWU_CZH_Min`)에 `mCZHMin` 기록 — 기본 우선순위(P5) |
-| 538 | 534행 조건이 성립하지 않으면 : |
-| 539 | &emsp;→&nbsp;냉복도 습도 평균 (`VP_FWU_CZH_Avg`)에 0 기록 — 기본 우선순위(P5) |
-| 540 | &emsp;→&nbsp;냉복도 습도 최대값 (`VP_FWU_CZH_Max`)에 0 기록 — 기본 우선순위(P5) |
-| 541 | &emsp;→&nbsp;냉복도 습도 최소값 (`VP_FWU_CZH_Min`)에 0 기록 — 기본 우선순위(P5) |
+| 444 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [1] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 445 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 1번 값 (`VP_FWU_CZH-1`) 값을 읽어 넣는다 |
+| 446 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 447 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 448 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 449 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 450 | **[아니면]** 444행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [1]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 451 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 453 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [2] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 454 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 2번 값 (`VP_FWU_CZH-2`) 값을 읽어 넣는다 |
+| 455 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 456 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 457 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 458 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 459 | **[아니면]** 453행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [2]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 460 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 462 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [3] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 463 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 3번 값 (`VP_FWU_CZH-3`) 값을 읽어 넣는다 |
+| 464 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 465 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 466 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 467 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 468 | **[아니면]** 462행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [3]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 469 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 471 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [4] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 472 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 4번 값 (`VP_FWU_CZH-4`) 값을 읽어 넣는다 |
+| 473 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 474 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 475 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 476 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 477 | **[아니면]** 471행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [4]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 478 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 480 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [5] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 481 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 5번 값 (`VP_FWU_CZH-5`) 값을 읽어 넣는다 |
+| 482 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 483 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 484 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 485 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 486 | **[아니면]** 480행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [5]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 487 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 489 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [6] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 490 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 6번 값 (`VP_FWU_CZH-6`) 값을 읽어 넣는다 |
+| 491 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 492 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 493 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 494 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 495 | **[아니면]** 489행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [6]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 496 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 498 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [7] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 499 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 7번 값 (`VP_FWU_CZH-7`) 값을 읽어 넣는다 |
+| 500 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 501 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 502 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 503 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 504 | **[아니면]** 498행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [7]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 505 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 507 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [8] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 508 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 8번 값 (`VP_FWU_CZH-8`) 값을 읽어 넣는다 |
+| 509 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 510 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 511 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 512 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 513 | **[아니면]** 507행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [8]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 514 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 516 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [9] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 517 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 9번 값 (`VP_FWU_CZH-9`) 값을 읽어 넣는다 |
+| 518 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 519 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 520 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 521 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 522 | **[아니면]** 516행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [9]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 523 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 525 | **[조건]** 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [10] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 526 | &emsp;→&nbsp;`SensorValue`(방금 읽은 센서 값(임시))에 냉복도 습도 10번 값 (`VP_FWU_CZH-10`) 값을 읽어 넣는다 |
+| 527 | &emsp;→&nbsp;`mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수)를 1 늘린다 (하나 더 센다) |
+| 528 | &emsp;→&nbsp;`mCZHSum`(냉복도 습도 집계용 합계)에 `SensorValue`(방금 읽은 센서 값(임시))를 더한다 |
+| 529 | &emsp;→&nbsp;`mCZHMax`(냉복도 습도 집계용 최대값)에 다음 계산값을 넣는다: [`mCZHMax`(냉복도 습도 집계용 최대값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 큰 값 |
+| 530 | &emsp;→&nbsp;`mCZHMin`(냉복도 습도 집계용 최소값)에 다음 계산값을 넣는다: [`mCZHMin`(냉복도 습도 집계용 최소값), `SensorValue`(방금 읽은 센서 값(임시))] 중 가장 작은 값 |
+| 531 | **[아니면]** 525행 조건의 반대 상황, 즉 냉복도 습도 사용 센서 수 설정 (`VP_FWU_CZH_Count`) 값이 [10]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 532 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 534 | **[조건]** `mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수) 값이 [0]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 535 | &emsp;→&nbsp;냉복도 습도 평균 (`VP_FWU_CZH_Avg`) 값을 다음 계산값으로 바꾼다: `mCZHSum`(냉복도 습도 집계용 합계) ÷ `mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 536 | &emsp;→&nbsp;냉복도 습도 최대값 (`VP_FWU_CZH_Max`) 값을 [`mCZHMax`(냉복도 습도 집계용 최대값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 537 | &emsp;→&nbsp;냉복도 습도 최소값 (`VP_FWU_CZH_Min`) 값을 [`mCZHMin`(냉복도 습도 집계용 최소값)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 538 | **[아니면]** 534행 조건의 반대 상황, 즉 `mCZHCount`(냉복도 습도 집계용 쓸 수 있는 센서 개수) 값이 [0] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 539 | &emsp;→&nbsp;냉복도 습도 평균 (`VP_FWU_CZH_Avg`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 540 | &emsp;→&nbsp;냉복도 습도 최대값 (`VP_FWU_CZH_Max`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 541 | &emsp;→&nbsp;냉복도 습도 최소값 (`VP_FWU_CZH_Min`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 | 543 | *[주석] 팬 수는 F8 기준 고정. F4/F6는 팬별 입출력과 고장 집계를 함께 변경한다.* |
 | 544 | *[주석] 풍량 계수·정격 RPM·운전 차압은 새 팬 제원으로 팬 개발팀 확인 필요.* |
 | 545 | *[주석] FMS 1대로 개별 팬 풍량은 확인할 수 없다. QTS 수준은 팬별 감지 입력 추가 검토.* |
@@ -639,7 +645,7 @@
 | 행 | 해석 |
 |---:|---|
 | 548 | *[주석] ΔT = RAT - SAT (SF Control의 ΔT 모드에서 쓴다)* |
-| 549 | ΔT(RAT-SAT) 현재값 (`VP_FWU_DeltaT_PV`)에 환기 온도(RAT) 센서값 (`FWU_RAT`) - 급기 온도(SAT) 센서값 (`FWU_SAT`) 기록 — 기본 우선순위(P5) |
+| 549 | ΔT(RAT-SAT) 현재값 (`VP_FWU_DeltaT_PV`) 값을 다음 계산값으로 바꾼다: 환기 온도(RAT) 센서값 (`FWU_RAT`) - 급기 온도(SAT) 센서값 (`FWU_SAT`) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-17"></a>
 
@@ -651,86 +657,86 @@
 |---:|---|
 | 551 | *[주석] 팬 운전 판단: 한 대라도 돌고 있으면 운전 중으로 본다* |
 | 552 | *[주석] 통신이 되는 팬은 RPM으로, 통신이 끊긴 팬은 급기 차압으로 판단한다* |
-| 553 | `mbSF1CommFault` = TRUE(1) 이면 : |
-| 554 | &emsp;→&nbsp;`mSAFlowDP` > `RUN_DP`(설정값) 이면 : |
-| 555 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 556 | &emsp;→&nbsp;554행 조건이 성립하지 않으면 : |
-| 557 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 558 | 553행 조건이 성립하지 않으면 : |
-| 559 | &emsp;→&nbsp;팬 1번 현재 RPM (`FWU_SF-1.Current_RPM`) ≥ `FAIL_RPM`(설정값) 이면 : |
-| 560 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 561 | &emsp;→&nbsp;559행 조건이 성립하지 않으면 : |
-| 562 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 564 | `mbSF2CommFault` = TRUE(1) 이면 : |
-| 565 | &emsp;→&nbsp;`mSAFlowDP` > `RUN_DP`(설정값) 이면 : |
-| 566 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 567 | &emsp;→&nbsp;565행 조건이 성립하지 않으면 : |
-| 568 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 569 | 564행 조건이 성립하지 않으면 : |
-| 570 | &emsp;→&nbsp;팬 2번 현재 RPM (`FWU_SF-2.Current_RPM`) ≥ `FAIL_RPM`(설정값) 이면 : |
-| 571 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 572 | &emsp;→&nbsp;570행 조건이 성립하지 않으면 : |
-| 573 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 575 | `mbSF3CommFault` = TRUE(1) 이면 : |
-| 576 | &emsp;→&nbsp;`mSAFlowDP` > `RUN_DP`(설정값) 이면 : |
-| 577 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 578 | &emsp;→&nbsp;576행 조건이 성립하지 않으면 : |
-| 579 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 580 | 575행 조건이 성립하지 않으면 : |
-| 581 | &emsp;→&nbsp;팬 3번 현재 RPM (`FWU_SF-3.Current_RPM`) ≥ `FAIL_RPM`(설정값) 이면 : |
-| 582 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 583 | &emsp;→&nbsp;581행 조건이 성립하지 않으면 : |
-| 584 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 586 | `mbSF4CommFault` = TRUE(1) 이면 : |
-| 587 | &emsp;→&nbsp;`mSAFlowDP` > `RUN_DP`(설정값) 이면 : |
-| 588 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 589 | &emsp;→&nbsp;587행 조건이 성립하지 않으면 : |
-| 590 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 591 | 586행 조건이 성립하지 않으면 : |
-| 592 | &emsp;→&nbsp;팬 4번 현재 RPM (`FWU_SF-4.Current_RPM`) ≥ `FAIL_RPM`(설정값) 이면 : |
-| 593 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 594 | &emsp;→&nbsp;592행 조건이 성립하지 않으면 : |
-| 595 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 597 | `mbSF5CommFault` = TRUE(1) 이면 : |
-| 598 | &emsp;→&nbsp;`mSAFlowDP` > `RUN_DP`(설정값) 이면 : |
-| 599 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 600 | &emsp;→&nbsp;598행 조건이 성립하지 않으면 : |
-| 601 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 602 | 597행 조건이 성립하지 않으면 : |
-| 603 | &emsp;→&nbsp;팬 5번 현재 RPM (`FWU_SF-5.Current_RPM`) ≥ `FAIL_RPM`(설정값) 이면 : |
-| 604 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 605 | &emsp;→&nbsp;603행 조건이 성립하지 않으면 : |
-| 606 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 608 | `mbSF6CommFault` = TRUE(1) 이면 : |
-| 609 | &emsp;→&nbsp;`mSAFlowDP` > `RUN_DP`(설정값) 이면 : |
-| 610 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 611 | &emsp;→&nbsp;609행 조건이 성립하지 않으면 : |
-| 612 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 613 | 608행 조건이 성립하지 않으면 : |
-| 614 | &emsp;→&nbsp;팬 6번 현재 RPM (`FWU_SF-6.Current_RPM`) ≥ `FAIL_RPM`(설정값) 이면 : |
-| 615 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 616 | &emsp;→&nbsp;614행 조건이 성립하지 않으면 : |
-| 617 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 619 | `mbSF7CommFault` = TRUE(1) 이면 : |
-| 620 | &emsp;→&nbsp;`mSAFlowDP` > `RUN_DP`(설정값) 이면 : |
-| 621 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 622 | &emsp;→&nbsp;620행 조건이 성립하지 않으면 : |
-| 623 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 624 | 619행 조건이 성립하지 않으면 : |
-| 625 | &emsp;→&nbsp;팬 7번 현재 RPM (`FWU_SF-7.Current_RPM`) ≥ `FAIL_RPM`(설정값) 이면 : |
-| 626 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 627 | &emsp;→&nbsp;625행 조건이 성립하지 않으면 : |
-| 628 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 630 | `mbSF8CommFault` = TRUE(1) 이면 : |
-| 631 | &emsp;→&nbsp;`mSAFlowDP` > `RUN_DP`(설정값) 이면 : |
-| 632 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 633 | &emsp;→&nbsp;631행 조건이 성립하지 않으면 : |
-| 634 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 635 | 630행 조건이 성립하지 않으면 : |
-| 636 | &emsp;→&nbsp;팬 8번 현재 RPM (`FWU_SF-8.Current_RPM`) ≥ `FAIL_RPM`(설정값) 이면 : |
-| 637 | &emsp;&emsp;→&nbsp;`mbSFRun` ← TRUE(1) |
-| 638 | &emsp;→&nbsp;636행 조건이 성립하지 않으면 : |
-| 639 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
+| 553 | **[조건]** `mbSF1CommFault`(팬 1번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 554 | &emsp;→&nbsp;**[조건]** `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 555 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 556 | &emsp;→&nbsp;**[아니면]** 554행 조건의 반대 상황, 즉 `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 557 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 558 | **[아니면]** 553행 조건의 반대 상황, 즉 `mbSF1CommFault`(팬 1번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 559 | &emsp;→&nbsp;**[조건]** 팬 1번 현재 RPM (`FWU_SF-1.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 560 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 561 | &emsp;→&nbsp;**[아니면]** 559행 조건의 반대 상황, 즉 팬 1번 현재 RPM (`FWU_SF-1.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 562 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 564 | **[조건]** `mbSF2CommFault`(팬 2번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 565 | &emsp;→&nbsp;**[조건]** `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 566 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 567 | &emsp;→&nbsp;**[아니면]** 565행 조건의 반대 상황, 즉 `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 568 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 569 | **[아니면]** 564행 조건의 반대 상황, 즉 `mbSF2CommFault`(팬 2번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 570 | &emsp;→&nbsp;**[조건]** 팬 2번 현재 RPM (`FWU_SF-2.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 571 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 572 | &emsp;→&nbsp;**[아니면]** 570행 조건의 반대 상황, 즉 팬 2번 현재 RPM (`FWU_SF-2.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 573 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 575 | **[조건]** `mbSF3CommFault`(팬 3번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 576 | &emsp;→&nbsp;**[조건]** `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 577 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 578 | &emsp;→&nbsp;**[아니면]** 576행 조건의 반대 상황, 즉 `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 579 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 580 | **[아니면]** 575행 조건의 반대 상황, 즉 `mbSF3CommFault`(팬 3번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 581 | &emsp;→&nbsp;**[조건]** 팬 3번 현재 RPM (`FWU_SF-3.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 582 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 583 | &emsp;→&nbsp;**[아니면]** 581행 조건의 반대 상황, 즉 팬 3번 현재 RPM (`FWU_SF-3.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 584 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 586 | **[조건]** `mbSF4CommFault`(팬 4번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 587 | &emsp;→&nbsp;**[조건]** `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 588 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 589 | &emsp;→&nbsp;**[아니면]** 587행 조건의 반대 상황, 즉 `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 590 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 591 | **[아니면]** 586행 조건의 반대 상황, 즉 `mbSF4CommFault`(팬 4번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 592 | &emsp;→&nbsp;**[조건]** 팬 4번 현재 RPM (`FWU_SF-4.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 593 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 594 | &emsp;→&nbsp;**[아니면]** 592행 조건의 반대 상황, 즉 팬 4번 현재 RPM (`FWU_SF-4.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 595 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 597 | **[조건]** `mbSF5CommFault`(팬 5번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 598 | &emsp;→&nbsp;**[조건]** `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 599 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 600 | &emsp;→&nbsp;**[아니면]** 598행 조건의 반대 상황, 즉 `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 601 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 602 | **[아니면]** 597행 조건의 반대 상황, 즉 `mbSF5CommFault`(팬 5번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 603 | &emsp;→&nbsp;**[조건]** 팬 5번 현재 RPM (`FWU_SF-5.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 604 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 605 | &emsp;→&nbsp;**[아니면]** 603행 조건의 반대 상황, 즉 팬 5번 현재 RPM (`FWU_SF-5.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 606 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 608 | **[조건]** `mbSF6CommFault`(팬 6번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 609 | &emsp;→&nbsp;**[조건]** `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 610 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 611 | &emsp;→&nbsp;**[아니면]** 609행 조건의 반대 상황, 즉 `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 612 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 613 | **[아니면]** 608행 조건의 반대 상황, 즉 `mbSF6CommFault`(팬 6번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 614 | &emsp;→&nbsp;**[조건]** 팬 6번 현재 RPM (`FWU_SF-6.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 615 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 616 | &emsp;→&nbsp;**[아니면]** 614행 조건의 반대 상황, 즉 팬 6번 현재 RPM (`FWU_SF-6.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 617 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 619 | **[조건]** `mbSF7CommFault`(팬 7번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 620 | &emsp;→&nbsp;**[조건]** `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 621 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 622 | &emsp;→&nbsp;**[아니면]** 620행 조건의 반대 상황, 즉 `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 623 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 624 | **[아니면]** 619행 조건의 반대 상황, 즉 `mbSF7CommFault`(팬 7번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 625 | &emsp;→&nbsp;**[조건]** 팬 7번 현재 RPM (`FWU_SF-7.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 626 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 627 | &emsp;→&nbsp;**[아니면]** 625행 조건의 반대 상황, 즉 팬 7번 현재 RPM (`FWU_SF-7.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 628 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 630 | **[조건]** `mbSF8CommFault`(팬 8번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 631 | &emsp;→&nbsp;**[조건]** `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)]보다 큼<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 632 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 633 | &emsp;→&nbsp;**[아니면]** 631행 조건의 반대 상황, 즉 `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [`RUN_DP`(설정값: 팬 통신이 끊겼을 때 급기 차압이 이 값보다 높으면 도는 것으로 봄)] 이하<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 634 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 635 | **[아니면]** 630행 조건의 반대 상황, 즉 `mbSF8CommFault`(팬 8번 통신 이상 여부, TRUE면 이상) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 636 | &emsp;→&nbsp;**[조건]** 팬 8번 현재 RPM (`FWU_SF-8.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 637 | &emsp;&emsp;→&nbsp;`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값을 [TRUE(1)]로 바꾼다 |
+| 638 | &emsp;→&nbsp;**[아니면]** 636행 조건의 반대 상황, 즉 팬 8번 현재 RPM (`FWU_SF-8.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값 이상이면 도는 것으로 봄)]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 639 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
 
 <a id="section-18"></a>
 
@@ -739,14 +745,14 @@
 | 행 | 해석 |
 |---:|---|
 | 641 | *[주석] 판단이 바뀐 채로 5초가 지나야 VP_FWU_SF_Status에 반영한다 (순간적인 흔들림 무시)* |
-| 642 | `mbSFRun` = 팬 운전 상태 (`VP_FWU_SF_Status`) 이면 : |
-| 643 | &emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)를 0초로 초기화<br>*[주석] 판단이 지금 상태와 같으면 시간을 다시 잰다* |
-| 644 | 642행 조건이 성립하지 않으면 : |
-| 645 | &emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간) 경과시간 > 5 이면 :<br>*[주석] 5초* |
-| 646 | &emsp;&emsp;→&nbsp;팬 운전 상태 (`VP_FWU_SF_Status`)에 `mbSFRun` 기록 — 기본 우선순위(P5) |
-| 647 | &emsp;&emsp;→&nbsp;타이머 `SF_STATUS_TIMER`(5번: 팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)를 0초로 초기화 |
-| 648 | &emsp;→&nbsp;645행 조건이 성립하지 않으면 : |
-| 649 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
+| 642 | **[조건]** `mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값과 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 같음<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 643 | &emsp;→&nbsp;타이머 5번 `SF_STATUS_TIMER`(팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다<br>*[주석] 판단이 지금 상태와 같으면 시간을 다시 잰다* |
+| 644 | **[아니면]** 642행 조건의 반대 상황, 즉 `mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중) 값과 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 다름<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 645 | &emsp;→&nbsp;**[조건]** 타이머 5번 `SF_STATUS_TIMER`(팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)으로 잰 시간(초)이 [5]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] 5초* |
+| 646 | &emsp;&emsp;→&nbsp;팬 운전 상태 (`VP_FWU_SF_Status`) 값을 [`mbSFRun`(팬이 한 대라도 돈다고 판단했는지, TRUE면 운전 중)]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 647 | &emsp;&emsp;→&nbsp;타이머 5번 `SF_STATUS_TIMER`(팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 648 | &emsp;→&nbsp;**[아니면]** 645행 조건의 반대 상황, 즉 타이머 5번 `SF_STATUS_TIMER`(팬 운전 판단이 VP_FWU_SF_Status와 다르게 이어진 시간)으로 잰 시간(초)이 아직 [5]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 649 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
 
 <a id="section-19"></a>
 
@@ -759,11 +765,11 @@
 | 651 | *[주석] 급기 풍량 계산: 팬이 돌고 차압이 5Pa 이상일 때만 계산한다* |
 | 652 | *[주석] 차압은 위에서 읽어 둔 mSAFlowDP를 쓴다 (FWU_SAFLOW_DP를 다시 읽는 것과 같은 값)* |
 | 653 | *[주석] VP_FWU_SAF_VA-2(기본값 9)가 어떤 값인지는 아직 확인하지 못했다* |
-| 654 | 팬 운전 상태 (`VP_FWU_SF_Status`) = ON(1) **그리고** `mSAFlowDP` ≥ 5 이면 : |
-| 655 | &emsp;→&nbsp;`SAFlow` ← (급기 풍량 계수 (`VP_FWU_SA_Flow_Coef`) × (√(`mSAFlowDP`))) × 급기 풍량 계수 VA-2 (`VP_FWU_SAF_VA-2`) |
-| 656 | &emsp;→&nbsp;급기 풍량 계산값 (`VP_FWU_SA_Flow`)에 `SAFlow` 기록 — 기본 우선순위(P5) |
-| 657 | 654행 조건이 성립하지 않으면 : |
-| 658 | &emsp;→&nbsp;급기 풍량 계산값 (`VP_FWU_SA_Flow`)에 0 기록 — 기본 우선순위(P5) |
+| 654 | **[조건]** 다음이 **모두** 맞음<br>① 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [ON(1)]임 (= 팬이 한 대라도 돌고 있음)<br>② `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [5] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 655 | &emsp;→&nbsp;`SAFlow`(계산한 급기 풍량(임시))에 다음 계산값을 넣는다: 급기 풍량 계수 (`VP_FWU_SA_Flow_Coef`) × √(`mSAFlowDP`(급기 풍량 차압(Pa))) × 급기 풍량 계수 VA-2 (`VP_FWU_SAF_VA-2`) |
+| 656 | &emsp;→&nbsp;급기 풍량 계산값 (`VP_FWU_SA_Flow`) 값을 [`SAFlow`(계산한 급기 풍량(임시))]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 657 | **[아니면]** 654행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [ON(1)]임 (= 팬이 한 대라도 돌고 있음)<br>② `mSAFlowDP`(급기 풍량 차압(Pa)) 값이 [5] 이상<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 658 | &emsp;→&nbsp;급기 풍량 계산값 (`VP_FWU_SA_Flow`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-20"></a>
 
@@ -772,14 +778,14 @@
 | 행 | 해석 |
 |---:|---|
 | 660 | *[주석] 운전 명령 맞추기: 원격(BMS) 선택이면 BMS 명령을 HMI 쪽에, 로컬이면 HMI 명령을 BMS 쪽에 따라 쓴다* |
-| 661 | 원격(BMS) 선택 입력(DI) (`REMOTE_SELECTION`) = TRUE(1) 이면 : |
-| 662 | &emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`)의 P5 쓰기 해제 |
-| 663 | &emsp;→&nbsp;운전 명령(HMI) (`VP_FWU_Command_HMI`)에 운전 명령(BMS) (`VP_FWU_Command`) 값을 그대로 복사 — 기본 우선순위(P5) |
-| 664 | &emsp;→&nbsp;운전 명령(HMI) (`VP_FWU_Command_HMI`)에 운전 명령(BMS) (`VP_FWU_Command`) 값을 그대로 기록 — 우선순위 P11 |
-| 665 | 661행 조건이 성립하지 않으면 : |
-| 666 | &emsp;→&nbsp;운전 명령(HMI) (`VP_FWU_Command_HMI`)의 P5 쓰기 해제 |
-| 667 | &emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`)에 운전 명령(HMI) (`VP_FWU_Command_HMI`) 값을 그대로 복사 — 기본 우선순위(P5) |
-| 668 | &emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`)에 운전 명령(HMI) (`VP_FWU_Command_HMI`) 값을 그대로 기록 — 우선순위 P11 |
+| 661 | **[조건]** 원격(BMS) 선택 입력(DI) (`REMOTE_SELECTION`) 값이 [TRUE(1)]임 (= 원격(BMS) 선택)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 662 | &emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`)의 우선순위 5 칸(일반 로직이 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 663 | &emsp;→&nbsp;운전 명령(HMI) (`VP_FWU_Command_HMI`) 값을 운전 명령(BMS) (`VP_FWU_Command`)의 지금 값과 똑같이 맞춘다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 664 | &emsp;→&nbsp;운전 명령(HMI) (`VP_FWU_Command_HMI`) 값을 운전 명령(BMS) (`VP_FWU_Command`)의 지금 값과 똑같이 맞춘다 — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
+| 665 | **[아니면]** 661행 조건의 반대 상황, 즉 원격(BMS) 선택 입력(DI) (`REMOTE_SELECTION`) 값이 [TRUE(1)]이 아님 (= 로컬(HMI) 선택)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 666 | &emsp;→&nbsp;운전 명령(HMI) (`VP_FWU_Command_HMI`)의 우선순위 5 칸(일반 로직이 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 667 | &emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`) 값을 운전 명령(HMI) (`VP_FWU_Command_HMI`)의 지금 값과 똑같이 맞춘다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 668 | &emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`) 값을 운전 명령(HMI) (`VP_FWU_Command_HMI`)의 지금 값과 똑같이 맞춘다 — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
 
 <a id="section-21"></a>
 
@@ -788,6 +794,6 @@
 | 행 | 해석 |
 |---:|---|
 | 670 | *[주석] 팬 최대 RPM = 설계 RPM × 비율(%). 단 정격 최대 RPM은 넘지 않게 한다 (SF Control이 이 값을 쓴다)* |
-| 671 | 팬 최대 RPM(계산값) (`VP_FWU_SF_Max_RPM`)에 [(팬 설계 RPM (`VP_FWU_SF_Design_RPM`) × 팬 최대 RPM 비율(%) (`VP_FWU_SF_Max_RPM_Ratio`)) ÷ 100, 팬 정격 최대 RPM (`VP_FWU_SF_Rated_Max_RPM`)] 중 최솟값 기록 — 기본 우선순위(P5) |
+| 671 | 팬 최대 RPM(계산값) (`VP_FWU_SF_Max_RPM`) 값을 다음 계산값으로 바꾼다: [팬 설계 RPM (`VP_FWU_SF_Design_RPM`) × 팬 최대 RPM 비율(%) (`VP_FWU_SF_Max_RPM_Ratio`) ÷ 100, 팬 정격 최대 RPM (`VP_FWU_SF_Rated_Max_RPM`)] 중 가장 작은 값 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 | 673 | *[주석] JSY 2026-11-23 수정 구간 끝. 주제 = Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석)* |
 | 674 | *[주석] LJH 2026-11-17 수정 구간 끝. 주제 = 상위 감시와 외부 센서 집계* |

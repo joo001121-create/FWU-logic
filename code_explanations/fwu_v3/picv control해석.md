@@ -1,7 +1,7 @@
 # PICV Control 줄별 해석
 
 > **대상 코드** : `fwu_v3/Logic/PICV Control.py` (82 줄)  
-> **기준** : `sy 브랜치 2026-11-23 (naming rule·관제점 이름 변경 반영)`  
+> **기준** : `sy 브랜치 2026-11-24 (댐퍼 설치 여부 설정 반영)`  
 > **행** = 코드 줄 번호 (빈 줄은 생략)  
 > **표기** : `→` 들여쓰기 단계 · *[주석]* 코드 안 주석 · `이름` 코드 안 상수·변수 · **※** 읽을 때 주의할 점
 
@@ -12,7 +12,13 @@
 - [1~33행 · 머리말 · 로직 엔진, 상수, 타이머, 전역변수](#section-1)
 - [35~82행 · 비상정지가 아닐 때: 자동이면 SAT 기준으로 밸브를 제어하고, 수동이면 로직 출력을 내려놓는다](#section-2)
 
-**※ 공통 표기**: 매크로 상수 TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0. `SECTIMER(타이머, TMR_CLEAR)`는 타이머를 0초로 초기화, `SECTIMER(타이머, TMR_READ)`는 경과시간 확인이다. P번호가 없는 쓰기(`WRITEPOINT`)는 기본 우선순위 P5를 쓴다. 조건이 거짓이라고 관제점이 저절로 0이 되지는 않는다. 해당 분기에 쓰기가 없으면 이전 값이 남는다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일의 전역변수, `b`가 붙은 이름은 참/거짓 값이다.
+**※ 읽는 법**
+
+- **[조건]** 줄은 조건이 맞을 때만 바로 아래 한 칸 더 들여쓴(→가 하나 더 붙은) 줄들을 실행한다. **[아니면]** 줄은 그 조건이 맞지 않을 때 실행하는 부분이다.
+- 값은 [ ] 안에 적었다. TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0 이다. 0/1 값 옆 (= …)은 그 관제점에서 0/1이 뜻하는 상태다.
+- **우선순위 칸**: 관제점 하나에 번호가 붙은 여러 칸이 있고, **숫자가 작은 칸의 값이 이긴다**. 1 = 비상정지, 2 = 원격·화재 정지, 5 = 일반 로직(번호 없이 쓰는 `WRITEPOINT`), 11 = 값 보관·정지 요청. 칸을 지우면(해제) 그다음 칸의 값이 적용된다.
+- 조건이 맞지 않는다고 관제점이 저절로 0이 되지는 않는다. 그 분기에 쓰는 줄이 없으면 **이전 값이 그대로 남는다**.
+- 타이머는 0으로 되돌린 순간부터 흐른 시간(초)을 잰다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일 전체에서 쓰는 변수, 이름에 `b`가 붙은 변수는 TRUE/FALSE 값이다.
 
 <a id="section-1"></a>
 
@@ -23,16 +29,16 @@
 | 1 | *[주석] LJH 2026-11-17 수정 구간 시작. 주제 = 네 밸브 공통 냉방 명령* |
 | 2 | *[주석] JSY 2026-11-23 수정 구간 시작. 주제 = Coding Rule 적용(매크로 상수, 설정값 상수, if-else 짝 맞춤, 주석)* |
 | 4 | *[주석] 로직엔진 loading* |
-| 5 | DDC 로직 엔진 객체 생성 (이후 engine.xxx로 관제점을 읽고 씀) |
+| 5 | DDC 로직 엔진을 불러온다. 이 아래에서 `engine.READPOINT`(관제점 읽기), `engine.WRITEPOINT`(관제점 쓰기) 같은 기능을 이 이름으로 쓴다 |
 | 7 | *[주석] Macro상수 정의* |
-| 8 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC = 1 (긍정의 의미 또는 1인 인자) |
-| 9 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC = 0 (부정의 의미 또는 0인 인자) |
+| 8 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC를 모두 숫자 1으로 정한다. 코드에서 숫자 1 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 읽기·켜짐·참·DEC 방향처럼 '긍정' 또는 1을 뜻하는 인자) |
+| 9 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC를 모두 숫자 0으로 정한다. 코드에서 숫자 0 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 초기화·꺼짐·거짓·INC 방향처럼 '부정' 또는 0을 뜻하는 인자) |
 | 11 | *[주석] DEC/INC는 LOOP2 제어 방향 (DEC: 현재값을 내리는 제어, INC: 현재값을 올리는 제어)* |
-| 12 | 상수 `PICV_LOOP` = 1<br>*[주석] 이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다)* |
-| 13 | 설정값 상수 `PICV_PGAIN`: PICV PI 비례 게인 (`VP_FWU_PICV_PGain`) 값을 읽어 둠<br>*[주석] SAT 기준 냉수밸브 PI 제어의 P 게인* |
-| 14 | 설정값 상수 `PICV_IGAIN`: PICV PI 적분 게인 (`VP_FWU_PICV_IGain`) 값을 읽어 둠<br>*[주석] 같은 제어의 I 게인* |
-| 15 | 설정값 상수 `PICV_FAIL_MODE`: SAT 고장 시 밸브 위치 선택(0 마지막 위치 유지, 1 안전 위치) (`VP_FWU_PICV_Fail_Mode`) 값을 읽어 둠<br>*[주석] SAT 고장 시 밸브 위치 선택. 0 = 마지막 위치 유지, 1 = 안전 위치* |
-| 16 | 설정값 상수 `PICV_SAFE_POSITION`: 밸브 안전 위치 개도(%) (`VP_FWU_PICV_Safe_Position`) 값을 읽어 둠<br>*[주석] 안전 위치 개도(%)* |
+| 12 | PI 루프 번호에 이름 붙이기: `PICV_LOOP` = 1번. 이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다) |
+| 13 | 설정값 상수 `PICV_PGAIN`: PICV PI 비례 게인 (`VP_FWU_PICV_PGain`) 값을 이 로직이 실행될 때마다 한 번 읽어 이 이름에 담아 둔다. 뜻: SAT 기준 냉수밸브 PI 제어의 P 게인 |
+| 14 | 설정값 상수 `PICV_IGAIN`: PICV PI 적분 게인 (`VP_FWU_PICV_IGain`) 값을 이 로직이 실행될 때마다 한 번 읽어 이 이름에 담아 둔다. 뜻: 같은 제어의 I 게인 |
+| 15 | 설정값 상수 `PICV_FAIL_MODE`: SAT 고장 시 밸브 위치 선택(0 마지막 위치 유지, 1 안전 위치) (`VP_FWU_PICV_Fail_Mode`) 값을 이 로직이 실행될 때마다 한 번 읽어 이 이름에 담아 둔다. 뜻: SAT 고장 시 밸브 위치 선택. 0 = 마지막 위치 유지, 1 = 안전 위치 |
+| 16 | 설정값 상수 `PICV_SAFE_POSITION`: 밸브 안전 위치 개도(%) (`VP_FWU_PICV_Safe_Position`) 값을 이 로직이 실행될 때마다 한 번 읽어 이 이름에 담아 둔다. 뜻: 안전 위치 개도(%) |
 | 18 | *[주석] 타이머 정의: 이 로직은 타이머를 쓰지 않는다* |
 | 20 | *[주석] AO3(FWU_PICV_CONTROL) 공통 명령을 네 밸브에 전달한다. 개도·유량·온도는 RS485로 각각 수신.* |
 | 21 | *[주석] 유량 모드에서 100%는 설정 최대 유량 요구이며 실제 개도 100%와 다르다.* |
@@ -56,47 +62,47 @@
 | 행 | 해석 |
 |---:|---|
 | 35 | *[주석] 비상정지가 아닐 때: 자동이면 SAT 기준으로 밸브를 제어하고, 수동이면 로직 출력을 내려놓는다* |
-| 36 | 비상정지 입력(DI) (`FWU_EMERGENCY`) = FALSE(0) 이면 : |
-| 37 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)의 P1 쓰기 해제<br>*[주석] 비상정지 때 걸어 둔 P1 해제* |
-| 39 | &emsp;→&nbsp;운전 모드(1 자동, 0 수동) (`VP_FWU_Operation_Mode`) = TRUE(1) 이면 :<br>*[주석] Operation_Mode 1 = 자동, 0 = 수동* |
+| 36 | **[조건]** 비상정지 입력(DI) (`FWU_EMERGENCY`) 값이 [FALSE(0)]임 (= 정상, 비상정지 아님)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 37 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)의 우선순위 1 칸(비상정지가 쓰는 칸, 가장 강함)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다<br>*[주석] 비상정지 때 걸어 둔 P1 해제* |
+| 39 | &emsp;→&nbsp;**[조건]** 운전 모드(1 자동, 0 수동) (`VP_FWU_Operation_Mode`) 값이 [TRUE(1)]임 (= 자동 운전)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] Operation_Mode 1 = 자동, 0 = 수동* |
 | 40 | &emsp;&emsp;→&nbsp;*[주석] 운전 명령이 있고 팬이 돌 때만 SAT 기준으로 제어한다* |
-| 41 | &emsp;&emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`) = ON(1) **그리고** 팬 운전 상태 (`VP_FWU_SF_Status`) = ON(1) 이면 : |
-| 42 | &emsp;&emsp;&emsp;→&nbsp;급기 온도(SAT) 센서 고장 알람 (`VP_FWU_SAT_Failure_Alarm`) = TRUE(1) 이면 :<br>*[주석] SAT 센서 고장 여부 확인* |
+| 41 | &emsp;&emsp;→&nbsp;**[조건]** 다음이 **모두** 맞음<br>① 운전 명령(BMS) (`VP_FWU_Command`) 값이 [ON(1)]임 (= 운전 명령)<br>② 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [ON(1)]임 (= 팬이 한 대라도 돌고 있음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 42 | &emsp;&emsp;&emsp;→&nbsp;**[조건]** 급기 온도(SAT) 센서 고장 알람 (`VP_FWU_SAT_Failure_Alarm`) 값이 [TRUE(1)]임 (= 알람 걸림)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] SAT 센서 고장 여부 확인* |
 | 43 | &emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] JSY 2026-11-23 수정 구간 시작. 주제 = SAT 센서 고장 시 밸브 마지막/안전 위치 선택 (보호 기능)* |
 | 44 | &emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] SAT를 믿을 수 없어 PI 제어를 멈춘다. 이때 밸브 위치는 HMI 설정(Fail_Mode)으로 고른다* |
-| 45 | &emsp;&emsp;&emsp;&emsp;→&nbsp;`PICV_FAIL_MODE`(설정값) = TRUE(1) 이면 :<br>*[주석] 1 = 안전 위치* |
-| 46 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 `PICV_SAFE_POSITION`(설정값) 기록 — 기본 우선순위(P5) |
-| 47 | &emsp;&emsp;&emsp;&emsp;→&nbsp;45행 조건이 성립하지 않으면 : |
+| 45 | &emsp;&emsp;&emsp;&emsp;→&nbsp;**[조건]** `PICV_FAIL_MODE`(설정값: SAT 고장 시 밸브 위치 선택. 0 = 마지막 위치 유지, 1 = 안전 위치) 값이 [TRUE(1)]임 (= 안전 위치)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 46 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`) 값을 [`PICV_SAFE_POSITION`(설정값: 안전 위치 개도(%))]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 47 | &emsp;&emsp;&emsp;&emsp;→&nbsp;**[아니면]** 45행 조건의 반대 상황, 즉 `PICV_FAIL_MODE`(설정값: SAT 고장 시 밸브 위치 선택. 0 = 마지막 위치 유지, 1 = 안전 위치) 값이 [TRUE(1)]이 아님 (= 마지막 위치 유지)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
 | 48 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] 0 = 마지막 위치 유지. 단, 이번 운전에서 PI가 한 번도 안 돌았으면 직전 명령이 없으므로 안전 위치* |
-| 49 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`) = TRUE(1) 이면 : |
-| 50 | &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) — 출력을 새로 쓰지 않아 고장 직전 명령이 그대로 남는다 |
-| 51 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;49행 조건이 성립하지 않으면 : |
-| 52 | &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 `PICV_SAFE_POSITION`(설정값) 기록 — 기본 우선순위(P5) |
+| 49 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;**[조건]** 이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`) 값이 [TRUE(1)]임 (= 이번 운전에서 PI가 돈 적 있음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 50 | &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) — 출력을 새로 쓰지 않아 고장 직전 명령이 그대로 남는다 |
+| 51 | &emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;**[아니면]** 49행 조건의 반대 상황, 즉 이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`) 값이 [TRUE(1)]이 아님 (= 이번 운전에서 PI가 아직 안 돌았음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 52 | &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`) 값을 [`PICV_SAFE_POSITION`(설정값: 안전 위치 개도(%))]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 | 53 | &emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] JSY 2026-11-23 수정 구간 끝. 주제 = SAT 센서 고장 시 밸브 마지막/안전 위치 선택 (보호 기능)* |
-| 54 | &emsp;&emsp;&emsp;→&nbsp;42행 조건이 성립하지 않으면 :<br>*[주석] SAT 센서 정상일 때 PI 제어 수행* |
+| 54 | &emsp;&emsp;&emsp;→&nbsp;**[아니면]** 42행 조건의 반대 상황, 즉 급기 온도(SAT) 센서 고장 알람 (`VP_FWU_SAT_Failure_Alarm`) 값이 [TRUE(1)]이 아님 (= 알람 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] SAT 센서 정상일 때 PI 제어 수행* |
 | 55 | &emsp;&emsp;&emsp;&emsp;→&nbsp;*[주석] LOOP2(방향, 현재값, 출력, 목표값, P, I, D, 샘플링(초), 시작 출력, 최소, 최대, 루프 번호, 데드밴드)* |
-| 56 | &emsp;&emsp;&emsp;&emsp;→&nbsp;PI 제어(LOOP2) — 방향 DEC: 현재값이 목표보다 높으면 출력을 올리는 방향. 현재값 = 급기 온도(SAT) 센서값 (`FWU_SAT`), 출력 = PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`), 목표값 = 급기 온도 목표값(PICV 제어) (`VP_FWU_PICV_SAT_SP`), P = `PICV_PGAIN`(설정값), I = `PICV_IGAIN`(설정값), D = 0, 샘플링 = 1, 시작 출력 = 100, 출력 범위 = PICV 최소 개도(출력 하한) 설정 (`VP_FWU_PICV_MinSP`) ~ 100, 루프 번호 = `PICV_LOOP`(1), 데드밴드 = 0 |
-| 57 | &emsp;&emsp;&emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`)에 TRUE(1) 기록 — 기본 우선순위(P5)<br>*[주석] 이번 운전에서 PI가 돌았다는 표시 (마지막 위치 유지 판단에 씀)* |
-| 58 | &emsp;&emsp;→&nbsp;41행 조건이 성립하지 않으면 : |
-| 59 | &emsp;&emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) — 명령은 있는데 팬이 아직 안 돌면 직전 출력을 그대로 둔다 |
+| 56 | &emsp;&emsp;&emsp;&emsp;→&nbsp;**PI 자동 제어 실행**: 급기 온도(SAT) 센서값 (`FWU_SAT`)이(가) 급기 온도 목표값(PICV 제어) (`VP_FWU_PICV_SAT_SP`)에 가까워지도록 PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)을 계산해서 쓴다 — 우선순위 5 칸(일반 로직이 쓰는 칸)<br>· 방향 DEC: 현재값이 목표보다 **높으면 출력을 올린다** (예: 온도가 높으면 더 세게)<br>· 비례 게인 P = `PICV_PGAIN`(설정값: SAT 기준 냉수밸브 PI 제어의 P 게인), 적분 게인 I = `PICV_IGAIN`(설정값: 같은 제어의 I 게인), 미분 D = 0 (0이면 안 씀)<br>· 계산 주기 = 1초 (0이면 기본 1초)<br>· 처음 시작할 때 출력 = 100<br>· 출력 범위 = PICV 최소 개도(출력 하한) 설정 (`VP_FWU_PICV_MinSP`) ~ 100 (이 범위 밖으로는 내보내지 않음)<br>· 루프 번호 = `PICV_LOOP`(= 1, 이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다)) (LOOP2_INIT으로 이 제어를 초기화할 때 쓰는 번호)<br>· 데드밴드 = 0 (0이면 없음) |
+| 57 | &emsp;&emsp;&emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`) 값을 [TRUE(1)]로 바꾼다 (= 이번 운전에서 PI가 돈 적 있음) — 우선순위 5 칸(일반 로직이 쓰는 칸)<br>*[주석] 이번 운전에서 PI가 돌았다는 표시 (마지막 위치 유지 판단에 씀)* |
+| 58 | &emsp;&emsp;→&nbsp;**[아니면]** 41행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 운전 명령(BMS) (`VP_FWU_Command`) 값이 [ON(1)]임 (= 운전 명령)<br>② 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [ON(1)]임 (= 팬이 한 대라도 돌고 있음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 59 | &emsp;&emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) — 명령은 있는데 팬이 아직 안 돌면 직전 출력을 그대로 둔다 |
 | 61 | &emsp;&emsp;→&nbsp;*[주석] 운전 명령이 꺼지면 PI 누적값을 지우고 밸브를 닫는다* |
-| 62 | &emsp;&emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`) = OFF(0) 이면 : |
-| 63 | &emsp;&emsp;&emsp;→&nbsp;PI 루프 `PICV_LOOP`(1) 누적값 초기화 |
-| 64 | &emsp;&emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`)에 FALSE(0) 기록 — 기본 우선순위(P5)<br>*[주석] 운전이 끝났으니 PI 실행 기록도 지운다* |
-| 65 | &emsp;&emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 0 기록 — 기본 우선순위(P5) |
-| 66 | &emsp;&emsp;→&nbsp;62행 조건이 성립하지 않으면 :<br>*[주석] 운전 명령이 켜져 있으면 아무 것도 안 함* |
-| 67 | &emsp;&emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 68 | &emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 현재 값을 그대로 기록 — 우선순위 P11 |
-| 69 | &emsp;→&nbsp;39행 조건이 성립하지 않으면 : |
+| 62 | &emsp;&emsp;→&nbsp;**[조건]** 운전 명령(BMS) (`VP_FWU_Command`) 값이 [OFF(0)]임 (= 정지 명령)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 63 | &emsp;&emsp;&emsp;→&nbsp;PI 루프 `PICV_LOOP`(= 1, 이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다))의 누적값(I 적분값)을 지운다 (이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다)). 다음에 이 PI 제어를 다시 돌리면 처음(시작 출력)부터 새로 계산한다 |
+| 64 | &emsp;&emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`) 값을 [FALSE(0)]로 바꾼다 (= 이번 운전에서 PI가 아직 안 돌았음) — 우선순위 5 칸(일반 로직이 쓰는 칸)<br>*[주석] 운전이 끝났으니 PI 실행 기록도 지운다* |
+| 65 | &emsp;&emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`) 값을 [0]로 바꾼다 — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 66 | &emsp;&emsp;→&nbsp;**[아니면]** 62행 조건의 반대 상황, 즉 운전 명령(BMS) (`VP_FWU_Command`) 값이 [OFF(0)]이 아님 (= 운전 명령)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] 운전 명령이 켜져 있으면 아무 것도 안 함* |
+| 67 | &emsp;&emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 68 | &emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)의 지금 값을 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에도 똑같이 적어 둔다. 자동 운전에서 계산한 값을 보관해 두어, 수동으로 바꾸거나 다시 시작할 때 이 값부터 이어가게 한다 |
+| 69 | &emsp;→&nbsp;**[아니면]** 39행 조건의 반대 상황, 즉 운전 모드(1 자동, 0 수동) (`VP_FWU_Operation_Mode`) 값이 [TRUE(1)]이 아님 (= 수동 운전)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
 | 70 | &emsp;&emsp;→&nbsp;*[주석] 수동 모드: 로직이 쓴 P5를 지워 사람이 넣은 값이 적용되게 한다* |
-| 71 | &emsp;&emsp;→&nbsp;PI 루프 `PICV_LOOP`(1) 누적값 초기화 |
-| 72 | &emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 73 | &emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)의 P5 쓰기 해제 |
-| 74 | 36행 조건이 성립하지 않으면 : |
+| 71 | &emsp;&emsp;→&nbsp;PI 루프 `PICV_LOOP`(= 1, 이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다))의 누적값(I 적분값)을 지운다 (이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다)). 다음에 이 PI 제어를 다시 돌리면 처음(시작 출력)부터 새로 계산한다 |
+| 72 | &emsp;&emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`) 값을 [FALSE(0)]로 바꾼다 (= 이번 운전에서 PI가 아직 안 돌았음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 73 | &emsp;&emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)의 우선순위 5 칸(일반 로직이 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 74 | **[아니면]** 36행 조건의 반대 상황, 즉 비상정지 입력(DI) (`FWU_EMERGENCY`) 값이 [FALSE(0)]이 아님 (= 비상정지 눌림)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
 | 75 | &emsp;→&nbsp;*[주석] 비상정지: 밸브를 P1으로 닫는다* |
-| 76 | &emsp;→&nbsp;PI 루프 `PICV_LOOP`(1) 누적값 초기화 |
-| 77 | &emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 78 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 0 기록 — 우선순위 P1 |
-| 79 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 0 기록 — 우선순위 P11 |
+| 76 | &emsp;→&nbsp;PI 루프 `PICV_LOOP`(= 1, 이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다))의 누적값(I 적분값)을 지운다 (이 로직의 LOOP2 번호 (같은 출력점에는 같은 번호를 쓴다)). 다음에 이 PI 제어를 다시 돌리면 처음(시작 출력)부터 새로 계산한다 |
+| 77 | &emsp;→&nbsp;이번 운전에서 PI 제어가 돌았는지 기억(재부팅 시 지워짐) (`VP_FWU_PICV_PI_Started`) 값을 [FALSE(0)]로 바꾼다 (= 이번 운전에서 PI가 아직 안 돌았음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 78 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`) 값을 [0]로 바꾼다 — 우선순위 1 칸(비상정지가 쓰는 칸, 가장 강함)에 쓴다 |
+| 79 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`) 값을 [0]로 바꾼다 — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
 | 81 | *[주석] JSY 2026-11-23 수정 구간 끝. 주제 = Coding Rule 적용(매크로 상수, 설정값 상수, if-else 짝 맞춤, 주석)* |
 | 82 | *[주석] LJH 2026-11-17 수정 구간 끝. 주제 = 네 밸브 공통 냉방 명령* |

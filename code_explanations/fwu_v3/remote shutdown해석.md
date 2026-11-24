@@ -1,7 +1,7 @@
 # Remote Shutdown 줄별 해석
 
 > **대상 코드** : `fwu_v3/Logic/Remote Shutdown.py` (99 줄)  
-> **기준** : `sy 브랜치 2026-11-23 (naming rule·관제점 이름 변경 반영)`  
+> **기준** : `sy 브랜치 2026-11-24 (댐퍼 설치 여부 설정 반영)`  
 > **행** = 코드 줄 번호 (빈 줄은 생략)  
 > **표기** : `→` 들여쓰기 단계 · *[주석]* 코드 안 주석 · `이름` 코드 안 상수·변수 · **※** 읽을 때 주의할 점
 
@@ -14,7 +14,13 @@
 - [28~40행 · 정지 조건 확인](#section-3)
 - [42~99행 · 강제 정지: 운전 명령과 출력을 0으로 누른다 (P2·P11)](#section-4)
 
-**※ 공통 표기**: 매크로 상수 TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0. `SECTIMER(타이머, TMR_CLEAR)`는 타이머를 0초로 초기화, `SECTIMER(타이머, TMR_READ)`는 경과시간 확인이다. P번호가 없는 쓰기(`WRITEPOINT`)는 기본 우선순위 P5를 쓴다. 조건이 거짓이라고 관제점이 저절로 0이 되지는 않는다. 해당 분기에 쓰기가 없으면 이전 값이 남는다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일의 전역변수, `b`가 붙은 이름은 참/거짓 값이다.
+**※ 읽는 법**
+
+- **[조건]** 줄은 조건이 맞을 때만 바로 아래 한 칸 더 들여쓴(→가 하나 더 붙은) 줄들을 실행한다. **[아니면]** 줄은 그 조건이 맞지 않을 때 실행하는 부분이다.
+- 값은 [ ] 안에 적었다. TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0 이다. 0/1 값 옆 (= …)은 그 관제점에서 0/1이 뜻하는 상태다.
+- **우선순위 칸**: 관제점 하나에 번호가 붙은 여러 칸이 있고, **숫자가 작은 칸의 값이 이긴다**. 1 = 비상정지, 2 = 원격·화재 정지, 5 = 일반 로직(번호 없이 쓰는 `WRITEPOINT`), 11 = 값 보관·정지 요청. 칸을 지우면(해제) 그다음 칸의 값이 적용된다.
+- 조건이 맞지 않는다고 관제점이 저절로 0이 되지는 않는다. 그 분기에 쓰는 줄이 없으면 **이전 값이 그대로 남는다**.
+- 타이머는 0으로 되돌린 순간부터 흐른 시간(초)을 잰다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일 전체에서 쓰는 변수, 이름에 `b`가 붙은 변수는 TRUE/FALSE 값이다.
 
 <a id="section-1"></a>
 
@@ -25,15 +31,15 @@
 | 1 | *[주석] LJH 2026-11-17 수정 구간 시작. 주제 = 원격 및 연기 정지 우선순위 유지* |
 | 2 | *[주석] JSY 2026-11-23 수정 구간 시작. 주제 = Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석)* |
 | 4 | *[주석] 로직엔진 loading* |
-| 5 | DDC 로직 엔진 객체 생성 (이후 engine.xxx로 관제점을 읽고 씀) |
+| 5 | DDC 로직 엔진을 불러온다. 이 아래에서 `engine.READPOINT`(관제점 읽기), `engine.WRITEPOINT`(관제점 쓰기) 같은 기능을 이 이름으로 쓴다 |
 | 7 | *[주석] Macro상수 정의* |
-| 8 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC = 1 (긍정의 의미 또는 1인 인자) |
-| 9 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC = 0 (부정의 의미 또는 0인 인자) |
-| 10 | 상수 `FIRE_CONFIRM_SECONDS` = 3<br>*[주석] 감지기 신호가 잠깐 튀는 걸 화재로 보지 않도록, 3초 넘게 이어질 때만 알람* |
+| 8 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC를 모두 숫자 1으로 정한다. 코드에서 숫자 1 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 읽기·켜짐·참·DEC 방향처럼 '긍정' 또는 1을 뜻하는 인자) |
+| 9 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC를 모두 숫자 0으로 정한다. 코드에서 숫자 0 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 초기화·꺼짐·거짓·INC 방향처럼 '부정' 또는 0을 뜻하는 인자) |
+| 10 | 상수 `FIRE_CONFIRM_SECONDS` = 3. 뜻: 감지기 신호가 잠깐 튀는 걸 화재로 보지 않도록, 3초 넘게 이어질 때만 알람 |
 | 12 | *[주석] 타이머 정의* |
-| 13 | 타이머 번호 상수 `FIRE_CONFIRM_TIMER` = 0번<br>*[주석] 연기감지기 신호가 이어진 시간* |
+| 13 | 타이머 번호에 이름 붙이기: `FIRE_CONFIRM_TIMER` = 타이머 0번. 이 타이머로 '연기감지기 신호가 이어진 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
 | 15 | *[주석] 전역변수 선언* |
-| 16 | 전역변수 `mbShutdown` 선언, 처음 값 = FALSE(0)<br>*[주석] 원격 정지나 화재 정지 중 하나라도 걸리면 TRUE* |
+| 16 | 전역변수 `mbShutdown`(강제 정지할지, 원격 정지나 화재 정지면 TRUE)를 만들고 처음 값을 [FALSE(0)]로 둔다. 이 로직이 실행될 때마다 이 값에서 다시 시작한다<br>*[주석] 원격 정지나 화재 정지 중 하나라도 걸리면 TRUE* |
 
 <a id="section-2"></a>
 
@@ -42,14 +48,14 @@
 | 행 | 해석 |
 |---:|---|
 | 18 | *[주석] 연기감지기 신호 확인 → 화재 알람* |
-| 19 | 연기감지기 입력(DI) (`FWU_FIRE_ALARM`) = TRUE(1) 이면 : |
-| 20 | &emsp;→&nbsp;타이머 `FIRE_CONFIRM_TIMER`(0번: 연기감지기 신호가 이어진 시간) 경과시간 > `FIRE_CONFIRM_SECONDS`(3) 이면 : |
-| 21 | &emsp;&emsp;→&nbsp;화재 알람 (`VP_FWU_Fire_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 22 | &emsp;→&nbsp;20행 조건이 성립하지 않으면 : |
-| 23 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 24 | 19행 조건이 성립하지 않으면 : |
-| 25 | &emsp;→&nbsp;타이머 `FIRE_CONFIRM_TIMER`(0번: 연기감지기 신호가 이어진 시간)를 0초로 초기화 |
-| 26 | &emsp;→&nbsp;화재 알람 (`VP_FWU_Fire_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 19 | **[조건]** 연기감지기 입력(DI) (`FWU_FIRE_ALARM`) 값이 [TRUE(1)]임 (= 연기 감지)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 20 | &emsp;→&nbsp;**[조건]** 타이머 0번 `FIRE_CONFIRM_TIMER`(연기감지기 신호가 이어진 시간)으로 잰 시간(초)이 [`FIRE_CONFIRM_SECONDS`(= 3, 감지기 신호가 잠깐 튀는 걸 화재로 보지 않도록, 3초 넘게 이어질 때만 알람)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 21 | &emsp;&emsp;→&nbsp;화재 알람 (`VP_FWU_Fire_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 22 | &emsp;→&nbsp;**[아니면]** 20행 조건의 반대 상황, 즉 타이머 0번 `FIRE_CONFIRM_TIMER`(연기감지기 신호가 이어진 시간)으로 잰 시간(초)이 아직 [`FIRE_CONFIRM_SECONDS`(= 3, 감지기 신호가 잠깐 튀는 걸 화재로 보지 않도록, 3초 넘게 이어질 때만 알람)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 23 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 24 | **[아니면]** 19행 조건의 반대 상황, 즉 연기감지기 입력(DI) (`FWU_FIRE_ALARM`) 값이 [TRUE(1)]이 아님 (= 연기 감지 안 됨)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 25 | &emsp;→&nbsp;타이머 0번 `FIRE_CONFIRM_TIMER`(연기감지기 신호가 이어진 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 26 | &emsp;→&nbsp;화재 알람 (`VP_FWU_Fire_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-3"></a>
 
@@ -63,14 +69,14 @@
 | 29 | *[주석] 화재 때 정지할지는 HMI의 Smoke_Action_Set으로 고른다.* |
 | 30 | *[주석] 일반 운전 ON/OFF와 별개인 강제 정지라서 로컬·수동 운전 중에도 걸린다.* |
 | 31 | *[주석] 하드웨어 화재 차단 회로는 이 설정과 상관없이 따로 동작한다.* |
-| 32 | 원격 정지 명령 (`VP_FWU_Remote_Shutdown_Command`) = TRUE(1) 이면 :<br>*[주석] 사용자(HMI/BMS)가 원격 정지를 걸면 1* |
-| 33 | &emsp;→&nbsp;`mbShutdown` ← TRUE(1) |
-| 34 | 32행 조건이 성립하지 않으면 : |
-| 35 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 37 | 화재 알람 (`VP_FWU_Fire_Alarm`) = TRUE(1) **그리고** 화재 시 동작 설정(1 정지, 0 알람만) (`VP_FWU_Smoke_Action_Set`) = TRUE(1) 이면 :<br>*[주석] Smoke_Action_Set 1 = 정지, 0 = 알람만* |
-| 38 | &emsp;→&nbsp;`mbShutdown` ← TRUE(1) |
-| 39 | 37행 조건이 성립하지 않으면 : |
-| 40 | &emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
+| 32 | **[조건]** 원격 정지 명령 (`VP_FWU_Remote_Shutdown_Command`) 값이 [TRUE(1)]임 (= 원격 정지 요청)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] 사용자(HMI/BMS)가 원격 정지를 걸면 1* |
+| 33 | &emsp;→&nbsp;`mbShutdown`(강제 정지할지, 원격 정지나 화재 정지면 TRUE) 값을 [TRUE(1)]로 바꾼다 |
+| 34 | **[아니면]** 32행 조건의 반대 상황, 즉 원격 정지 명령 (`VP_FWU_Remote_Shutdown_Command`) 값이 [TRUE(1)]이 아님 (= 원격 정지 요청 없음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 35 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 37 | **[조건]** 다음이 **모두** 맞음<br>① 화재 알람 (`VP_FWU_Fire_Alarm`) 값이 [TRUE(1)]임 (= 알람 걸림)<br>② 화재 시 동작 설정(1 정지, 0 알람만) (`VP_FWU_Smoke_Action_Set`) 값이 [TRUE(1)]임 (= 정지함)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] Smoke_Action_Set 1 = 정지, 0 = 알람만* |
+| 38 | &emsp;→&nbsp;`mbShutdown`(강제 정지할지, 원격 정지나 화재 정지면 TRUE) 값을 [TRUE(1)]로 바꾼다 |
+| 39 | **[아니면]** 37행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 화재 알람 (`VP_FWU_Fire_Alarm`) 값이 [TRUE(1)]임 (= 알람 걸림)<br>② 화재 시 동작 설정(1 정지, 0 알람만) (`VP_FWU_Smoke_Action_Set`) 값이 [TRUE(1)]임 (= 정지함)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 40 | &emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
 
 <a id="section-4"></a>
 
@@ -79,58 +85,58 @@
 | 행 | 해석 |
 |---:|---|
 | 42 | *[주석] 강제 정지: 운전 명령과 출력을 0으로 누른다 (P2·P11)* |
-| 43 | `mbShutdown` = TRUE(1) 이면 : |
-| 44 | &emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`)에 OFF(0) 기록 — 우선순위 P11 |
-| 45 | &emsp;→&nbsp;운전 명령(HMI) (`VP_FWU_Command_HMI`)에 OFF(0) 기록 — 우선순위 P11 |
-| 46 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 0 기록 — 우선순위 P2 |
-| 47 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)에 0 기록 — 우선순위 P11 |
-| 48 | &emsp;→&nbsp;팬 속도 요구값(%) (`VP_FWU_SF_Speed_Value`)에 0 기록 — 우선순위 P11 |
-| 49 | &emsp;→&nbsp;팬 1~4번 속도 AO 출력 (`FWU_SF-1_4_SPEED_CONTROL`)에 0 기록 — 우선순위 P2 |
-| 50 | &emsp;→&nbsp;팬 5~8번 속도 AO 출력 (`FWU_SF-5_8_SPEED_CONTROL`)에 0 기록 — 우선순위 P2 |
-| 51 | &emsp;→&nbsp;팬 1번 목표 RPM (`FWU_SF-1.Target_RPM_Set`)에 0 기록 — 우선순위 P2 |
-| 52 | &emsp;→&nbsp;팬 2번 목표 RPM (`FWU_SF-2.Target_RPM_Set`)에 0 기록 — 우선순위 P2 |
-| 53 | &emsp;→&nbsp;팬 3번 목표 RPM (`FWU_SF-3.Target_RPM_Set`)에 0 기록 — 우선순위 P2 |
-| 54 | &emsp;→&nbsp;팬 4번 목표 RPM (`FWU_SF-4.Target_RPM_Set`)에 0 기록 — 우선순위 P2 |
-| 55 | &emsp;→&nbsp;팬 5번 목표 RPM (`FWU_SF-5.Target_RPM_Set`)에 0 기록 — 우선순위 P2 |
-| 56 | &emsp;→&nbsp;팬 6번 목표 RPM (`FWU_SF-6.Target_RPM_Set`)에 0 기록 — 우선순위 P2 |
-| 57 | &emsp;→&nbsp;팬 7번 목표 RPM (`FWU_SF-7.Target_RPM_Set`)에 0 기록 — 우선순위 P2 |
-| 58 | &emsp;→&nbsp;팬 8번 목표 RPM (`FWU_SF-8.Target_RPM_Set`)에 0 기록 — 우선순위 P2 |
-| 59 | &emsp;→&nbsp;팬 1번 운전 명령 (`FWU_SF-1.Run_Command`)에 OFF(0) 기록 — 우선순위 P2 |
-| 60 | &emsp;→&nbsp;팬 2번 운전 명령 (`FWU_SF-2.Run_Command`)에 OFF(0) 기록 — 우선순위 P2 |
-| 61 | &emsp;→&nbsp;팬 3번 운전 명령 (`FWU_SF-3.Run_Command`)에 OFF(0) 기록 — 우선순위 P2 |
-| 62 | &emsp;→&nbsp;팬 4번 운전 명령 (`FWU_SF-4.Run_Command`)에 OFF(0) 기록 — 우선순위 P2 |
-| 63 | &emsp;→&nbsp;팬 5번 운전 명령 (`FWU_SF-5.Run_Command`)에 OFF(0) 기록 — 우선순위 P2 |
-| 64 | &emsp;→&nbsp;팬 6번 운전 명령 (`FWU_SF-6.Run_Command`)에 OFF(0) 기록 — 우선순위 P2 |
-| 65 | &emsp;→&nbsp;팬 7번 운전 명령 (`FWU_SF-7.Run_Command`)에 OFF(0) 기록 — 우선순위 P2 |
-| 66 | &emsp;→&nbsp;팬 8번 운전 명령 (`FWU_SF-8.Run_Command`)에 OFF(0) 기록 — 우선순위 P2 |
+| 43 | **[조건]** `mbShutdown`(강제 정지할지, 원격 정지나 화재 정지면 TRUE) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 44 | &emsp;→&nbsp;운전 명령(BMS) (`VP_FWU_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지 명령) — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
+| 45 | &emsp;→&nbsp;운전 명령(HMI) (`VP_FWU_Command_HMI`) 값을 [OFF(0)]로 바꾼다 (= 정지 명령) — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
+| 46 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 47 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`) 값을 [0]로 바꾼다 — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
+| 48 | &emsp;→&nbsp;팬 속도 요구값(%) (`VP_FWU_SF_Speed_Value`) 값을 [0]로 바꾼다 — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
+| 49 | &emsp;→&nbsp;팬 1~4번 속도 AO 출력 (`FWU_SF-1_4_SPEED_CONTROL`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 50 | &emsp;→&nbsp;팬 5~8번 속도 AO 출력 (`FWU_SF-5_8_SPEED_CONTROL`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 51 | &emsp;→&nbsp;팬 1번 목표 RPM (`FWU_SF-1.Target_RPM_Set`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 52 | &emsp;→&nbsp;팬 2번 목표 RPM (`FWU_SF-2.Target_RPM_Set`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 53 | &emsp;→&nbsp;팬 3번 목표 RPM (`FWU_SF-3.Target_RPM_Set`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 54 | &emsp;→&nbsp;팬 4번 목표 RPM (`FWU_SF-4.Target_RPM_Set`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 55 | &emsp;→&nbsp;팬 5번 목표 RPM (`FWU_SF-5.Target_RPM_Set`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 56 | &emsp;→&nbsp;팬 6번 목표 RPM (`FWU_SF-6.Target_RPM_Set`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 57 | &emsp;→&nbsp;팬 7번 목표 RPM (`FWU_SF-7.Target_RPM_Set`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 58 | &emsp;→&nbsp;팬 8번 목표 RPM (`FWU_SF-8.Target_RPM_Set`) 값을 [0]로 바꾼다 — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 59 | &emsp;→&nbsp;팬 1번 운전 명령 (`FWU_SF-1.Run_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 60 | &emsp;→&nbsp;팬 2번 운전 명령 (`FWU_SF-2.Run_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 61 | &emsp;→&nbsp;팬 3번 운전 명령 (`FWU_SF-3.Run_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 62 | &emsp;→&nbsp;팬 4번 운전 명령 (`FWU_SF-4.Run_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 63 | &emsp;→&nbsp;팬 5번 운전 명령 (`FWU_SF-5.Run_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 64 | &emsp;→&nbsp;팬 6번 운전 명령 (`FWU_SF-6.Run_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 65 | &emsp;→&nbsp;팬 7번 운전 명령 (`FWU_SF-7.Run_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 66 | &emsp;→&nbsp;팬 8번 운전 명령 (`FWU_SF-8.Run_Command`) 값을 [OFF(0)]로 바꾼다 (= 정지) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
 | 68 | &emsp;→&nbsp;*[주석] 댐퍼는 팬이 다 멈춘 걸 확인한 뒤에 닫는다* |
-| 69 | &emsp;→&nbsp;팬 운전 상태 (`VP_FWU_SF_Status`) = OFF(0) 이면 : |
-| 70 | &emsp;&emsp;→&nbsp;댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`)에 OFF(0) 기록 — 우선순위 P2 |
-| 71 | &emsp;&emsp;→&nbsp;댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`)에 OFF(0) 기록 — 우선순위 P11 |
-| 72 | &emsp;→&nbsp;69행 조건이 성립하지 않으면 : |
-| 73 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 74 | 43행 조건이 성립하지 않으면 : |
+| 69 | &emsp;→&nbsp;**[조건]** 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [OFF(0)]임 (= 팬이 한 대도 안 돎)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 70 | &emsp;&emsp;→&nbsp;댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값을 [OFF(0)]로 바꾼다 (= 댐퍼 닫힘 명령) — 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 쓴다 |
+| 71 | &emsp;&emsp;→&nbsp;댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값을 [OFF(0)]로 바꾼다 (= 댐퍼 닫힘 명령) — 우선순위 11 칸(값 보관·정지 요청용 칸. 숫자가 작은 칸이 모두 비어 있을 때 적용됨)에 쓴다 |
+| 72 | &emsp;→&nbsp;**[아니면]** 69행 조건의 반대 상황, 즉 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [OFF(0)]이 아님 (= 팬이 한 대라도 돌고 있음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 73 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 74 | **[아니면]** 43행 조건의 반대 상황, 즉 `mbShutdown`(강제 정지할지, 원격 정지나 화재 정지면 TRUE) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
 | 75 | &emsp;→&nbsp;*[주석] 정지 해제: P2만 풀어 준다.* |
 | 76 | &emsp;→&nbsp;*[주석] P11에 남은 OFF는 재기동을 막는 래치가 아니어서, 더 높은 우선순위에 운전 명령이 남아 있으면 다시 돈다.* |
-| 77 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)의 P2 쓰기 해제 |
-| 78 | &emsp;→&nbsp;팬 1~4번 속도 AO 출력 (`FWU_SF-1_4_SPEED_CONTROL`)의 P2 쓰기 해제 |
-| 79 | &emsp;→&nbsp;팬 5~8번 속도 AO 출력 (`FWU_SF-5_8_SPEED_CONTROL`)의 P2 쓰기 해제 |
-| 80 | &emsp;→&nbsp;팬 1번 목표 RPM (`FWU_SF-1.Target_RPM_Set`)의 P2 쓰기 해제 |
-| 81 | &emsp;→&nbsp;팬 2번 목표 RPM (`FWU_SF-2.Target_RPM_Set`)의 P2 쓰기 해제 |
-| 82 | &emsp;→&nbsp;팬 3번 목표 RPM (`FWU_SF-3.Target_RPM_Set`)의 P2 쓰기 해제 |
-| 83 | &emsp;→&nbsp;팬 4번 목표 RPM (`FWU_SF-4.Target_RPM_Set`)의 P2 쓰기 해제 |
-| 84 | &emsp;→&nbsp;팬 5번 목표 RPM (`FWU_SF-5.Target_RPM_Set`)의 P2 쓰기 해제 |
-| 85 | &emsp;→&nbsp;팬 6번 목표 RPM (`FWU_SF-6.Target_RPM_Set`)의 P2 쓰기 해제 |
-| 86 | &emsp;→&nbsp;팬 7번 목표 RPM (`FWU_SF-7.Target_RPM_Set`)의 P2 쓰기 해제 |
-| 87 | &emsp;→&nbsp;팬 8번 목표 RPM (`FWU_SF-8.Target_RPM_Set`)의 P2 쓰기 해제 |
-| 88 | &emsp;→&nbsp;팬 1번 운전 명령 (`FWU_SF-1.Run_Command`)의 P2 쓰기 해제 |
-| 89 | &emsp;→&nbsp;팬 2번 운전 명령 (`FWU_SF-2.Run_Command`)의 P2 쓰기 해제 |
-| 90 | &emsp;→&nbsp;팬 3번 운전 명령 (`FWU_SF-3.Run_Command`)의 P2 쓰기 해제 |
-| 91 | &emsp;→&nbsp;팬 4번 운전 명령 (`FWU_SF-4.Run_Command`)의 P2 쓰기 해제 |
-| 92 | &emsp;→&nbsp;팬 5번 운전 명령 (`FWU_SF-5.Run_Command`)의 P2 쓰기 해제 |
-| 93 | &emsp;→&nbsp;팬 6번 운전 명령 (`FWU_SF-6.Run_Command`)의 P2 쓰기 해제 |
-| 94 | &emsp;→&nbsp;팬 7번 운전 명령 (`FWU_SF-7.Run_Command`)의 P2 쓰기 해제 |
-| 95 | &emsp;→&nbsp;팬 8번 운전 명령 (`FWU_SF-8.Run_Command`)의 P2 쓰기 해제 |
-| 96 | &emsp;→&nbsp;댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`)의 P2 쓰기 해제 |
+| 77 | &emsp;→&nbsp;PICV 공통 개도 명령(AO) (`FWU_PICV_CONTROL`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 78 | &emsp;→&nbsp;팬 1~4번 속도 AO 출력 (`FWU_SF-1_4_SPEED_CONTROL`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 79 | &emsp;→&nbsp;팬 5~8번 속도 AO 출력 (`FWU_SF-5_8_SPEED_CONTROL`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 80 | &emsp;→&nbsp;팬 1번 목표 RPM (`FWU_SF-1.Target_RPM_Set`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 81 | &emsp;→&nbsp;팬 2번 목표 RPM (`FWU_SF-2.Target_RPM_Set`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 82 | &emsp;→&nbsp;팬 3번 목표 RPM (`FWU_SF-3.Target_RPM_Set`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 83 | &emsp;→&nbsp;팬 4번 목표 RPM (`FWU_SF-4.Target_RPM_Set`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 84 | &emsp;→&nbsp;팬 5번 목표 RPM (`FWU_SF-5.Target_RPM_Set`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 85 | &emsp;→&nbsp;팬 6번 목표 RPM (`FWU_SF-6.Target_RPM_Set`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 86 | &emsp;→&nbsp;팬 7번 목표 RPM (`FWU_SF-7.Target_RPM_Set`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 87 | &emsp;→&nbsp;팬 8번 목표 RPM (`FWU_SF-8.Target_RPM_Set`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 88 | &emsp;→&nbsp;팬 1번 운전 명령 (`FWU_SF-1.Run_Command`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 89 | &emsp;→&nbsp;팬 2번 운전 명령 (`FWU_SF-2.Run_Command`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 90 | &emsp;→&nbsp;팬 3번 운전 명령 (`FWU_SF-3.Run_Command`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 91 | &emsp;→&nbsp;팬 4번 운전 명령 (`FWU_SF-4.Run_Command`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 92 | &emsp;→&nbsp;팬 5번 운전 명령 (`FWU_SF-5.Run_Command`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 93 | &emsp;→&nbsp;팬 6번 운전 명령 (`FWU_SF-6.Run_Command`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 94 | &emsp;→&nbsp;팬 7번 운전 명령 (`FWU_SF-7.Run_Command`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 95 | &emsp;→&nbsp;팬 8번 운전 명령 (`FWU_SF-8.Run_Command`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
+| 96 | &emsp;→&nbsp;댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`)의 우선순위 2 칸(원격·화재 정지가 쓰는 칸)에 써 둔 값을 지운다. 그 칸이 비면 그다음 칸(숫자가 더 큰 칸)에 있는 값이 적용된다 |
 | 98 | *[주석] JSY 2026-11-23 수정 구간 끝. 주제 = Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석)* |
 | 99 | *[주석] LJH 2026-11-17 수정 구간 끝. 주제 = 원격 및 연기 정지 우선순위 유지* |

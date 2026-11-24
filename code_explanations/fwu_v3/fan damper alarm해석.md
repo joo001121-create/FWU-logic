@@ -1,7 +1,7 @@
 # Fan Damper Alarm 줄별 해석
 
 > **대상 코드** : `fwu_v3/Logic/Fan Damper Alarm.py` (180 줄)  
-> **기준** : `sy 브랜치 2026-11-23 (naming rule·관제점 이름 변경 반영)`  
+> **기준** : `sy 브랜치 2026-11-24 (댐퍼 설치 여부 설정 반영)`  
 > **행** = 코드 줄 번호 (빈 줄은 생략)  
 > **표기** : `→` 들여쓰기 단계 · *[주석]* 코드 안 주석 · `이름` 코드 안 상수·변수 · **※** 읽을 때 주의할 점
 
@@ -16,7 +16,13 @@
 - [151~163행 · 댐퍼 미개방: 열림 명령을 내고 팬이 아직 안 돌 때, 120초가 지나도 네 댐퍼가 다 안 열리면 알람 (댐퍼가 있을 때만)](#section-5)
 - [165~180행 · 댐퍼 미폐쇄: 닫힘 명령 뒤 120초가 지나도 네 댐퍼가 다 안 닫히면 알람 (댐퍼가 있을 때만)](#section-6)
 
-**※ 공통 표기**: 매크로 상수 TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0. `SECTIMER(타이머, TMR_CLEAR)`는 타이머를 0초로 초기화, `SECTIMER(타이머, TMR_READ)`는 경과시간 확인이다. P번호가 없는 쓰기(`WRITEPOINT`)는 기본 우선순위 P5를 쓴다. 조건이 거짓이라고 관제점이 저절로 0이 되지는 않는다. 해당 분기에 쓰기가 없으면 이전 값이 남는다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일의 전역변수, `b`가 붙은 이름은 참/거짓 값이다.
+**※ 읽는 법**
+
+- **[조건]** 줄은 조건이 맞을 때만 바로 아래 한 칸 더 들여쓴(→가 하나 더 붙은) 줄들을 실행한다. **[아니면]** 줄은 그 조건이 맞지 않을 때 실행하는 부분이다.
+- 값은 [ ] 안에 적었다. TRUE·ON·SET·TMR_READ·DEC = 1, FALSE·OFF·CLEAR·TMR_CLEAR·INC = 0 이다. 0/1 값 옆 (= …)은 그 관제점에서 0/1이 뜻하는 상태다.
+- **우선순위 칸**: 관제점 하나에 번호가 붙은 여러 칸이 있고, **숫자가 작은 칸의 값이 이긴다**. 1 = 비상정지, 2 = 원격·화재 정지, 5 = 일반 로직(번호 없이 쓰는 `WRITEPOINT`), 11 = 값 보관·정지 요청. 칸을 지우면(해제) 그다음 칸의 값이 적용된다.
+- 조건이 맞지 않는다고 관제점이 저절로 0이 되지는 않는다. 그 분기에 쓰는 줄이 없으면 **이전 값이 그대로 남는다**.
+- 타이머는 0으로 되돌린 순간부터 흐른 시간(초)을 잰다. 대문자 이름은 상수, `m`으로 시작하는 이름은 이 파일 전체에서 쓰는 변수, 이름에 `b`가 붙은 변수는 TRUE/FALSE 값이다.
 
 <a id="section-1"></a>
 
@@ -26,23 +32,23 @@
 |---:|---|
 | 1 | *[주석] JSY 2026-11-23 수정 구간 시작. 주제 = Alarm-1에서 팬 운전 고장 알람과 댐퍼 보호 알람을 떼어 만듦, Coding Rule 적용* |
 | 3 | *[주석] 로직엔진 loading* |
-| 4 | DDC 로직 엔진 객체 생성 (이후 engine.xxx로 관제점을 읽고 씀) |
+| 4 | DDC 로직 엔진을 불러온다. 이 아래에서 `engine.READPOINT`(관제점 읽기), `engine.WRITEPOINT`(관제점 쓰기) 같은 기능을 이 이름으로 쓴다 |
 | 6 | *[주석] Macro상수 정의* |
-| 7 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC = 1 (긍정의 의미 또는 1인 인자) |
-| 8 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC = 0 (부정의 의미 또는 0인 인자) |
-| 9 | 상수 `FAN_COUNT` = 8<br>*[주석] 팬 대수 (F8 모델 기준)* |
-| 10 | 상수 `FAN_FAIL_CONFIRM_SECONDS` = 60<br>*[주석] 운전 명령 후 60초가 지나야 팬 고장을 본다* |
-| 11 | 상수 `DAMPER_TRAVEL_SECONDS` = 120<br>*[주석] 댐퍼가 끝까지 움직이는 데 주는 시간* |
-| 12 | 설정값 상수 `FAIL_RPM`: 팬 운전 판단 RPM 설정 (`VP_FWU_SF_Failure_RPM_Set`) 값을 읽어 둠<br>*[주석] 팬 RPM이 이 값보다 낮으면 고장 후보로 봄* |
-| 13 | 설정값 상수 `SAD_INSTALLED`: 댐퍼 설치 여부 설정(0 없음, 1 있음) (`VP_FWU_SAD_Installed`) 값을 읽어 둠<br>*[주석] 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)* |
+| 7 | 매크로 상수 정의: TMR_READ, SET, ON, TRUE, DEC를 모두 숫자 1으로 정한다. 코드에서 숫자 1 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 읽기·켜짐·참·DEC 방향처럼 '긍정' 또는 1을 뜻하는 인자) |
+| 8 | 매크로 상수 정의: TMR_CLEAR, CLEAR, OFF, FALSE, INC를 모두 숫자 0으로 정한다. 코드에서 숫자 0 대신 뜻이 보이는 이름으로 쓰기 위한 것이다 (타이머 초기화·꺼짐·거짓·INC 방향처럼 '부정' 또는 0을 뜻하는 인자) |
+| 9 | 상수 `FAN_COUNT` = 8. 뜻: 팬 대수 (F8 모델 기준) |
+| 10 | 상수 `FAN_FAIL_CONFIRM_SECONDS` = 60. 뜻: 운전 명령 후 60초가 지나야 팬 고장을 본다 |
+| 11 | 상수 `DAMPER_TRAVEL_SECONDS` = 120. 뜻: 댐퍼가 끝까지 움직이는 데 주는 시간 |
+| 12 | 설정값 상수 `FAIL_RPM`: 팬 운전 판단 RPM 설정 (`VP_FWU_SF_Failure_RPM_Set`) 값을 이 로직이 실행될 때마다 한 번 읽어 이 이름에 담아 둔다. 뜻: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄 |
+| 13 | 설정값 상수 `SAD_INSTALLED`: 댐퍼 설치 여부 설정(0 없음, 1 있음) (`VP_FWU_SAD_Installed`) 값을 이 로직이 실행될 때마다 한 번 읽어 이 이름에 담아 둔다. 뜻: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24) |
 | 14 | *[주석] F4/F6는 개별 팬 판정과 입출력을 함께 변경. Count VP로 모델을 전환하지 않는다.* |
 | 16 | *[주석] 타이머 정의 (번호는 Alarm-1에서 쓰던 그대로)* |
-| 17 | 타이머 번호 상수 `FAN_FAIL_TIMER` = 1번<br>*[주석] 운전 명령이 들어간 뒤 지난 시간 (팬 고장 판단 시작 지연)* |
-| 18 | 타이머 번호 상수 `SAD_OPEN_TIMER` = 7번<br>*[주석] 댐퍼 열림 명령 뒤 지난 시간* |
-| 19 | 타이머 번호 상수 `SAD_CLOSE_TIMER` = 8번<br>*[주석] 댐퍼 닫힘 명령 뒤 지난 시간* |
+| 17 | 타이머 번호에 이름 붙이기: `FAN_FAIL_TIMER` = 타이머 1번. 이 타이머로 '운전 명령이 들어간 뒤 지난 시간 (팬 고장 판단 시작 지연)'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 18 | 타이머 번호에 이름 붙이기: `SAD_OPEN_TIMER` = 타이머 7번. 이 타이머로 '댐퍼 열림 명령 뒤 지난 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
+| 19 | 타이머 번호에 이름 붙이기: `SAD_CLOSE_TIMER` = 타이머 8번. 이 타이머로 '댐퍼 닫힘 명령 뒤 지난 시간'을 잰다 (한 로직에서 타이머는 0~9번 10개까지) |
 | 21 | *[주석] 전역변수 선언: 댐퍼 닫힘 접점 상태* |
-| 22 | 전역변수 `mbSADAllClose` ← 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) = TRUE(1) 이면 TRUE, 아니면 FALSE<br>*[주석] 네 댐퍼가 모두 닫힘* |
-| 23 | 전역변수 `mbSADAnyClose` ← 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) = TRUE(1) **또는** 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) = TRUE(1) **또는** 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) = TRUE(1) **또는** 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) = TRUE(1) 이면 TRUE, 아니면 FALSE<br>*[주석] 하나라도 닫힘* |
+| 22 | `mbSADAllClose`(네 댐퍼가 모두 닫혔는지, TRUE면 모두 닫힘)에 판단 결과를 넣는다: 다음이 **모두** 맞음<br>① 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>② 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>③ 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>④ 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ 맞으면 TRUE(1), 아니면 FALSE(0)<br>*[주석] 네 댐퍼가 모두 닫힘* |
+| 23 | `mbSADAnyClose`(댐퍼가 하나라도 닫혔는지, TRUE면 하나 이상 닫힘)에 판단 결과를 넣는다: 다음 중 **하나라도** 맞음<br>① 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>② 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>③ 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>④ 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ 맞으면 TRUE(1), 아니면 FALSE(0)<br>*[주석] 하나라도 닫힘* |
 
 <a id="section-2"></a>
 
@@ -51,105 +57,105 @@
 | 행 | 해석 |
 |---:|---|
 | 25 | *[주석] 팬 운전 고장: 운전 명령이 있고 속도가 최소 이상인데 60초가 지나도 안 돌면 고장* |
-| 26 | 운전 명령(BMS) (`VP_FWU_Command`) = ON(1) **그리고** 팬 속도 요구값(%) (`VP_FWU_SF_Speed_Value`) ≥ 팬 최소 속도(%) (`VP_FWU_SF_Speed_Min`) 이면 : |
-| 27 | &emsp;→&nbsp;타이머 `FAN_FAIL_TIMER`(1번: 운전 명령이 들어간 뒤 지난 시간 (팬 고장 판단 시작 지연)) 경과시간 > `FAN_FAIL_CONFIRM_SECONDS`(60) 이면 : |
-| 28 | &emsp;&emsp;→&nbsp;`bSFDPLow` ← 급기 풍량 차압(FMS) (`FWU_SAFLOW_DP`) ≤ 팬 운전 판단 차압 설정 (`VP_FWU_SF_Run_DP_Set`) 이면 TRUE, 아니면 FALSE<br>*[주석] 급기 차압이 운전 기준 이하* |
+| 26 | **[조건]** 다음이 **모두** 맞음<br>① 운전 명령(BMS) (`VP_FWU_Command`) 값이 [ON(1)]임 (= 운전 명령)<br>② 팬 속도 요구값(%) (`VP_FWU_SF_Speed_Value`) 값이 [팬 최소 속도(%) (`VP_FWU_SF_Speed_Min`)] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 27 | &emsp;→&nbsp;**[조건]** 타이머 1번 `FAN_FAIL_TIMER`(운전 명령이 들어간 뒤 지난 시간 (팬 고장 판단 시작 지연))으로 잰 시간(초)이 [`FAN_FAIL_CONFIRM_SECONDS`(= 60, 운전 명령 후 60초가 지나야 팬 고장을 본다)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 28 | &emsp;&emsp;→&nbsp;`bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음)에 판단 결과를 넣는다: 급기 풍량 차압(FMS) (`FWU_SAFLOW_DP`) 값이 [팬 운전 판단 차압 설정 (`VP_FWU_SF_Run_DP_Set`)] 이하<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
 | 30 | &emsp;&emsp;→&nbsp;*[주석] 통신이 되는 팬은 RPM으로, 통신이 끊긴 팬은 급기 차압으로 판단한다* |
-| 31 | &emsp;&emsp;→&nbsp;팬 1번 통신 이상 (`VP_FWU_SF-1_Comm_Fault`) = FALSE(0) 이면 : |
-| 32 | &emsp;&emsp;&emsp;→&nbsp;`bSF1Fail` ← 팬 1번 현재 RPM (`FWU_SF-1.Current_RPM`) < `FAIL_RPM`(설정값) 이면 TRUE, 아니면 FALSE |
-| 33 | &emsp;&emsp;→&nbsp;31행 조건이 성립하지 않으면 : |
-| 34 | &emsp;&emsp;&emsp;→&nbsp;`bSF1Fail` ← `bSFDPLow` |
-| 36 | &emsp;&emsp;→&nbsp;팬 2번 통신 이상 (`VP_FWU_SF-2_Comm_Fault`) = FALSE(0) 이면 : |
-| 37 | &emsp;&emsp;&emsp;→&nbsp;`bSF2Fail` ← 팬 2번 현재 RPM (`FWU_SF-2.Current_RPM`) < `FAIL_RPM`(설정값) 이면 TRUE, 아니면 FALSE |
-| 38 | &emsp;&emsp;→&nbsp;36행 조건이 성립하지 않으면 : |
-| 39 | &emsp;&emsp;&emsp;→&nbsp;`bSF2Fail` ← `bSFDPLow` |
-| 41 | &emsp;&emsp;→&nbsp;팬 3번 통신 이상 (`VP_FWU_SF-3_Comm_Fault`) = FALSE(0) 이면 : |
-| 42 | &emsp;&emsp;&emsp;→&nbsp;`bSF3Fail` ← 팬 3번 현재 RPM (`FWU_SF-3.Current_RPM`) < `FAIL_RPM`(설정값) 이면 TRUE, 아니면 FALSE |
-| 43 | &emsp;&emsp;→&nbsp;41행 조건이 성립하지 않으면 : |
-| 44 | &emsp;&emsp;&emsp;→&nbsp;`bSF3Fail` ← `bSFDPLow` |
-| 46 | &emsp;&emsp;→&nbsp;팬 4번 통신 이상 (`VP_FWU_SF-4_Comm_Fault`) = FALSE(0) 이면 : |
-| 47 | &emsp;&emsp;&emsp;→&nbsp;`bSF4Fail` ← 팬 4번 현재 RPM (`FWU_SF-4.Current_RPM`) < `FAIL_RPM`(설정값) 이면 TRUE, 아니면 FALSE |
-| 48 | &emsp;&emsp;→&nbsp;46행 조건이 성립하지 않으면 : |
-| 49 | &emsp;&emsp;&emsp;→&nbsp;`bSF4Fail` ← `bSFDPLow` |
-| 51 | &emsp;&emsp;→&nbsp;팬 5번 통신 이상 (`VP_FWU_SF-5_Comm_Fault`) = FALSE(0) 이면 : |
-| 52 | &emsp;&emsp;&emsp;→&nbsp;`bSF5Fail` ← 팬 5번 현재 RPM (`FWU_SF-5.Current_RPM`) < `FAIL_RPM`(설정값) 이면 TRUE, 아니면 FALSE |
-| 53 | &emsp;&emsp;→&nbsp;51행 조건이 성립하지 않으면 : |
-| 54 | &emsp;&emsp;&emsp;→&nbsp;`bSF5Fail` ← `bSFDPLow` |
-| 56 | &emsp;&emsp;→&nbsp;팬 6번 통신 이상 (`VP_FWU_SF-6_Comm_Fault`) = FALSE(0) 이면 : |
-| 57 | &emsp;&emsp;&emsp;→&nbsp;`bSF6Fail` ← 팬 6번 현재 RPM (`FWU_SF-6.Current_RPM`) < `FAIL_RPM`(설정값) 이면 TRUE, 아니면 FALSE |
-| 58 | &emsp;&emsp;→&nbsp;56행 조건이 성립하지 않으면 : |
-| 59 | &emsp;&emsp;&emsp;→&nbsp;`bSF6Fail` ← `bSFDPLow` |
-| 61 | &emsp;&emsp;→&nbsp;팬 7번 통신 이상 (`VP_FWU_SF-7_Comm_Fault`) = FALSE(0) 이면 : |
-| 62 | &emsp;&emsp;&emsp;→&nbsp;`bSF7Fail` ← 팬 7번 현재 RPM (`FWU_SF-7.Current_RPM`) < `FAIL_RPM`(설정값) 이면 TRUE, 아니면 FALSE |
-| 63 | &emsp;&emsp;→&nbsp;61행 조건이 성립하지 않으면 : |
-| 64 | &emsp;&emsp;&emsp;→&nbsp;`bSF7Fail` ← `bSFDPLow` |
-| 66 | &emsp;&emsp;→&nbsp;팬 8번 통신 이상 (`VP_FWU_SF-8_Comm_Fault`) = FALSE(0) 이면 : |
-| 67 | &emsp;&emsp;&emsp;→&nbsp;`bSF8Fail` ← 팬 8번 현재 RPM (`FWU_SF-8.Current_RPM`) < `FAIL_RPM`(설정값) 이면 TRUE, 아니면 FALSE |
-| 68 | &emsp;&emsp;→&nbsp;66행 조건이 성립하지 않으면 : |
-| 69 | &emsp;&emsp;&emsp;→&nbsp;`bSF8Fail` ← `bSFDPLow` |
+| 31 | &emsp;&emsp;→&nbsp;**[조건]** 팬 1번 통신 이상 (`VP_FWU_SF-1_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 32 | &emsp;&emsp;&emsp;→&nbsp;`bSF1Fail`(팬 1번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: 팬 1번 현재 RPM (`FWU_SF-1.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄)]보다 작음<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 33 | &emsp;&emsp;→&nbsp;**[아니면]** 31행 조건의 반대 상황, 즉 팬 1번 통신 이상 (`VP_FWU_SF-1_Comm_Fault`) 값이 [FALSE(0)]이 아님 (= 통신 이상)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 34 | &emsp;&emsp;&emsp;→&nbsp;`bSF1Fail`(팬 1번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: `bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음) 값이 [TRUE(1)]임<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 36 | &emsp;&emsp;→&nbsp;**[조건]** 팬 2번 통신 이상 (`VP_FWU_SF-2_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 37 | &emsp;&emsp;&emsp;→&nbsp;`bSF2Fail`(팬 2번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: 팬 2번 현재 RPM (`FWU_SF-2.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄)]보다 작음<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 38 | &emsp;&emsp;→&nbsp;**[아니면]** 36행 조건의 반대 상황, 즉 팬 2번 통신 이상 (`VP_FWU_SF-2_Comm_Fault`) 값이 [FALSE(0)]이 아님 (= 통신 이상)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 39 | &emsp;&emsp;&emsp;→&nbsp;`bSF2Fail`(팬 2번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: `bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음) 값이 [TRUE(1)]임<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 41 | &emsp;&emsp;→&nbsp;**[조건]** 팬 3번 통신 이상 (`VP_FWU_SF-3_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 42 | &emsp;&emsp;&emsp;→&nbsp;`bSF3Fail`(팬 3번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: 팬 3번 현재 RPM (`FWU_SF-3.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄)]보다 작음<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 43 | &emsp;&emsp;→&nbsp;**[아니면]** 41행 조건의 반대 상황, 즉 팬 3번 통신 이상 (`VP_FWU_SF-3_Comm_Fault`) 값이 [FALSE(0)]이 아님 (= 통신 이상)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 44 | &emsp;&emsp;&emsp;→&nbsp;`bSF3Fail`(팬 3번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: `bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음) 값이 [TRUE(1)]임<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 46 | &emsp;&emsp;→&nbsp;**[조건]** 팬 4번 통신 이상 (`VP_FWU_SF-4_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 47 | &emsp;&emsp;&emsp;→&nbsp;`bSF4Fail`(팬 4번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: 팬 4번 현재 RPM (`FWU_SF-4.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄)]보다 작음<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 48 | &emsp;&emsp;→&nbsp;**[아니면]** 46행 조건의 반대 상황, 즉 팬 4번 통신 이상 (`VP_FWU_SF-4_Comm_Fault`) 값이 [FALSE(0)]이 아님 (= 통신 이상)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 49 | &emsp;&emsp;&emsp;→&nbsp;`bSF4Fail`(팬 4번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: `bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음) 값이 [TRUE(1)]임<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 51 | &emsp;&emsp;→&nbsp;**[조건]** 팬 5번 통신 이상 (`VP_FWU_SF-5_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 52 | &emsp;&emsp;&emsp;→&nbsp;`bSF5Fail`(팬 5번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: 팬 5번 현재 RPM (`FWU_SF-5.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄)]보다 작음<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 53 | &emsp;&emsp;→&nbsp;**[아니면]** 51행 조건의 반대 상황, 즉 팬 5번 통신 이상 (`VP_FWU_SF-5_Comm_Fault`) 값이 [FALSE(0)]이 아님 (= 통신 이상)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 54 | &emsp;&emsp;&emsp;→&nbsp;`bSF5Fail`(팬 5번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: `bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음) 값이 [TRUE(1)]임<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 56 | &emsp;&emsp;→&nbsp;**[조건]** 팬 6번 통신 이상 (`VP_FWU_SF-6_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 57 | &emsp;&emsp;&emsp;→&nbsp;`bSF6Fail`(팬 6번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: 팬 6번 현재 RPM (`FWU_SF-6.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄)]보다 작음<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 58 | &emsp;&emsp;→&nbsp;**[아니면]** 56행 조건의 반대 상황, 즉 팬 6번 통신 이상 (`VP_FWU_SF-6_Comm_Fault`) 값이 [FALSE(0)]이 아님 (= 통신 이상)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 59 | &emsp;&emsp;&emsp;→&nbsp;`bSF6Fail`(팬 6번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: `bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음) 값이 [TRUE(1)]임<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 61 | &emsp;&emsp;→&nbsp;**[조건]** 팬 7번 통신 이상 (`VP_FWU_SF-7_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 62 | &emsp;&emsp;&emsp;→&nbsp;`bSF7Fail`(팬 7번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: 팬 7번 현재 RPM (`FWU_SF-7.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄)]보다 작음<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 63 | &emsp;&emsp;→&nbsp;**[아니면]** 61행 조건의 반대 상황, 즉 팬 7번 통신 이상 (`VP_FWU_SF-7_Comm_Fault`) 값이 [FALSE(0)]이 아님 (= 통신 이상)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 64 | &emsp;&emsp;&emsp;→&nbsp;`bSF7Fail`(팬 7번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: `bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음) 값이 [TRUE(1)]임<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 66 | &emsp;&emsp;→&nbsp;**[조건]** 팬 8번 통신 이상 (`VP_FWU_SF-8_Comm_Fault`) 값이 [FALSE(0)]임 (= 통신 정상)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 67 | &emsp;&emsp;&emsp;→&nbsp;`bSF8Fail`(팬 8번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: 팬 8번 현재 RPM (`FWU_SF-8.Current_RPM`) 값이 [`FAIL_RPM`(설정값: 팬 RPM이 이 값보다 낮으면 고장 후보로 봄)]보다 작음<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
+| 68 | &emsp;&emsp;→&nbsp;**[아니면]** 66행 조건의 반대 상황, 즉 팬 8번 통신 이상 (`VP_FWU_SF-8_Comm_Fault`) 값이 [FALSE(0)]이 아님 (= 통신 이상)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 69 | &emsp;&emsp;&emsp;→&nbsp;`bSF8Fail`(팬 8번을 고장으로 볼지, TRUE면 고장)에 판단 결과를 넣는다: `bSFDPLow`(급기 차압이 운전 기준 이하인지, TRUE면 낮음) 값이 [TRUE(1)]임<br>→ 맞으면 TRUE(1), 아니면 FALSE(0) |
 | 71 | &emsp;&emsp;→&nbsp;*[주석] 팬별 알람을 내고 고장 대수를 센다* |
-| 72 | &emsp;&emsp;→&nbsp;`SFFailCount` ← 0 |
-| 73 | &emsp;&emsp;→&nbsp;`bSF1Fail` = TRUE(1) 이면 : |
-| 74 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`에 1을(를) 더함 |
-| 75 | &emsp;&emsp;&emsp;→&nbsp;팬 1번 운전 고장 알람 (`VP_FWU_SF-1_Run_Fail_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 76 | &emsp;&emsp;→&nbsp;73행 조건이 성립하지 않으면 : |
-| 77 | &emsp;&emsp;&emsp;→&nbsp;팬 1번 운전 고장 알람 (`VP_FWU_SF-1_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 78 | &emsp;&emsp;→&nbsp;`bSF2Fail` = TRUE(1) 이면 : |
-| 79 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`에 1을(를) 더함 |
-| 80 | &emsp;&emsp;&emsp;→&nbsp;팬 2번 운전 고장 알람 (`VP_FWU_SF-2_Run_Fail_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 81 | &emsp;&emsp;→&nbsp;78행 조건이 성립하지 않으면 : |
-| 82 | &emsp;&emsp;&emsp;→&nbsp;팬 2번 운전 고장 알람 (`VP_FWU_SF-2_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 83 | &emsp;&emsp;→&nbsp;`bSF3Fail` = TRUE(1) 이면 : |
-| 84 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`에 1을(를) 더함 |
-| 85 | &emsp;&emsp;&emsp;→&nbsp;팬 3번 운전 고장 알람 (`VP_FWU_SF-3_Run_Fail_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 86 | &emsp;&emsp;→&nbsp;83행 조건이 성립하지 않으면 : |
-| 87 | &emsp;&emsp;&emsp;→&nbsp;팬 3번 운전 고장 알람 (`VP_FWU_SF-3_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 88 | &emsp;&emsp;→&nbsp;`bSF4Fail` = TRUE(1) 이면 : |
-| 89 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`에 1을(를) 더함 |
-| 90 | &emsp;&emsp;&emsp;→&nbsp;팬 4번 운전 고장 알람 (`VP_FWU_SF-4_Run_Fail_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 91 | &emsp;&emsp;→&nbsp;88행 조건이 성립하지 않으면 : |
-| 92 | &emsp;&emsp;&emsp;→&nbsp;팬 4번 운전 고장 알람 (`VP_FWU_SF-4_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 93 | &emsp;&emsp;→&nbsp;`bSF5Fail` = TRUE(1) 이면 : |
-| 94 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`에 1을(를) 더함 |
-| 95 | &emsp;&emsp;&emsp;→&nbsp;팬 5번 운전 고장 알람 (`VP_FWU_SF-5_Run_Fail_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 96 | &emsp;&emsp;→&nbsp;93행 조건이 성립하지 않으면 : |
-| 97 | &emsp;&emsp;&emsp;→&nbsp;팬 5번 운전 고장 알람 (`VP_FWU_SF-5_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 98 | &emsp;&emsp;→&nbsp;`bSF6Fail` = TRUE(1) 이면 : |
-| 99 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`에 1을(를) 더함 |
-| 100 | &emsp;&emsp;&emsp;→&nbsp;팬 6번 운전 고장 알람 (`VP_FWU_SF-6_Run_Fail_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 101 | &emsp;&emsp;→&nbsp;98행 조건이 성립하지 않으면 : |
-| 102 | &emsp;&emsp;&emsp;→&nbsp;팬 6번 운전 고장 알람 (`VP_FWU_SF-6_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 103 | &emsp;&emsp;→&nbsp;`bSF7Fail` = TRUE(1) 이면 : |
-| 104 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`에 1을(를) 더함 |
-| 105 | &emsp;&emsp;&emsp;→&nbsp;팬 7번 운전 고장 알람 (`VP_FWU_SF-7_Run_Fail_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 106 | &emsp;&emsp;→&nbsp;103행 조건이 성립하지 않으면 : |
-| 107 | &emsp;&emsp;&emsp;→&nbsp;팬 7번 운전 고장 알람 (`VP_FWU_SF-7_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 108 | &emsp;&emsp;→&nbsp;`bSF8Fail` = TRUE(1) 이면 : |
-| 109 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`에 1을(를) 더함 |
-| 110 | &emsp;&emsp;&emsp;→&nbsp;팬 8번 운전 고장 알람 (`VP_FWU_SF-8_Run_Fail_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 111 | &emsp;&emsp;→&nbsp;108행 조건이 성립하지 않으면 : |
-| 112 | &emsp;&emsp;&emsp;→&nbsp;팬 8번 운전 고장 알람 (`VP_FWU_SF-8_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 72 | &emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수) 값을 [0]로 바꾼다 |
+| 73 | &emsp;&emsp;→&nbsp;**[조건]** `bSF1Fail`(팬 1번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 74 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수)를 1 늘린다 (하나 더 센다) |
+| 75 | &emsp;&emsp;&emsp;→&nbsp;팬 1번 운전 고장 알람 (`VP_FWU_SF-1_Run_Fail_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 76 | &emsp;&emsp;→&nbsp;**[아니면]** 73행 조건의 반대 상황, 즉 `bSF1Fail`(팬 1번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 77 | &emsp;&emsp;&emsp;→&nbsp;팬 1번 운전 고장 알람 (`VP_FWU_SF-1_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 78 | &emsp;&emsp;→&nbsp;**[조건]** `bSF2Fail`(팬 2번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 79 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수)를 1 늘린다 (하나 더 센다) |
+| 80 | &emsp;&emsp;&emsp;→&nbsp;팬 2번 운전 고장 알람 (`VP_FWU_SF-2_Run_Fail_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 81 | &emsp;&emsp;→&nbsp;**[아니면]** 78행 조건의 반대 상황, 즉 `bSF2Fail`(팬 2번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 82 | &emsp;&emsp;&emsp;→&nbsp;팬 2번 운전 고장 알람 (`VP_FWU_SF-2_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 83 | &emsp;&emsp;→&nbsp;**[조건]** `bSF3Fail`(팬 3번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 84 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수)를 1 늘린다 (하나 더 센다) |
+| 85 | &emsp;&emsp;&emsp;→&nbsp;팬 3번 운전 고장 알람 (`VP_FWU_SF-3_Run_Fail_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 86 | &emsp;&emsp;→&nbsp;**[아니면]** 83행 조건의 반대 상황, 즉 `bSF3Fail`(팬 3번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 87 | &emsp;&emsp;&emsp;→&nbsp;팬 3번 운전 고장 알람 (`VP_FWU_SF-3_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 88 | &emsp;&emsp;→&nbsp;**[조건]** `bSF4Fail`(팬 4번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 89 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수)를 1 늘린다 (하나 더 센다) |
+| 90 | &emsp;&emsp;&emsp;→&nbsp;팬 4번 운전 고장 알람 (`VP_FWU_SF-4_Run_Fail_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 91 | &emsp;&emsp;→&nbsp;**[아니면]** 88행 조건의 반대 상황, 즉 `bSF4Fail`(팬 4번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 92 | &emsp;&emsp;&emsp;→&nbsp;팬 4번 운전 고장 알람 (`VP_FWU_SF-4_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 93 | &emsp;&emsp;→&nbsp;**[조건]** `bSF5Fail`(팬 5번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 94 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수)를 1 늘린다 (하나 더 센다) |
+| 95 | &emsp;&emsp;&emsp;→&nbsp;팬 5번 운전 고장 알람 (`VP_FWU_SF-5_Run_Fail_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 96 | &emsp;&emsp;→&nbsp;**[아니면]** 93행 조건의 반대 상황, 즉 `bSF5Fail`(팬 5번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 97 | &emsp;&emsp;&emsp;→&nbsp;팬 5번 운전 고장 알람 (`VP_FWU_SF-5_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 98 | &emsp;&emsp;→&nbsp;**[조건]** `bSF6Fail`(팬 6번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 99 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수)를 1 늘린다 (하나 더 센다) |
+| 100 | &emsp;&emsp;&emsp;→&nbsp;팬 6번 운전 고장 알람 (`VP_FWU_SF-6_Run_Fail_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 101 | &emsp;&emsp;→&nbsp;**[아니면]** 98행 조건의 반대 상황, 즉 `bSF6Fail`(팬 6번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 102 | &emsp;&emsp;&emsp;→&nbsp;팬 6번 운전 고장 알람 (`VP_FWU_SF-6_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 103 | &emsp;&emsp;→&nbsp;**[조건]** `bSF7Fail`(팬 7번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 104 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수)를 1 늘린다 (하나 더 센다) |
+| 105 | &emsp;&emsp;&emsp;→&nbsp;팬 7번 운전 고장 알람 (`VP_FWU_SF-7_Run_Fail_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 106 | &emsp;&emsp;→&nbsp;**[아니면]** 103행 조건의 반대 상황, 즉 `bSF7Fail`(팬 7번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 107 | &emsp;&emsp;&emsp;→&nbsp;팬 7번 운전 고장 알람 (`VP_FWU_SF-7_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 108 | &emsp;&emsp;→&nbsp;**[조건]** `bSF8Fail`(팬 8번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 109 | &emsp;&emsp;&emsp;→&nbsp;`SFFailCount`(고장으로 판단한 팬 대수)를 1 늘린다 (하나 더 센다) |
+| 110 | &emsp;&emsp;&emsp;→&nbsp;팬 8번 운전 고장 알람 (`VP_FWU_SF-8_Run_Fail_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 111 | &emsp;&emsp;→&nbsp;**[아니면]** 108행 조건의 반대 상황, 즉 `bSF8Fail`(팬 8번을 고장으로 볼지, TRUE면 고장) 값이 [TRUE(1)]이 아님<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 112 | &emsp;&emsp;&emsp;→&nbsp;팬 8번 운전 고장 알람 (`VP_FWU_SF-8_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 | 114 | &emsp;&emsp;→&nbsp;*[주석] 종합 팬 고장 기준은 SMX01의 절반 이상 고장을 임시로 유지한다.* |
 | 115 | &emsp;&emsp;→&nbsp;*[주석] 신규 팬의 정압-풍량 곡선과 허용 최대속도를 기준으로, 팬 고장 시에도* |
 | 116 | &emsp;&emsp;→&nbsp;*[주석] 요구 정압에서 목표 풍량을 확보할 수 있는 고장 허용 대수를 확인할 것.* |
 | 117 | &emsp;&emsp;→&nbsp;*[주석] 확인 결과에 맞춰 아래 종합 고장 대수 기준과 Failover 정지 연계를 재검토한다.* |
-| 118 | &emsp;&emsp;→&nbsp;`SFFailCount` × 2 ≥ `FAN_COUNT`(8) 이면 :<br>*[주석] 절반 이상 고장이면 종합 알람 (팬·모델이 바뀌면 기준을 다시 정해야 할 수 있음)* |
-| 119 | &emsp;&emsp;&emsp;→&nbsp;팬 종합 고장 알람 (`VP_FWU_SF_Failure_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 120 | &emsp;&emsp;→&nbsp;118행 조건이 성립하지 않으면 : |
-| 121 | &emsp;&emsp;&emsp;→&nbsp;팬 종합 고장 알람 (`VP_FWU_SF_Failure_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 122 | &emsp;→&nbsp;27행 조건이 성립하지 않으면 : |
-| 123 | &emsp;&emsp;→&nbsp;아무것도 하지 않음 (do_nothing) |
-| 124 | 26행 조건이 성립하지 않으면 : |
-| 125 | &emsp;→&nbsp;타이머 `FAN_FAIL_TIMER`(1번: 운전 명령이 들어간 뒤 지난 시간 (팬 고장 판단 시작 지연))를 0초로 초기화 |
-| 126 | &emsp;→&nbsp;팬 종합 고장 알람 (`VP_FWU_SF_Failure_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 127 | &emsp;→&nbsp;팬 1번 운전 고장 알람 (`VP_FWU_SF-1_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 128 | &emsp;→&nbsp;팬 2번 운전 고장 알람 (`VP_FWU_SF-2_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 129 | &emsp;→&nbsp;팬 3번 운전 고장 알람 (`VP_FWU_SF-3_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 130 | &emsp;→&nbsp;팬 4번 운전 고장 알람 (`VP_FWU_SF-4_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 131 | &emsp;→&nbsp;팬 5번 운전 고장 알람 (`VP_FWU_SF-5_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 132 | &emsp;→&nbsp;팬 6번 운전 고장 알람 (`VP_FWU_SF-6_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 133 | &emsp;→&nbsp;팬 7번 운전 고장 알람 (`VP_FWU_SF-7_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 134 | &emsp;→&nbsp;팬 8번 운전 고장 알람 (`VP_FWU_SF-8_Run_Fail_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 118 | &emsp;&emsp;→&nbsp;**[조건]** `SFFailCount`(고장으로 판단한 팬 대수) × 2 값이 [`FAN_COUNT`(= 8, 팬 대수 (F8 모델 기준))] 이상<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] 절반 이상 고장이면 종합 알람 (팬·모델이 바뀌면 기준을 다시 정해야 할 수 있음)* |
+| 119 | &emsp;&emsp;&emsp;→&nbsp;팬 종합 고장 알람 (`VP_FWU_SF_Failure_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 120 | &emsp;&emsp;→&nbsp;**[아니면]** 118행 조건의 반대 상황, 즉 `SFFailCount`(고장으로 판단한 팬 대수) × 2 값이 [`FAN_COUNT`(= 8, 팬 대수 (F8 모델 기준))]보다 작음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 121 | &emsp;&emsp;&emsp;→&nbsp;팬 종합 고장 알람 (`VP_FWU_SF_Failure_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 122 | &emsp;→&nbsp;**[아니면]** 27행 조건의 반대 상황, 즉 타이머 1번 `FAN_FAIL_TIMER`(운전 명령이 들어간 뒤 지난 시간 (팬 고장 판단 시작 지연))으로 잰 시간(초)이 아직 [`FAN_FAIL_CONFIRM_SECONDS`(= 60, 운전 명령 후 60초가 지나야 팬 고장을 본다)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 123 | &emsp;&emsp;→&nbsp;아무것도 하지 않는다 (위 조건에 해당할 때 따로 할 일이 없다는 표시, do_nothing) |
+| 124 | **[아니면]** 26행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 운전 명령(BMS) (`VP_FWU_Command`) 값이 [ON(1)]임 (= 운전 명령)<br>② 팬 속도 요구값(%) (`VP_FWU_SF_Speed_Value`) 값이 [팬 최소 속도(%) (`VP_FWU_SF_Speed_Min`)] 이상<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 125 | &emsp;→&nbsp;타이머 1번 `FAN_FAIL_TIMER`(운전 명령이 들어간 뒤 지난 시간 (팬 고장 판단 시작 지연))를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 126 | &emsp;→&nbsp;팬 종합 고장 알람 (`VP_FWU_SF_Failure_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 127 | &emsp;→&nbsp;팬 1번 운전 고장 알람 (`VP_FWU_SF-1_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 128 | &emsp;→&nbsp;팬 2번 운전 고장 알람 (`VP_FWU_SF-2_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 129 | &emsp;→&nbsp;팬 3번 운전 고장 알람 (`VP_FWU_SF-3_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 130 | &emsp;→&nbsp;팬 4번 운전 고장 알람 (`VP_FWU_SF-4_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 131 | &emsp;→&nbsp;팬 5번 운전 고장 알람 (`VP_FWU_SF-5_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 132 | &emsp;→&nbsp;팬 6번 운전 고장 알람 (`VP_FWU_SF-6_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 133 | &emsp;→&nbsp;팬 7번 운전 고장 알람 (`VP_FWU_SF-7_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 134 | &emsp;→&nbsp;팬 8번 운전 고장 알람 (`VP_FWU_SF-8_Run_Fail_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-3"></a>
 
@@ -158,13 +164,13 @@
 | 행 | 해석 |
 |---:|---|
 | 136 | *[주석] 댐퍼 일부 닫힘: 팬이 도는데 네 댐퍼 중 일부만 닫혀 있음 (댐퍼가 있을 때만)* |
-| 137 | `SAD_INSTALLED`(설정값) = TRUE(1) **그리고** 팬 운전 상태 (`VP_FWU_SF_Status`) = ON(1) 이면 : |
-| 138 | &emsp;→&nbsp;`mbSADAnyClose` = TRUE(1) **그리고** `mbSADAllClose` = FALSE(0) 이면 : |
-| 139 | &emsp;&emsp;→&nbsp;댐퍼 일부 닫힘 알람 (`VP_FWU_SAD_Partial_Close_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 140 | &emsp;→&nbsp;138행 조건이 성립하지 않으면 : |
-| 141 | &emsp;&emsp;→&nbsp;댐퍼 일부 닫힘 알람 (`VP_FWU_SAD_Partial_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 142 | 137행 조건이 성립하지 않으면 : |
-| 143 | &emsp;→&nbsp;댐퍼 일부 닫힘 알람 (`VP_FWU_SAD_Partial_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 137 | **[조건]** 다음이 **모두** 맞음<br>① `SAD_INSTALLED`(설정값: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)) 값이 [TRUE(1)]임 (= 댐퍼 있음)<br>② 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [ON(1)]임 (= 팬이 한 대라도 돌고 있음)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 138 | &emsp;→&nbsp;**[조건]** 다음이 **모두** 맞음<br>① `mbSADAnyClose`(댐퍼가 하나라도 닫혔는지, TRUE면 하나 이상 닫힘) 값이 [TRUE(1)]임<br>② `mbSADAllClose`(네 댐퍼가 모두 닫혔는지, TRUE면 모두 닫힘) 값이 [FALSE(0)]임<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 139 | &emsp;&emsp;→&nbsp;댐퍼 일부 닫힘 알람 (`VP_FWU_SAD_Partial_Close_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 140 | &emsp;→&nbsp;**[아니면]** 138행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `mbSADAnyClose`(댐퍼가 하나라도 닫혔는지, TRUE면 하나 이상 닫힘) 값이 [TRUE(1)]임<br>② `mbSADAllClose`(네 댐퍼가 모두 닫혔는지, TRUE면 모두 닫힘) 값이 [FALSE(0)]임<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 141 | &emsp;&emsp;→&nbsp;댐퍼 일부 닫힘 알람 (`VP_FWU_SAD_Partial_Close_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 142 | **[아니면]** 137행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `SAD_INSTALLED`(설정값: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)) 값이 [TRUE(1)]임 (= 댐퍼 있음)<br>② 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [ON(1)]임 (= 팬이 한 대라도 돌고 있음)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 143 | &emsp;→&nbsp;댐퍼 일부 닫힘 알람 (`VP_FWU_SAD_Partial_Close_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-4"></a>
 
@@ -173,10 +179,10 @@
 | 행 | 해석 |
 |---:|---|
 | 145 | *[주석] 댐퍼 전폐: 열림 명령인데 네 댐퍼가 모두 닫혀 있음. 팬이 서도 한 번 걸린 알람은 닫힘이 풀릴 때까지 유지 (댐퍼가 있을 때만)* |
-| 146 | `SAD_INSTALLED`(설정값) = TRUE(1) **그리고** `mbSADAllClose` = TRUE(1) **그리고** 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) = ON(1) **그리고** (팬 운전 상태 (`VP_FWU_SF_Status`) = ON(1) **또는** 댐퍼 전폐 알람 (`VP_FWU_SAD_Full_Close_Alarm`) = TRUE(1)) 이면 : |
-| 147 | &emsp;→&nbsp;댐퍼 전폐 알람 (`VP_FWU_SAD_Full_Close_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 148 | 146행 조건이 성립하지 않으면 : |
-| 149 | &emsp;→&nbsp;댐퍼 전폐 알람 (`VP_FWU_SAD_Full_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
+| 146 | **[조건]** 다음이 **모두** 맞음<br>① `SAD_INSTALLED`(설정값: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)) 값이 [TRUE(1)]임 (= 댐퍼 있음)<br>② `mbSADAllClose`(네 댐퍼가 모두 닫혔는지, TRUE면 모두 닫힘) 값이 [TRUE(1)]임<br>③ 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값이 [ON(1)]임 (= 댐퍼 열림 명령)<br>④ (팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [ON(1)]임 (= 팬이 한 대라도 돌고 있음) **또는** 댐퍼 전폐 알람 (`VP_FWU_SAD_Full_Close_Alarm`) 값이 [TRUE(1)]임 (= 알람 걸림))<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 147 | &emsp;→&nbsp;댐퍼 전폐 알람 (`VP_FWU_SAD_Full_Close_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 148 | **[아니면]** 146행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `SAD_INSTALLED`(설정값: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)) 값이 [TRUE(1)]임 (= 댐퍼 있음)<br>② `mbSADAllClose`(네 댐퍼가 모두 닫혔는지, TRUE면 모두 닫힘) 값이 [TRUE(1)]임<br>③ 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값이 [ON(1)]임 (= 댐퍼 열림 명령)<br>④ (팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [ON(1)]임 (= 팬이 한 대라도 돌고 있음) **또는** 댐퍼 전폐 알람 (`VP_FWU_SAD_Full_Close_Alarm`) 값이 [TRUE(1)]임 (= 알람 걸림))<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 149 | &emsp;→&nbsp;댐퍼 전폐 알람 (`VP_FWU_SAD_Full_Close_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
 
 <a id="section-5"></a>
 
@@ -185,18 +191,18 @@
 | 행 | 해석 |
 |---:|---|
 | 151 | *[주석] 댐퍼 미개방: 열림 명령을 내고 팬이 아직 안 돌 때, 120초가 지나도 네 댐퍼가 다 안 열리면 알람 (댐퍼가 있을 때만)* |
-| 152 | `SAD_INSTALLED`(설정값) = TRUE(1) **그리고** 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) = ON(1) **그리고** 팬 운전 상태 (`VP_FWU_SF_Status`) = OFF(0) 이면 : |
-| 153 | &emsp;→&nbsp;타이머 `SAD_CLOSE_TIMER`(8번: 댐퍼 닫힘 명령 뒤 지난 시간)를 0초로 초기화 |
-| 154 | &emsp;→&nbsp;타이머 `SAD_OPEN_TIMER`(7번: 댐퍼 열림 명령 뒤 지난 시간) 경과시간 > `DAMPER_TRAVEL_SECONDS`(120) 이면 : |
-| 155 | &emsp;&emsp;→&nbsp;댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) = TRUE(1) **그리고** 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) = TRUE(1) 이면 :<br>*[주석] 네 댐퍼가 모두 열렸으면 정상* |
-| 156 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 157 | &emsp;&emsp;→&nbsp;155행 조건이 성립하지 않으면 : |
-| 158 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 159 | &emsp;→&nbsp;154행 조건이 성립하지 않으면 : |
-| 160 | &emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 161 | 152행 조건이 성립하지 않으면 : |
-| 162 | &emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 163 | &emsp;→&nbsp;타이머 `SAD_OPEN_TIMER`(7번: 댐퍼 열림 명령 뒤 지난 시간)를 0초로 초기화 |
+| 152 | **[조건]** 다음이 **모두** 맞음<br>① `SAD_INSTALLED`(설정값: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)) 값이 [TRUE(1)]임 (= 댐퍼 있음)<br>② 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값이 [ON(1)]임 (= 댐퍼 열림 명령)<br>③ 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [OFF(0)]임 (= 팬이 한 대도 안 돎)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 153 | &emsp;→&nbsp;타이머 8번 `SAD_CLOSE_TIMER`(댐퍼 닫힘 명령 뒤 지난 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 154 | &emsp;→&nbsp;**[조건]** 타이머 7번 `SAD_OPEN_TIMER`(댐퍼 열림 명령 뒤 지난 시간)으로 잰 시간(초)이 [`DAMPER_TRAVEL_SECONDS`(= 120, 댐퍼가 끝까지 움직이는 데 주는 시간)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 155 | &emsp;&emsp;→&nbsp;**[조건]** 다음이 **모두** 맞음<br>① 댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>③ 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>④ 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] 네 댐퍼가 모두 열렸으면 정상* |
+| 156 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 157 | &emsp;&emsp;→&nbsp;**[아니면]** 155행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 댐퍼 1번 열림 접점 (`FWU_SAD-1_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>② 댐퍼 2번 열림 접점 (`FWU_SAD-2_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>③ 댐퍼 3번 열림 접점 (`FWU_SAD-3_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>④ 댐퍼 4번 열림 접점 (`FWU_SAD-4_OPEN_STATUS`) 값이 [TRUE(1)]임 (= 열림 확인)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 158 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 159 | &emsp;→&nbsp;**[아니면]** 154행 조건의 반대 상황, 즉 타이머 7번 `SAD_OPEN_TIMER`(댐퍼 열림 명령 뒤 지난 시간)으로 잰 시간(초)이 아직 [`DAMPER_TRAVEL_SECONDS`(= 120, 댐퍼가 끝까지 움직이는 데 주는 시간)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 160 | &emsp;&emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 161 | **[아니면]** 152행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `SAD_INSTALLED`(설정값: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)) 값이 [TRUE(1)]임 (= 댐퍼 있음)<br>② 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값이 [ON(1)]임 (= 댐퍼 열림 명령)<br>③ 팬 운전 상태 (`VP_FWU_SF_Status`) 값이 [OFF(0)]임 (= 팬이 한 대도 안 돎)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 162 | &emsp;→&nbsp;댐퍼 미개방 알람 (`VP_FWU_SAD_Not_Open_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 163 | &emsp;→&nbsp;타이머 7번 `SAD_OPEN_TIMER`(댐퍼 열림 명령 뒤 지난 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
 
 <a id="section-6"></a>
 
@@ -205,17 +211,17 @@
 | 행 | 해석 |
 |---:|---|
 | 165 | *[주석] 댐퍼 미폐쇄: 닫힘 명령 뒤 120초가 지나도 네 댐퍼가 다 안 닫히면 알람 (댐퍼가 있을 때만)* |
-| 166 | `SAD_INSTALLED`(설정값) = TRUE(1) **그리고** 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) = OFF(0) 이면 : |
-| 167 | &emsp;→&nbsp;타이머 `SAD_OPEN_TIMER`(7번: 댐퍼 열림 명령 뒤 지난 시간)를 0초로 초기화 |
-| 168 | &emsp;→&nbsp;타이머 `SAD_CLOSE_TIMER`(8번: 댐퍼 닫힘 명령 뒤 지난 시간) 경과시간 > `DAMPER_TRAVEL_SECONDS`(120) 이면 : |
-| 169 | &emsp;&emsp;→&nbsp;댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) = TRUE(1) **그리고** 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) = TRUE(1) 이면 :<br>*[주석] 네 댐퍼가 모두 닫혔으면 정상* |
-| 170 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 171 | &emsp;&emsp;→&nbsp;169행 조건이 성립하지 않으면 : |
-| 172 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 TRUE(1) 기록 — 기본 우선순위(P5) |
-| 173 | &emsp;→&nbsp;168행 조건이 성립하지 않으면 : |
-| 174 | &emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 175 | 166행 조건이 성립하지 않으면 : |
-| 176 | &emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)에 FALSE(0) 기록 — 기본 우선순위(P5) |
-| 177 | &emsp;→&nbsp;타이머 `SAD_CLOSE_TIMER`(8번: 댐퍼 닫힘 명령 뒤 지난 시간)를 0초로 초기화 |
+| 166 | **[조건]** 다음이 **모두** 맞음<br>① `SAD_INSTALLED`(설정값: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)) 값이 [TRUE(1)]임 (= 댐퍼 있음)<br>② 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값이 [OFF(0)]임 (= 댐퍼 닫힘 명령)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 167 | &emsp;→&nbsp;타이머 7번 `SAD_OPEN_TIMER`(댐퍼 열림 명령 뒤 지난 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
+| 168 | &emsp;→&nbsp;**[조건]** 타이머 8번 `SAD_CLOSE_TIMER`(댐퍼 닫힘 명령 뒤 지난 시간)으로 잰 시간(초)이 [`DAMPER_TRAVEL_SECONDS`(= 120, 댐퍼가 끝까지 움직이는 데 주는 시간)]초보다 김<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 169 | &emsp;&emsp;→&nbsp;**[조건]** 다음이 **모두** 맞음<br>① 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>② 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>③ 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>④ 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ **맞으면** 바로 아래 한 칸 더 들여쓴 줄들을 실행한다<br>*[주석] 네 댐퍼가 모두 닫혔으면 정상* |
+| 170 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 171 | &emsp;&emsp;→&nbsp;**[아니면]** 169행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① 댐퍼 1번 닫힘 접점 (`FWU_SAD-1_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>② 댐퍼 2번 닫힘 접점 (`FWU_SAD-2_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>③ 댐퍼 3번 닫힘 접점 (`FWU_SAD-3_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>④ 댐퍼 4번 닫힘 접점 (`FWU_SAD-4_CLOSE_STATUS`) 값이 [TRUE(1)]임 (= 닫힘 확인)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 172 | &emsp;&emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)을 켠다 — 값 [TRUE(1)] (= 알람 걸림) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 173 | &emsp;→&nbsp;**[아니면]** 168행 조건의 반대 상황, 즉 타이머 8번 `SAD_CLOSE_TIMER`(댐퍼 닫힘 명령 뒤 지난 시간)으로 잰 시간(초)이 아직 [`DAMPER_TRAVEL_SECONDS`(= 120, 댐퍼가 끝까지 움직이는 데 주는 시간)]초를 넘지 않음<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 174 | &emsp;&emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 175 | **[아니면]** 166행 조건의 반대 상황, 즉 아래 조건 중 **하나라도 맞지 않음**<br>① `SAD_INSTALLED`(설정값: 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)) 값이 [TRUE(1)]임 (= 댐퍼 있음)<br>② 댐퍼 1~4번 개폐 명령(DO) (`FWU_SAD-1_4_COMMAND`) 값이 [OFF(0)]임 (= 댐퍼 닫힘 명령)<br>→ 이때 바로 아래 한 칸 더 들여쓴 줄들을 실행한다 |
+| 176 | &emsp;→&nbsp;댐퍼 미폐쇄 알람 (`VP_FWU_SAD_Not_Close_Alarm`)을 끈다 — 값 [FALSE(0)] (= 알람 없음) — 우선순위 5 칸(일반 로직이 쓰는 칸) |
+| 177 | &emsp;→&nbsp;타이머 8번 `SAD_CLOSE_TIMER`(댐퍼 닫힘 명령 뒤 지난 시간)를 0으로 되돌린다. 이 시점부터 시간을 새로 잰다 |
 | 179 | *[주석] JSY 2026-11-23 수정 구간 끝. 주제 = Alarm-1에서 팬 운전 고장 알람과 댐퍼 보호 알람을 떼어 만듦, Coding Rule 적용* |
 | 180 | *[주석] LJH 2026-11-17 수정 표시. 주제 = 내부 센서 유효성 및 팬·댐퍼 알람* |
