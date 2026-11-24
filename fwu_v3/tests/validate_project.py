@@ -118,7 +118,7 @@ def validate():
     mapping = list(csv.DictReader((ROOT/'PICV_POINT_MAPPING.csv').open(encoding='utf-8-sig')))
     declared_unbound = sorted(r['point_name'] for r in mapping)
     assert len(declared_unbound) == len(set(declared_unbound)) == 12
-    assert missing == ['FWU_LEAK_DETECT'], missing
+    assert missing == [], missing   # 2026-11-24 FWU_LEAK_DETECT를 IO.xml(CPU00-DI1)에 등록해 미등록 참조 없음
     assert all(name in by_name and by_name[name].get('category') == 'Modbus' for name in declared_unbound)
     registered = [n.get('name') for n in ET.parse(ROOT/'DDC.xml').findall('logicInfo')]
     assert len(registered) == 14 and len(set(registered)) == 14
@@ -134,12 +134,12 @@ def validate():
         'variable_naming': 'PASS', 'logic_registration': 'PASS',
         'logic_count': len(logic_paths), 'xml_count': len(xml_paths),
         'renamed_points_including_unbound': len(rows),
-        'new_unbound_physical_references': [], 'picv_profile_defined': declared_unbound, 'inherited_undefined_references': ['FWU_LEAK_DETECT'],
+        'new_unbound_physical_references': [], 'picv_profile_defined': declared_unbound, 'inherited_undefined_references': [],
         'unexpected_undefined_references': [],
         'timers': timers, 'loops': loops,
         'limitations': ['DDC firmware, PI dynamics and hardware not tested',
                        'Fan CH1, ATS CH2, PICV CH3 profile defined; hardware commissioning not performed',
-                       'FWU_LEAK_DETECT remains unbound',
+                       'FWU_LEAK_DETECT, FWU_CONDENSATE_PUMP_ALARM, FWU_CHW_ENT/LVG_TEMP use proposed CPU terminals; match wiring and sensor signal',
                        'PICV XML uses Belimo EPIV V4.3.0 profile and station plan 1..4; verify actual firmware/settings',
                        'PICV first-response/freshness guarantee not verified by LDPL code',
                        'External HMI/BMS projects not updated; rename map supplied']
