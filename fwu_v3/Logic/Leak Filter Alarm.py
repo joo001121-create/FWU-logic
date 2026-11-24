@@ -14,7 +14,7 @@ LEAK_TIMER = 8      ## 누수 신호가 이어진 시간
 FILTER_TIMER = 9    ## 필터 차압 스위치가 켜져 있던 시간
 
 ## 누수 알람: 알람만 내고 장비는 세우지 않는다 (QTS: 누수가 있어도 정지하면 안 됨)
-# 누수 입력 DI 주소는 HW 확인 후 연결
+# 누수 입력 DI는 IO.xml CPU00-DI1에 등록(2026-11-24, 제안 단자). 배선을 이 단자에 맞추고 접점 극성(1 = 누수) 확인
 if engine.READPOINT("FWU_LEAK_DETECT") == TRUE:
     if engine.SECTIMER(LEAK_TIMER, TMR_READ) > LEAK_CONFIRM_SECONDS:
         engine.WRITEPOINT("VP_FWU_Leak_Alarm", TRUE)

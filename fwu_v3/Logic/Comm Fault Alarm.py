@@ -21,8 +21,8 @@ SF_7_COMM_TIMER = 6    ## 팬7 통신 이상이 이어진 시간
 SF_8_COMM_TIMER = 7    ## 팬8 통신 이상이 이어진 시간
 ATS_COMM_TIMER = 8     ## ATS 통신 이상이 이어진 시간
 
-# ATS는 CH2 RS485 구성으로 연결할 것. DI 입력 표기와 실제 HW 구성을 대조한다.
-# 현재 XML 통신 포트 배치는 구형 맵이므로 실장 전에 수정해야 한다.
+# ATS는 CH2 RS485(Modbus2.xml, 포트 2)로 연결한다. DI 입력 표기와 실제 HW 구성을 대조한다.
+# XML 통신 포트 배치는 v2에서 확인된 CH2 구성으로 반영함. 장치 주소·통신 설정은 실장 시 확인.
 
 ## 팬 1~8 통신 이상: 각 팬의 Current_RPM 점에 통신 경보(8)가 떠 있는지로 본다
 if engine.READPOINT_ALARM("FWU_SF-1.Current_RPM") == COMM_FAULT_CODE:

@@ -463,6 +463,7 @@ VP_FWU_SAD-4_Position_Unknown_Alarm,0500101E,VP050000101E,DV,ControlPoint/Virtua
 VP_FWU_SAD-4_Signal_Conflict_Alarm,0500101F,VP050000101F,DV,ControlPoint/VirtualPoint.xml
 VP_FWU_SAD_Conflict_Delay,02001022,VP0200001022,AV,ControlPoint/VirtualPoint.xml
 VP_FWU_SAD_Full_Close_Alarm,0500016F,VP050000008B,DV,ControlPoint/VirtualPoint.xml
+VP_FWU_SAD_Installed,05001038,VP0500001038,DV,ControlPoint/VirtualPoint.xml
 VP_FWU_SAD_Not_Close_Alarm,0500016E,VP050000008A,DV,ControlPoint/VirtualPoint.xml
 VP_FWU_SAD_Not_Open_Alarm,0500016A,VP0500000086,DV,ControlPoint/VirtualPoint.xml
 VP_FWU_SAD_Partial_Close_Alarm,05000169,VP0500000085,DV,ControlPoint/VirtualPoint.xml

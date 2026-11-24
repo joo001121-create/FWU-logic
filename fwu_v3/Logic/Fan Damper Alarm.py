@@ -10,6 +10,7 @@ FAN_COUNT = 8                    ## 팬 대수 (F8 모델 기준)
 FAN_FAIL_CONFIRM_SECONDS = 60    ## 운전 명령 후 60초가 지나야 팬 고장을 본다
 DAMPER_TRAVEL_SECONDS = 120      ## 댐퍼가 끝까지 움직이는 데 주는 시간
 FAIL_RPM = engine.READPOINT("VP_FWU_SF_Failure_RPM_Set")   ## 팬 RPM이 이 값보다 낮으면 고장 후보로 봄
+SAD_INSTALLED = engine.READPOINT("VP_FWU_SAD_Installed")   ## 댐퍼 설치 여부 (옵션 부품). 0 = 없음이면 댐퍼 알람 4개를 내지 않는다 (JSY 2026-11-24)
 # F4/F6는 개별 팬 판정과 입출력을 함께 변경. Count VP로 모델을 전환하지 않는다.
 
 ## 타이머 정의 (번호는 Alarm-1에서 쓰던 그대로)
@@ -132,8 +133,8 @@ else:
     engine.WRITEPOINT("VP_FWU_SF-7_Run_Fail_Alarm", FALSE)
     engine.WRITEPOINT("VP_FWU_SF-8_Run_Fail_Alarm", FALSE)
 
-## 댐퍼 일부 닫힘: 팬이 도는데 네 댐퍼 중 일부만 닫혀 있음
-if engine.READPOINT("VP_FWU_SF_Status") == ON:
+## 댐퍼 일부 닫힘: 팬이 도는데 네 댐퍼 중 일부만 닫혀 있음 (댐퍼가 있을 때만)
+if SAD_INSTALLED == TRUE and engine.READPOINT("VP_FWU_SF_Status") == ON:
     if mbSADAnyClose == TRUE and mbSADAllClose == FALSE:
         engine.WRITEPOINT("VP_FWU_SAD_Partial_Close_Alarm", TRUE)
     else:
@@ -141,14 +142,14 @@ if engine.READPOINT("VP_FWU_SF_Status") == ON:
 else:
     engine.WRITEPOINT("VP_FWU_SAD_Partial_Close_Alarm", FALSE)
 
-## 댐퍼 전폐: 열림 명령인데 네 댐퍼가 모두 닫혀 있음. 팬이 서도 한 번 걸린 알람은 닫힘이 풀릴 때까지 유지
-if mbSADAllClose == TRUE and engine.READPOINT("FWU_SAD-1_4_COMMAND") == ON and (engine.READPOINT("VP_FWU_SF_Status") == ON or engine.READPOINT("VP_FWU_SAD_Full_Close_Alarm") == TRUE):
+## 댐퍼 전폐: 열림 명령인데 네 댐퍼가 모두 닫혀 있음. 팬이 서도 한 번 걸린 알람은 닫힘이 풀릴 때까지 유지 (댐퍼가 있을 때만)
+if SAD_INSTALLED == TRUE and mbSADAllClose == TRUE and engine.READPOINT("FWU_SAD-1_4_COMMAND") == ON and (engine.READPOINT("VP_FWU_SF_Status") == ON or engine.READPOINT("VP_FWU_SAD_Full_Close_Alarm") == TRUE):
     engine.WRITEPOINT("VP_FWU_SAD_Full_Close_Alarm", TRUE)
 else:
     engine.WRITEPOINT("VP_FWU_SAD_Full_Close_Alarm", FALSE)
 
-## 댐퍼 미개방: 열림 명령을 내고 팬이 아직 안 돌 때, 120초가 지나도 네 댐퍼가 다 안 열리면 알람
-if engine.READPOINT("FWU_SAD-1_4_COMMAND") == ON and engine.READPOINT("VP_FWU_SF_Status") == OFF:
+## 댐퍼 미개방: 열림 명령을 내고 팬이 아직 안 돌 때, 120초가 지나도 네 댐퍼가 다 안 열리면 알람 (댐퍼가 있을 때만)
+if SAD_INSTALLED == TRUE and engine.READPOINT("FWU_SAD-1_4_COMMAND") == ON and engine.READPOINT("VP_FWU_SF_Status") == OFF:
     engine.SECTIMER(SAD_CLOSE_TIMER, TMR_CLEAR)
     if engine.SECTIMER(SAD_OPEN_TIMER, TMR_READ) > DAMPER_TRAVEL_SECONDS:
         if engine.READPOINT("FWU_SAD-1_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-2_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-3_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-4_OPEN_STATUS") == TRUE:   ## 네 댐퍼가 모두 열렸으면 정상
@@ -161,8 +162,8 @@ else:
     engine.WRITEPOINT("VP_FWU_SAD_Not_Open_Alarm", FALSE)
     engine.SECTIMER(SAD_OPEN_TIMER, TMR_CLEAR)
 
-## 댐퍼 미폐쇄: 닫힘 명령 뒤 120초가 지나도 네 댐퍼가 다 안 닫히면 알람
-if engine.READPOINT("FWU_SAD-1_4_COMMAND") == OFF:
+## 댐퍼 미폐쇄: 닫힘 명령 뒤 120초가 지나도 네 댐퍼가 다 안 닫히면 알람 (댐퍼가 있을 때만)
+if SAD_INSTALLED == TRUE and engine.READPOINT("FWU_SAD-1_4_COMMAND") == OFF:
     engine.SECTIMER(SAD_OPEN_TIMER, TMR_CLEAR)
     if engine.SECTIMER(SAD_CLOSE_TIMER, TMR_READ) > DAMPER_TRAVEL_SECONDS:
         if engine.READPOINT("FWU_SAD-1_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-2_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-3_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-4_CLOSE_STATUS") == TRUE:   ## 네 댐퍼가 모두 닫혔으면 정상

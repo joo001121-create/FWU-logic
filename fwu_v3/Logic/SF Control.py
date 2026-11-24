@@ -22,6 +22,7 @@ DELTAT_PGAIN = engine.READPOINT("VP_FWU_SF_DeltaT_PGain")           ## ΔT 기�
 DELTAT_IGAIN = engine.READPOINT("VP_FWU_SF_DeltaT_IGain")           ## ΔT 기준 팬 제어 I 게인
 CZT_PGAIN = engine.READPOINT("VP_FWU_SF_CZT_PGain")                 ## CZT 기준 팬 제어 P 게인
 CZT_IGAIN = engine.READPOINT("VP_FWU_SF_CZT_IGain")                 ## CZT 기준 팬 제어 I 게인
+SAD_INSTALLED = engine.READPOINT("VP_FWU_SAD_Installed")            ## 댐퍼 설치 여부 (옵션 부품). 0 = 없음, 1 = 있음
 
 ## 타이머 정의
 SPEED_OUTPUT_TIMER = 1      ## 팬 속도를 마지막으로 내보낸 뒤 지난 시간
@@ -101,9 +102,17 @@ if engine.READPOINT("FWU_EMERGENCY") == FALSE:
 
     if engine.READPOINT("VP_FWU_Operation_Mode") == TRUE:   ## Operation_Mode 1 = 자동, 0 = 수동
         if engine.READPOINT("VP_FWU_Command") == ON:
-            ## 운전: 댐퍼부터 열고, 네 댐퍼가 모두 열린 뒤에 팬 속도를 정한다
-            engine.WRITEPOINT("FWU_SAD-1_4_COMMAND", ON)
-            if engine.READPOINT("FWU_SAD-1_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-2_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-3_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-4_OPEN_STATUS") == TRUE:
+            # JSY[2026.1124]댐퍼 설치 여부(옵션 부품) 반영: S ----
+            ## 운전: 댐퍼가 있으면 댐퍼부터 열고, 네 댐퍼가 모두 열린 뒤에 팬 속도를 정한다
+            ## 댐퍼가 없으면 댐퍼 명령을 내지 않고(OFF), 열림을 기다리지 않고 바로 팬 속도를 정한다
+            if SAD_INSTALLED == TRUE:
+                engine.WRITEPOINT("FWU_SAD-1_4_COMMAND", ON)
+                bSADReady = engine.READPOINT("FWU_SAD-1_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-2_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-3_OPEN_STATUS") == TRUE and engine.READPOINT("FWU_SAD-4_OPEN_STATUS") == TRUE   ## 네 댐퍼가 모두 열림
+            else:
+                engine.WRITEPOINT("FWU_SAD-1_4_COMMAND", OFF)
+                bSADReady = TRUE
+            # JSY[2026.1124]댐퍼 설치 여부(옵션 부품) 반영: E ----
+            if bSADReady == TRUE:
                 ## 고정속도: Speed_SP를 최소~최대 속도 안으로 맞춰서 쓴다
                 if mbFixed == TRUE:
                     Speed = engine.MAX(engine.READPOINT("VP_FWU_Speed_SP"), engine.READPOINT("VP_FWU_SF_Speed_Min"))
@@ -168,8 +177,8 @@ if engine.READPOINT("FWU_EMERGENCY") == FALSE:
             else:
                 pass  ## do_nothing (댐퍼가 다 열릴 때까지 팬 속도는 그대로 둔다)
 
-            ## 운전 명령 중인데 네 댐퍼가 모두 닫혀 있으면 PI를 초기화하고 속도를 0으로
-            if engine.READPOINT("FWU_SAD-1_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-2_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-3_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-4_CLOSE_STATUS") == TRUE:
+            ## 운전 명령 중인데 네 댐퍼가 모두 닫혀 있으면 PI를 초기화하고 속도를 0으로 (댐퍼가 있을 때만)
+            if SAD_INSTALLED == TRUE and engine.READPOINT("FWU_SAD-1_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-2_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-3_CLOSE_STATUS") == TRUE and engine.READPOINT("FWU_SAD-4_CLOSE_STATUS") == TRUE:
                 engine.LOOP2_INIT(RAT_LOOP)
                 engine.LOOP2_INIT(RDP_LOOP)
                 engine.LOOP2_INIT(DELTA_T_LOOP)

@@ -19,7 +19,7 @@ PICV_SAFE_POSITION = engine.READPOINT("VP_FWU_PICV_Safe_Position")    ## 안전 
 
 # AO3(FWU_PICV_CONTROL) 공통 명령을 네 밸브에 전달한다. 개도·유량·온도는 RS485로 각각 수신.
 # 유량 모드에서 100%는 설정 최대 유량 요구이며 실제 개도 100%와 다르다.
-# SAT 고장 시 100% 요구 유지. 복구 후 PI 누적 상태에 따른 출력·온도 변동 확인.
+# SAT 고장 시 밸브 위치는 아래 Fail_Mode 설정을 따른다(기본 안전 위치 100%). 복구 후 PI 누적 상태에 따른 출력·온도 변동 확인.
 # (JSY 2026-11-23) 아래 코드 추가: SAT 센서 고장 시 밸브 위치를 정하는 보호 기능
 #   - VP_FWU_PICV_Fail_Mode = 1(기본) : 안전 위치(VP_FWU_PICV_Safe_Position, 기본 100%)로 보낸다. 기존 동작과 같다.
 #   - VP_FWU_PICV_Fail_Mode = 0 : 고장 직전 PI 출력(마지막 위치)을 그대로 유지한다.

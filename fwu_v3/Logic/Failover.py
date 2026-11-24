@@ -19,7 +19,7 @@ mbFailTotal = FALSE   ## 댐퍼 미개방·전폐, 팬 종합 고장 중 하나�
 
 ## 장치 고장 원인 모으기
 ## 장치 고장 상태를 상위에 알리는 용도다. 옆 FWU와의 협조 운전은 상위에서 판단한다.
-## 개별 PICV 알람과 Damper Signal Alarm의 추가 댐퍼 알람은 Failover 조건에 넣지 않는다.
+## 개별 PICV 알람과 Damper Signal Alarm의 추가 댐퍼 알람은 Failover 조건에 넣지 않는다. 댐퍼 원인 2개는 댐퍼 설치(VP_FWU_SAD_Installed = 1) 때만 걸린다.
 if engine.READPOINT("VP_FWU_SAD_Not_Open_Alarm") == TRUE or engine.READPOINT("VP_FWU_SAD_Full_Close_Alarm") == TRUE or engine.READPOINT("VP_FWU_SF_Failure_Alarm") == TRUE:
     mbFailTotal = TRUE
 else:
