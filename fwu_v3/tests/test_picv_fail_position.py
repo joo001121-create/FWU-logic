@@ -1,4 +1,4 @@
-"""PICV Control: SAT 고장 시 밸브 마지막/안전 위치 선택 (QTS RFP 2.3.E.7, JSY 2026-11-23)."""
+"""PICV Control: SAT 센서 고장 시 밸브 마지막/안전 위치 선택 보호 기능 (JSY 2026-11-23, QTS RFP 2.3.E.7과는 별개)."""
 import unittest
 from test_control import Engine
 
