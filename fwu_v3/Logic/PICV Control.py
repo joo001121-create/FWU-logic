@@ -30,7 +30,7 @@ PICV_SAFE_POSITION = engine.READPOINT("VP_FWU_PICV_Safe_Position")    ## 안전 
 #     밸브 구동부 설정(하드웨어 사양)으로 충족한다. 그때는 DDC 명령이 밸브에 닿지 않아 코드로는 대응할 수 없다.
 # Command=1이고 팬 정지 상태이면 기존 명령 유지. 비상 P1·원격 P2는 별도 우선.
 # 수동 Command=0은 자동 닫힘 아님. 무풍 중 냉수 공급에 대한 HMI 안내 검토.
-# AO 단선·전원 상실 시 위치는 제조사 확인 후 대응 기능 적용 여부 결정. (단선 시 0%로 돌아가는 밸브는 사용X 해야함)
+# AO 단선·전원 상실 시 위치는 제조사 확인 후 대응 기능 적용 여부 결정.
 
 ## 비상정지가 아닐 때: 자동이면 SAT 기준으로 밸브를 제어하고, 수동이면 로직 출력을 내려놓는다
 if engine.READPOINT("FWU_EMERGENCY") == FALSE:
@@ -39,7 +39,7 @@ if engine.READPOINT("FWU_EMERGENCY") == FALSE:
     if engine.READPOINT("VP_FWU_Operation_Mode") == TRUE:   ## Operation_Mode 1 = 자동, 0 = 수동
         ## 운전 명령이 있고 팬이 돌 때만 SAT 기준으로 제어한다
         if engine.READPOINT("VP_FWU_Command") == ON and engine.READPOINT("VP_FWU_SF_Status") == ON:
-            if engine.READPOINT("VP_FWU_SAT_Failure_Alarm") == TRUE:
+            if engine.READPOINT("VP_FWU_SAT_Failure_Alarm") == TRUE:     ## SAT 센서 고장 여부 확인
                 # JSY[2026.1123]SAT 센서 고장 시 밸브 마지막/안전 위치 선택 (보호 기능): S ----
                 ## SAT를 믿을 수 없어 PI 제어를 멈춘다. 이때 밸브 위치는 HMI 설정(Fail_Mode)으로 고른다
                 if PICV_FAIL_MODE == TRUE:   ## 1 = 안전 위치
@@ -51,7 +51,7 @@ if engine.READPOINT("FWU_EMERGENCY") == FALSE:
                     else:
                         engine.WRITEPOINT("FWU_PICV_CONTROL", PICV_SAFE_POSITION)
                 # JSY[2026.1123]SAT 센서 고장 시 밸브 마지막/안전 위치 선택 (보호 기능): E ----
-            else:
+            else:        ## SAT 센서 정상일 때 PI 제어 수행
                 ## LOOP2(방향, 현재값, 출력, 목표값, P, I, D, 샘플링(초), 시작 출력, 최소, 최대, 루프 번호, 데드밴드)
                 engine.LOOP2(DEC, "FWU_SAT", "FWU_PICV_CONTROL", "VP_FWU_PICV_SAT_SP", PICV_PGAIN, PICV_IGAIN, 0, 1, 100, engine.READPOINT("VP_FWU_PICV_MinSP"), 100, PICV_LOOP, 0)
                 engine.WRITEPOINT("VP_FWU_PICV_PI_Started", TRUE)   ## 이번 운전에서 PI가 돌았다는 표시 (마지막 위치 유지 판단에 씀)
@@ -63,11 +63,11 @@ if engine.READPOINT("FWU_EMERGENCY") == FALSE:
             engine.LOOP2_INIT(PICV_LOOP)
             engine.WRITEPOINT("VP_FWU_PICV_PI_Started", FALSE)   ## 운전이 끝났으니 PI 실행 기록도 지운다
             engine.WRITEPOINT("FWU_PICV_CONTROL", 0)
-        else:
+        else:        ## 운전 명령이 켜져 있으면 아무 것도 안 함
             pass  ## do_nothing
         engine.WRITEPOINT_PRI("FWU_PICV_CONTROL", engine.READPOINT("FWU_PICV_CONTROL"), 11)
     else:
-        ## 수동 모드: 로직이 쓴 P5를 내려놓아 사람이 넣은 값이 적용되게 한다
+        ## 수동 모드: 로직이 쓴 P5를 지워 사람이 넣은 값이 적용되게 한다
         engine.LOOP2_INIT(PICV_LOOP)
         engine.WRITEPOINT("VP_FWU_PICV_PI_Started", FALSE)
         engine.RELEASE_PRI("FWU_PICV_CONTROL", 5)
