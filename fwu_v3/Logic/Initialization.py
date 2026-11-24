@@ -52,7 +52,7 @@ mbSF8CommFault = engine.READPOINT("VP_FWU_SF-8_Comm_Fault")
 mSAFlowDP = engine.READPOINT("FWU_SAFLOW_DP")   ## 급기 차압(Pa)
 mbSFRun = FALSE       ## 팬이 한 대라도 돌고 있다고 판단되면 TRUE
 
-# 상위가 없는 모델은 감시를 끄고 Local 고정속도/RAT/ΔT를 사용한다.
+# 상위가 없는 모델은 감시를 끄고 고정속도/RAT/ΔT를 사용한다.
 # 감시를 끄면 외부 온도·차압은 제어 입력으로 쓰지 않는다.
 
 ## 상위 통신(heartbeat) 감시
