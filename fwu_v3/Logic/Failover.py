@@ -1,5 +1,5 @@
 # LJH[2026.1117]기존 Failover 원인과 래치 유지: S ----
-# JSY[2026.1123]Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석): S ----
+# JSY[2026.1124]Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석): S ----
 
 ## 로직엔진 loading
 engine = ddc_logic()
@@ -8,7 +8,7 @@ engine = ddc_logic()
 TMR_READ, SET, ON, TRUE, DEC = 1, 1, 1, 1, 1
 TMR_CLEAR, CLEAR, OFF, FALSE, INC = 0, 0, 0, 0, 0
 FAILOVER_CONFIRM_SECONDS = 5       ## 고장 원인이 5초 넘게 이어져야 Failover로 본다
-FAILOVER_RESET_HOLD_SECONDS = 5    ## Reset 입력을 5초 뒤 스스로 되돌린다 (알람 해제 대기 시간이 아님)
+FAILOVER_RESET_HOLD_SECONDS = 5    ## Reset 입력을 5초 뒤 스스로 되돌린다 (HMI에서 RESET버튼을 누르고 5초뒤에 버튼값을 원래대로 되돌림)
 
 ## 타이머 정의
 FAILOVER_CONFIRM_TIMER = 1    ## Failover 원인이 이어진 시간
@@ -17,9 +17,9 @@ FAILOVER_RESET_TIMER = 2      ## Reset 입력이 켜져 있던 시간
 ## 전역변수 선언
 mbFailTotal = FALSE   ## 댐퍼 미개방·전폐, 팬 종합 고장 중 하나라도 있으면 TRUE
 
-## 장치 고장 원인 모으기
-## 장치 고장 상태를 상위에 알리는 용도다. 옆 FWU와의 협조 운전은 상위에서 판단한다.
-## 개별 PICV 알람과 Damper Signal Alarm의 추가 댐퍼 알람은 Failover 조건에 넣지 않는다. 댐퍼 원인 2개는 댐퍼 설치(VP_FWU_SAD_Installed = 1) 때만 걸린다.
+## Failover 원인 확인: 아래 원인 알람 3개중에 하나라도 있는지 확인 (mbFailTotal == TRUE)
+## FWU 고장 상태를 상위에 알리는 용도 (옆 FWU와의 협조 운전은 상위에서 판단하고 로직 구현 X)
+## 개별 PICV 알람과 Damper Signal Alarm은 Failover 조건에 포함X. 댐퍼 설치(VP_FWU_SAD_Installed = 1) 때만 걸림.
 if engine.READPOINT("VP_FWU_SAD_Not_Open_Alarm") == TRUE or engine.READPOINT("VP_FWU_SAD_Full_Close_Alarm") == TRUE or engine.READPOINT("VP_FWU_SF_Failure_Alarm") == TRUE:
     mbFailTotal = TRUE
 else:
@@ -52,5 +52,5 @@ if engine.READPOINT("VP_FWU_Failover_Reset") == TRUE:
 else:
     engine.SECTIMER(FAILOVER_RESET_TIMER, TMR_CLEAR)
 
-# JSY[2026.1123]Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석): E ----
+# JSY[2026.1124]Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석): E ----
 # LJH[2026.1117]기존 Failover 원인과 래치 유지: E ----

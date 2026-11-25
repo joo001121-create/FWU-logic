@@ -1,5 +1,5 @@
 # LJH[2026.1117]온도 센서 고장 시 대체운전, 네 밸브 닫힘과 팬 정지 연계: S ----
-# JSY[2026.1123]Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석): S ----
+# JSY[2026.1125]Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석): S ----
 
 ## 로직엔진 loading
 engine = ddc_logic()
@@ -293,5 +293,5 @@ if engine.SECTIMER(SPEED_OUTPUT_TIMER, TMR_READ) > 5:   ## 5초
 else:
     pass  ## do_nothing
 
-# JSY[2026.1123]Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석): E ----
+# JSY[2026.1125]Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석): E ----
 # LJH[2026.1117]온도 고장 대체운전과 네 밸브 정지 연계: E ----

@@ -6,7 +6,7 @@ engine = ddc_logic()
 ## Macro상수 정의
 TMR_READ, SET, ON, TRUE, DEC = 1, 1, 1, 1, 1
 TMR_CLEAR, CLEAR, OFF, FALSE, INC = 0, 0, 0, 0, 0
-COMM_FAULT_CODE = 8              ## READPOINT_ALARM 결과 8 = 통신 경보 (LDPL 가이드 4.10)
+COMM_FAULT_CODE = 8              ## READPOINT_ALARM 결과 8 = 통신 경보
 FAN_COMM_CONFIRM_SECONDS = 10    ## 팬 통신 이상이 10초 넘게 이어지면 알람
 ATS_COMM_CONFIRM_SECONDS = 10    ## ATS 통신 이상이 10초 넘게 이어지면 알람
 

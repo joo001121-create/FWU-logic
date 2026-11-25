@@ -1,5 +1,5 @@
 # LJH[2026.1117]원격 및 연기 정지 우선순위 유지: S ----
-# JSY[2026.1123]Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석): S ----
+# JSY[2026.1124]Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석): S ----
 
 ## 로직엔진 loading
 engine = ddc_logic()
@@ -95,5 +95,5 @@ else:
     engine.RELEASE_PRI("FWU_SF-8.Run_Command", 2)
     engine.RELEASE_PRI("FWU_SAD-1_4_COMMAND", 2)
 
-# JSY[2026.1123]Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석): E ----
+# JSY[2026.1124]Coding Rule 적용(매크로 상수, 변수명, if-else 짝 맞춤, 주석): E ----
 # LJH[2026.1117]원격 및 연기 정지 우선순위 유지: E ----

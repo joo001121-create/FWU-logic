@@ -1,5 +1,5 @@
 # LJH[2026.1117]상위 감시와 외부 센서 집계: S ----
-# JSY[2026.1123]Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석): S ----
+# JSY[2026.1124]Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석): S ----
 
 ## 로직엔진 loading
 engine = ddc_logic()
@@ -550,9 +550,9 @@ engine.WRITEPOINT("VP_FWU_DeltaT_PV", engine.READPOINT("FWU_RAT") - engine.READP
 
 ## 팬 운전 판단: 한 대라도 돌고 있으면 운전 중으로 본다
 ## 통신이 되는 팬은 RPM으로, 통신이 끊긴 팬은 급기 차압으로 판단한다
-if mbSF1CommFault == TRUE:
+if mbSF1CommFault == TRUE:        ##TRUE: 통신이상
     if mSAFlowDP > RUN_DP:
-        mbSFRun = TRUE
+        mbSFRun = TRUE        ##기본 설정값은 FALSE
     else:
         pass  ## do_nothing
 else:
@@ -670,5 +670,5 @@ else:
 ## 팬 최대 RPM = 설계 RPM × 비율(%). 단 정격 최대 RPM은 넘지 않게 한다 (SF Control이 이 값을 쓴다)
 engine.WRITEPOINT("VP_FWU_SF_Max_RPM", engine.MIN(engine.READPOINT("VP_FWU_SF_Design_RPM") * engine.READPOINT("VP_FWU_SF_Max_RPM_Ratio") / 100, engine.READPOINT("VP_FWU_SF_Rated_Max_RPM")))
 
-# JSY[2026.1123]Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석): E ----
+# JSY[2026.1124]Coding Rule 적용(매크로 상수, 설정값 상수, 변수명, if-else 짝 맞춤, 주석): E ----
 # LJH[2026.1117]상위 감시와 외부 센서 집계: E ----
