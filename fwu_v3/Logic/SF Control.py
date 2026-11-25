@@ -69,7 +69,7 @@ else:
 ## 상위(BMS/PLC) 통신이 끊겼을 때
 ## 상위 값을 쓰는 RDP·CZT 모드, 또는 원격 선택 상태의 고정속도 모드는 Comm_Fail_Mode 설정을 따른다
 if engine.READPOINT("VP_FWU_Upper_Comm_Enable") == TRUE and engine.READPOINT("VP_FWU_BMS_PLC_Comm_Fault") == TRUE:
-    if 2 <= SF_CONTROL_SELECT < 3 or 4 <= SF_CONTROL_SELECT < 5:
+    if 2 <= SF_CONTROL_SELECT < 3 or 4 <= SF_CONTROL_SELECT < 5:        ##2: RDP, 4: CZT
         mbBMSFail = TRUE
     else:
         pass  ## do_nothing
@@ -81,7 +81,7 @@ else:
     pass  ## do_nothing
 
 if mbBMSFail == TRUE:
-    mbFixed = FALSE
+    mbFixed = FALSE        #고정속도 운전X/ 통신 끊긴경우 팬은 마지막 속도 or 최고속도로 돌아야 함
 else:
     pass  ## do_nothing
 
